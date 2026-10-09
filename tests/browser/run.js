@@ -716,6 +716,43 @@ scenarios.replay = async () => {
   } finally { await h.close(); }
 };
 
+// Inspect: the 3D turntable shows a build as separate part models, focus
+// ghosts the other parts, X explodes the stack, and leaving restores the
+// menu scene. Also checks that a Shatter in battle throws the parts apart.
+scenarios.inspect = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.focusId('inspect3d'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'InspectScreen' && window.__app.renderer.inspectActive, 10000, 'inspect open');
+    const parts = await h.eval(() => Object.keys(window.__app.renderer.inspect.visual.parts));
+    for (const s of ['tip', 'lock', 'disc', 'ring', 'core']) if (!parts.includes(s)) throw new Error('missing part model ' + s);
+    await h.waitFor(() => !window.__app.renderer.inspect.visual.assembling, 15000, 'assembly animation done');
+    await h.padButton(2); // X: explode
+    await h.waitFor(() => window.__app.renderer.inspect.visual.explode > 0.95, 10000, 'exploded');
+    const spread = await h.eval(() => { const v = window.__app.renderer.inspect.visual; return v.parts.core.group.position.y - v.parts.tip.group.position.y; });
+    if (!(spread > 0.05)) throw new Error('parts did not separate: ' + spread);
+    await h.focusId('ins-ring');
+    await h.waitFor(() => { const v = window.__app.renderer.inspect.visual; let ghost = false, solid = true; v.parts.disc.group.traverse((o) => { if (o.isMesh && !o.userData.isInk && o.material.opacity < 0.5) ghost = true; }); v.parts.ring.group.traverse((o) => { if (o.isMesh && !o.userData.isInk && o.material.opacity < 0.5 && !o.material.userData._ghost?.transparent) solid = false; }); return ghost && solid; }, 10000, 'focus ghosts other parts');
+    await h.shot('i01_inspect_exploded');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen' && !window.__app.renderer.inspectActive, 10000, 'inspect closed');
+    // a Shatter detaches every part model from the top
+    await h.padButton(1);
+    await openTile(h, 'quick', 'QuickBattleScreen');
+    await h.eval(() => window.__app.ui.current.start?.());
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && window.__app.renderer.visuals.length === 2, 15000, 'battle');
+    const burst = await h.eval(() => {
+      const r = window.__app.renderer, v = r.visuals[1], f = v.fighter;
+      r.onBattleEvent('topFinished', { fighter: f, how: 'burst' }, window.__app.ui.current.battle);
+      return Object.values(v.meshes).every((g) => g.parent && g.parent.isScene) && r.effects.debris.length >= 5;
+    });
+    if (!burst) throw new Error('burst did not detach the part models');
+    return { parts: parts.length, errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {
