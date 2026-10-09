@@ -22,7 +22,9 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 //
 // kind picks the construction; trim/sig are the chassis colour and the
 // signature tooth colour used when the player accent doesn't contrast with
-// the shell; print is the decal ink ('dark' on light shells).
+// the shell; print is the decal ink ('dark' on light shells). facets is the
+// preferred shell facet count: the builder rounds it to whole facets per
+// tooth sector, since the Extra Notch trait can change the tooth count.
 const DESIGNS = {
   // standard: faceted 12-sided shell, three sawtooth click teeth
   lock_click3: { kind: 'click', facets: 12, trim: '#38435a', sig: '#ff3f74', label: 'CLICK-III', strip: 'label' },
@@ -55,7 +57,7 @@ function autoDesign(part) {
     : n >= 5 || dense ? 'clamp'
     : n <= 2 && (part.mass ?? 4) <= 3.5 ? 'snap'
     : 'click';
-  const facets = facetsFor(n, kind === 'bell' ? 6 : kind === 'clamp' ? 10 : 12);
+  const facets = kind === 'bell' ? 6 : kind === 'clamp' ? 10 : 12;
   const label = (part.name || 'LOCK').split(/\s+/).map((w) => w[0]).join('').toUpperCase() + '-' + n;
   const dark = hslOf(part.color || '#cfd5de').l < 0.45;
   return { kind, facets, label, strip: 'label', print: kind === 'flange' ? 'main' : dark ? 'light' : 'dark', printTop: dark ? 'light' : 'dark' };
@@ -305,10 +307,13 @@ function drawEmblem(x, C, L, rIn, rOut, Re, gaps) {
 
 // ------------------------------------------------------------ builder
 
+const BUDGET = 4000; // triangles at quality 'high', decals included
+const trisOf = (geos) => geos.reduce((s, g) => s + (g.index ? g.index.count : g.attributes.position.count) / 3, 0);
+
 export function buildLock(part, ctx) {
   const d = DESIGNS[part.id] || autoDesign(part);
   const C = palette(part, ctx, d);
-  const H = ctx.geo?.lockH ?? part.height, R = part.radius, n = Math.max(1, Math.round(part.notches || 3));
+  const R = part.radius || 10, H = ctx.geo?.lockH ?? part.height ?? 6, n = Math.max(1, Math.round(part.notches || 3));
   const top = 0.75 * H; // disc underside
   const q = ctx.quality || 'high';
   const L = {
@@ -319,15 +324,29 @@ export function buildLock(part, ctx) {
     yc: clamp(H * 0.17, 0.75, 1.15), // socket collar height
     hand: ctx.spin === 'L' ? -1 : 1, // +1: leading side = increasing angle (R spin)
     seg: segs(q, 40, 28, 16),
-    micro: q !== 'low',
+    micro: q !== 'low', // keys, ribs, fins, decals
+    hw: q !== 'low', // repeated hardware: screws, rivets, lugs
+    aux: !!part.auxPort && d.kind !== 'flange',
     teeth: [],
   };
   L.rc = clamp(L.tipR + 0.7, 4.5, R - 1.1);
   for (let j = 0; j < n; j++) L.teeth.push((j / n) * TAU);
-  const K = { main: [], trim: [], steel: [], metal: [], detail: [], accent: [], clear: [] };
-  const deco = { bands: [], emblem: null };
-  (KINDS[d.kind] || KINDS.click)(K, L, d, deco);
-  boss(K, L, d);
+  // Build; if a many-toothed (unknown) lock overruns the budget, rebuild
+  // with fewer lathe segments, then without the repeated hardware.
+  let K, deco;
+  for (let pass = 0; ; pass++) {
+    K = { main: [], trim: [], steel: [], metal: [], detail: [], accent: [], clear: [] };
+    deco = { bands: [], emblem: null };
+    (KINDS[d.kind] || KINDS.click)(K, L, d, deco);
+    if (L.aux) auxBand(K, L, deco);
+    boss(K, L, d);
+    if (q !== 'high' || pass >= 3) break;
+    const decalTris = L.micro ? deco.bands.reduce((s, b) => s + 2 * (b.facets || 12), 0) + (deco.emblem ? 2 * L.seg : 0) : 0;
+    if (trisOf(Object.values(K).flat()) + decalTris <= BUDGET) break;
+    if (pass === 0) L.seg = 28;
+    else if (pass === 1) L.hw = false;
+    else L.seg = 20;
+  }
 
   const g = partGroup('lock');
   const mats = {

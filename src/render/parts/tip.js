@@ -713,7 +713,7 @@ const LOOKS = {
     cap: { flange: 'trim', tabs: 'body', badge: BADGE, fg: '#ffd21f', ring: '#ffd21f', glyph: 'tread' } },
   tip_semiflat: { fn: semiflat, body: '#22c45e', sig: W, dc: '#ffffff', motif: 'dash', tiles: 8,
     cap: { flange: 'body', tabs: 'trim', badge: W, fg: '#17a34d', ring: INKC, glyph: 'semi' } },
-  tip_wideball: { fn: wideball, body: '#2b5cff', sig: W, dc: '#2b5cff', motif: 'stars', tiles: 8,
+  tip_wideball: { fn: wideball, body: '#2b5cff', bodyFinish: 'plastic', sig: W, dc: '#2b5cff', motif: 'stars', tiles: 8,
     cap: { flange: 'body', badge: W, fg: '#2b5cff', ring: INKC, glyph: 'star' } },
   tip_bearing: { fn: bearing, body: '#cfd8e6', sig: '#36d8ff', motif: 'ticks', tiles: 10,
     cap: { flange: 'trim', tabs: 'gold', badge: BADGE, fg: '#36d8ff', ring: '#f0b43a', glyph: 'bearing' } },
@@ -725,9 +725,11 @@ const LOOKS = {
     cap: { flange: 'body', tabs: 'trim', badge: '#ff2fa3', fg: '#ffffff', ring: INKC, glyph: 'hybrid' } },
 };
 
+// Two-letter part code printed on the emblem (initials, or the first letters
+// of a one-word name).
 function codeFor(name = '') {
-  const w = name.split(/\s+/).filter(Boolean);
-  return (w.length > 1 ? w.map((s) => s[0]).join('') : name.slice(0, 2)).toUpperCase().slice(0, 3) || 'TP';
+  const w = name.split(/[\s-]+/).filter(Boolean);
+  return (w.length > 1 ? w.map((s) => s[0]).join('') : name.slice(0, 2)).toUpperCase().slice(0, 2) || 'TP';
 }
 
 export function buildTip(part, ctx) {
