@@ -9,7 +9,7 @@ import { TopVisual } from './topMesh.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
-import { INK_LAYER, setInkResolution, setSpecBoost } from './toon.js';
+import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree } from './toon.js';
 import { createLights, TONE } from './lighting.js';
 
 export class GameRenderer {
@@ -79,7 +79,7 @@ export class GameRenderer {
   setArena(def) {
     if (this.arenaObj) {
       this.scene.remove(this.arenaObj.group);
-      this.arenaObj.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose?.(); } });
+      disposeTree(this.arenaObj.group);
     }
     this.arenaDef = def;
     this.arenaObj = buildArena(def, this.settings.quality);
