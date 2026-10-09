@@ -353,7 +353,7 @@ export class Simulation {
     const sp = t.v.length();
     if (sp > 0) {
       const before = 0.5 * m * sp * sp;
-      const f = Math.min(0.5, (t.spec.linDrag || 6e-4) * sp * dt / m);
+      const f = Math.min(0.5, (t.spec.linDrag ?? 6e-4) * sp * dt / m);
       t.v.scale(1 - f);
       const d = t.linearEnergy() - before;
       led.drag += d; t.ledger.drag += d;
@@ -414,6 +414,17 @@ export class Simulation {
           if (c.A) c.A.p.addScaled(c.n, (-corr * wa) / ws);
           if (c.B) c.B.p.addScaled(c.n, (corr * wb) / ws);
         }
+      }
+    }
+    if (category === 'collision') {
+      // energy snapshot per pair for the debug telemetry (before first / after last substep of the tick)
+      for (const c of this.contacts) {
+        if (c.type !== 'top') continue;
+        const ia = tops.indexOf(c.A), ib = tops.indexOf(c.B);
+        const snap = this._eSnap || (this._eSnap = new Map());
+        let s = snap.get(c.pairKey);
+        if (!s || s.tick !== this.tickCount) { s = { tick: this.tickCount, before: [E[ia], E[ib]] }; snap.set(c.pairKey, s); }
+        s.after = [c.A.totalEnergy(), c.B.totalEnergy()];
       }
     }
     if (category === 'tipFriction') {
@@ -734,6 +745,7 @@ export class Simulation {
         point: agg.point.toArray(), normal: agg.normal.toArray(), layerA: agg.layerA, layerB: agg.layerB,
         faceA: agg.faceA, faceB: agg.faceB, counterA: agg.counterA, counterB: agg.counterB,
         liftA: agg.liftA, liftB: agg.liftB, time: this.time,
+        energy: this._eSnap?.get(key) ? { before: this._eSnap.get(key).before, after: this._eSnap.get(key).after } : null,
       };
       this.events.push(ev);
       for (const t of [agg.A, agg.B]) {

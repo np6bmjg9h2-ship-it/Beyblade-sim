@@ -438,7 +438,8 @@ export class Battle extends Emitter {
       fa.ability.onImpact(e, fb.ability);
       fb.ability.onImpact(e, fa.ability);
       const critical = J > 0.06;
-      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round };
+      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };
+      this.lastImpact = ev;
       this.roundNotable.push(ev);
       this.emit('impact', ev);
       if (critical && this.rules.slowmo && !this.headless) { this.timeScale = 0.3; this.slowmoT = 0.35; }

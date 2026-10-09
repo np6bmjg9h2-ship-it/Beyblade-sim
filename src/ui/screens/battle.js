@@ -400,6 +400,14 @@ export class BattleScreen {
         h('div', { class: 'tl-sub' }, 'Energy ledger (cumulative)'), ...rows,
         activeMods.length ? h('div', { class: 'tl-sub' }, 'Active: ' + activeMods.join(', ')) : null));
     }
+    const li = b.lastImpact;
+    if (li?.energy) {
+      const [b0, b1] = li.energy.before, [a0, a1] = li.energy.after;
+      el.append(h('div', { class: 'tl-block' }, h('div', { class: 'tl-title' }, `Last impact @ ${li.time.toFixed(2)} s — ${li.impulse.toFixed(3)} N·s`),
+        h('div', { class: 'tl-row' }, h('span', {}, li.A.name), h('span', {}, `${b0.toFixed(3)} → ${a0.toFixed(3)} J`)),
+        h('div', { class: 'tl-row' }, h('span', {}, li.B.name), h('span', {}, `${b1.toFixed(3)} → ${a1.toFixed(3)} J`)),
+        h('div', { class: 'tl-row' }, h('span', {}, 'Dissipated'), h('span', { class: 'neg' }, `${(b0 + b1 - a0 - a1).toFixed(4)} J`))));
+    }
     el.append(h('div', { class: 'tl-foot' }, `Sim t=${b.sim?.time.toFixed(2)} s · ${b.sim?.substeps}×${(TICK * 1000).toFixed(2)} ms ticks · ${this.app.renderer.fps().toFixed(0)} fps`));
   }
 
