@@ -138,7 +138,7 @@ export function computeLaunch({ gear, techId, charge, aim, spinDir, topSpec, rng
   const errDir = rng.range(0, Math.PI * 2);
 
   // intended lean (technique scales it), phantom perfect = upright
-  let lean = clamp(aim.lean, 0, MAX_LEAN) * T.lean;
+  let lean = clamp(clamp(aim.lean, 0, MAX_LEAN) * T.lean, 0, MAX_LEAN);
   if (T.perfectOnly && judge.perfect) lean = 0;
   const lx = Math.sin(lean) * Math.cos(aim.dir) + Math.sin(errMag) * Math.cos(errDir);
   const lz = Math.sin(lean) * Math.sin(aim.dir) + Math.sin(errMag) * Math.sin(errDir);
@@ -155,18 +155,18 @@ export function computeLaunch({ gear, techId, charge, aim, spinDir, topSpec, rng
   const tipPos = new Vec3(px, floorY + 0.012, pz);
 
   // initial velocity: launch speed along the lean direction, technique-shaped
-  const baseSpeed = 0.25 + 1.6 * Math.sin(lean);
+  const baseSpeed = 0.15 + 0.9 * Math.sin(lean);
   let vx = Math.cos(aim.dir) * baseSpeed * T.speed * 0.6;
   let vz = Math.sin(aim.dir) * baseSpeed * T.speed * 0.6;
   if (T.tangential) {
     const r = Math.max(0.02, Math.hypot(px, pz));
-    const s = 0.75 * T.speed * 0.6 * (-spinSign);
+    const s = 0.6 * T.speed * 0.6 * (-spinSign);
     vx = (-pz / r) * s; vz = (px / r) * s;
   }
   if (T.aimed && opponentAim) {
     const dx = opponentAim.x - px, dz = opponentAim.z - pz;
     const d = Math.max(0.01, Math.hypot(dx, dz));
-    const s = 1.3;
+    const s = 1.0;
     vx = (dx / d) * s; vz = (dz / d) * s;
   }
   // angle error also kicks the release sideways

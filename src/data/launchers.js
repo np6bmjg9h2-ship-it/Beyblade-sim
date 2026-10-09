@@ -7,22 +7,22 @@
 
 export const LAUNCHERS = [
   { id: 'launcher_spark', slot: 'launcher', name: 'Spark Launcher', spinMech: 'R', tier: 1, color: '#4fc3ff',
-    drive: { force: 10.0 }, transfer: { efficiency: 0.84 }, trigger: { window: 0.034, jitter: 0.012 }, grip: { stability: 0.55 },
+    drive: { force: 13.0 }, transfer: { efficiency: 0.84 }, trigger: { window: 0.034, jitter: 0.012 }, grip: { stability: 0.55 },
     chargeRate: 0.62, stabilizer: null, desc: 'A dependable starter launcher. Right spin only.' },
   { id: 'launcher_twin', slot: 'launcher', name: 'Twin-Gear Launcher', spinMech: 'dual', tier: 2, color: '#ffd84d',
-    drive: { force: 9.6 }, transfer: { efficiency: 0.83 }, trigger: { window: 0.032, jitter: 0.013 }, grip: { stability: 0.6 },
+    drive: { force: 12.5 }, transfer: { efficiency: 0.83 }, trigger: { window: 0.032, jitter: 0.013 }, grip: { stability: 0.6 },
     chargeRate: 0.6, stabilizer: null, desc: 'A switchable gearbox launches either spin direction.' },
   { id: 'launcher_torque', slot: 'launcher', name: 'Torque Driver', spinMech: 'R', tier: 2, color: '#ff6a3d',
-    drive: { force: 11.2 }, transfer: { efficiency: 0.82 }, trigger: { window: 0.026, jitter: 0.016 }, grip: { stability: 0.5 },
+    drive: { force: 14.6 }, transfer: { efficiency: 0.82 }, trigger: { window: 0.026, jitter: 0.016 }, grip: { stability: 0.5 },
     chargeRate: 0.52, stabilizer: null, desc: 'Big drive spring: more energy, a narrower release window and slower charge.' },
   { id: 'launcher_precision', slot: 'launcher', name: 'Precision Launcher', spinMech: 'dual', tier: 3, color: '#9fe8ff',
-    drive: { force: 9.4 }, transfer: { efficiency: 0.88 }, trigger: { window: 0.044, jitter: 0.008 }, grip: { stability: 0.7 },
+    drive: { force: 12.2 }, transfer: { efficiency: 0.88 }, trigger: { window: 0.044, jitter: 0.008 }, grip: { stability: 0.7 },
     chargeRate: 0.66, stabilizer: { tiltReduce: 0.25 }, desc: 'Fine trigger, built-in stabiliser. Rewards accurate timing.' },
   { id: 'launcher_lefthand', slot: 'launcher', name: 'Mirror Launcher', spinMech: 'L', tier: 2, color: '#b78cff',
-    drive: { force: 10.0 }, transfer: { efficiency: 0.85 }, trigger: { window: 0.034, jitter: 0.012 }, grip: { stability: 0.58 },
+    drive: { force: 13.0 }, transfer: { efficiency: 0.85 }, trigger: { window: 0.034, jitter: 0.012 }, grip: { stability: 0.58 },
     chargeRate: 0.62, stabilizer: null, desc: 'Left-spin launcher with a mirrored gear train.' },
   { id: 'launcher_titan', slot: 'launcher', name: 'Titan Grip', spinMech: 'dual', tier: 4, color: '#c7ccd6',
-    drive: { force: 11.6 }, transfer: { efficiency: 0.86 }, trigger: { window: 0.03, jitter: 0.012 }, grip: { stability: 0.75 },
+    drive: { force: 15.1 }, transfer: { efficiency: 0.86 }, trigger: { window: 0.03, jitter: 0.012 }, grip: { stability: 0.75 },
     chargeRate: 0.5, stabilizer: { tiltReduce: 0.15 }, desc: 'Heavy-duty two-hand grip. Huge, steady power; slow to wind.' },
 ];
 

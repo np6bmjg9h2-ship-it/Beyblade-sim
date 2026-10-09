@@ -23,10 +23,14 @@ const MAX_LIN_SPEED = 9; // m/s, safety clamp (tunnelling guard)
 const MAX_SPIN = 1600; // rad/s safety clamp
 const REST_THRESHOLD = 0.08; // m/s approach speed needed for restitution
 const SLOP = 0.00015; // m allowed penetration
-const STEER_BASE = 0.2; // fraction of weight available as steering force
-const STEER_IDLE_COST = 0.1; // m/s equivalent drain while steering
+const STEER_BASE = 0.16; // fraction of weight available as steering force
+const STEER_IDLE_COST = 0.15; // m/s equivalent drain while steering
 const STEER_EFF = 0.55; // conversion efficiency spin -> linear work
 const BASE_NUTATION_DAMPING = 2; // 1/s intrinsic material damping
+// Velocity-weakening friction for ring/wall contacts: polymer and metal
+// contacts lose friction at high sliding speed (flash heating), so
+// mu_eff = mu / (1 + v_slip / V_WEAKEN).
+const V_WEAKEN = 5.0;
 // Blade faces are not rigid wedges: they flex and slide along the opposing
 // ring, so only part of the face geometry turns the contact normal.
 const FACE_COUPLING = 0.4;
@@ -98,6 +102,11 @@ function prepare(c) {
   }
   relVel(c, _va);
   c.vn0 = _va.dot(c.n);
+  if (c.type === 'top' || c.type === 'wall') {
+    const vt = Math.sqrt(Math.max(0, _va.lengthSq() - c.vn0 * c.vn0));
+    c.slip = vt;
+    c.mu /= 1 + vt / V_WEAKEN;
+  }
   if (c.depth < 0) {
     // speculative: separated by a small gap; only constrain if the gap closes this substep
     const gapClose = c.depth / _dt; // negative
@@ -245,7 +254,7 @@ export class Simulation {
 
     // --- walls
     this._release();
-    for (const t of tops) if (t.active) this.genWall(t);
+    for (const t of tops) if (t.active) { this.genWall(t); this.genLip(t); }
     if (this.contacts.length) this.solvePass('wall', 4, dt);
 
     // --- tip
@@ -590,8 +599,7 @@ export class Simulation {
       const er = Math.hypot(_e.x, _e.z);
       if (er <= R) continue;
       const ang = Math.atan2(_e.z, _e.x);
-      if (arena.openingAt(ang)) continue; // exit: no wall here
-      const top = arena.wallTopAt(ang);
+      const top = arena.wallTopAt(ang); // exits only have a low lip
       if (_e.y - L.thickness * 0.5 > top) continue; // passing over the rim
       const c = this._contact();
       c.type = 'wall'; c.A = null; c.B = t; c.layerB = L;
@@ -601,11 +609,34 @@ export class Simulation {
       // wall raise the effective tangential friction instead.
       const lean = arena.wallLean;
       c.n.set(-_e.x / er, -lean, -_e.z / er).normalize();
-      const catchMul = L.attack ? 1 + 1.2 * _prof.face : 1;
+      const catchMul = L.attack ? 1 + 0.8 * _prof.face : 1;
       c.mu = arena.wallFriction * L.friction * t.mods.wallFriction * catchMul * (1 - (L.freeSpin || 0));
       c.e = clamp(arena.wallRestitution * L.restitution * t.mods.wallRestitution, 0, 0.9);
       this.contacts.push(c);
     }
+  }
+
+  // Exit lips: the tip body (lowest part of the stack) is stopped by the low
+  // lip across an exit unless it has been lifted over it.
+  genLip(t) {
+    const arena = this.arena;
+    if (!arena.openings.length) return;
+    const tip = t.spec.tip;
+    t.axisPoint(tip.endZ + 0.003, _c);
+    const cr = Math.hypot(_c.x, _c.z);
+    const reach = cr + 0.006;
+    if (reach <= arena.radius || cr < 1e-6) return;
+    const ang = Math.atan2(_c.z, _c.x);
+    const o = arena.openingAt(ang);
+    if (!o || o.lipHeight <= 0) return;
+    if (_c.y - 0.003 > arena.edgeHeight + o.lipHeight) return;
+    const c = this._contact();
+    c.type = 'wall'; c.A = null; c.B = t; c.layerB = { part: 'tip' };
+    c.point.set((_c.x / cr) * arena.radius, _c.y, (_c.z / cr) * arena.radius);
+    c.depth = reach - arena.radius;
+    c.n.set(-_c.x / cr, -0.05, -_c.z / cr).normalize();
+    c.mu = 0.2; c.e = 0.3;
+    this.contacts.push(c);
   }
 
   genTopTop(A, B) {
@@ -681,7 +712,10 @@ export class Simulation {
     // blade strikes deform the striking edge: less elastic than rim-on-rim contact
     e *= 1 - 0.45 * Math.max(best.faceA, best.faceB);
     c.e = clamp(e, 0.05, 0.92);
-    const fr = Math.sqrt(la.friction * lb.friction) * Math.sqrt(A.mods.contactFriction * B.mods.contactFriction);
+    let fr = Math.sqrt(la.friction * lb.friction) * Math.sqrt(A.mods.contactFriction * B.mods.contactFriction);
+    // minor (slow, grinding) contacts: grindLoss channel scales their friction
+    const closing = -((B.v.x - A.v.x) * nhx + (B.v.z - A.v.z) * nhz);
+    if (closing < 0.35) fr *= Math.sqrt(A.mods.grindLoss * B.mods.grindLoss);
     c.mu = fr * (1 - Math.max(la.freeSpin || 0, lb.freeSpin || 0));
     this.contacts.push(c);
   }
@@ -747,7 +781,7 @@ export class Simulation {
     const burst = target.spec.burst;
     const catchF = (attackerLayer?.catch ?? 0.5) * attacker.mods.burstStressDealt;
     const R = attackerLayer?.radius ?? 0.02;
-    const Q = counter * catchF + lift * R * 0.35;
+    const Q = (counter * catchF + lift * R * 0.35) * (attacker.nextHitStressMul || 1);
     const T = burst.threshold * target.mods.burstThreshold * (target.lockCondition ?? 1);
     const stress = Q / Math.max(1e-9, T);
     if (stress > 0.3) {
@@ -780,6 +814,44 @@ export class Simulation {
     if (spin < 6) { this.finish(t, 'stopped'); return; }
     if (t.tilt > 1.05 && t.scrapeTime > 0.35) { this.finish(t, 'toppled'); return; }
     if (t.tilt > 1.35) { this.finish(t, 'toppled'); }
+  }
+
+  // ------------------------------------------------------------ ability helpers
+  // All three book their energy changes to the 'ability' ledger.
+
+  // Instantaneous velocity change along dir, paid for with spin energy.
+  applyDash(t, dir, speed, efficiency = 0.6) {
+    if (!t.active) return 0;
+    const before = t.linearEnergy();
+    t.v.addScaled(dir, speed);
+    const work = t.linearEnergy() - before;
+    const drained = t.drainSpinEnergy(Math.max(0.01, work) / Math.max(0.1, efficiency));
+    t.ledger.ability += work - drained;
+    this.events.push({ type: 'dash', top: t, speed, time: this.time });
+    return drained;
+  }
+
+  // Radial impulse from source onto target if in range; energy injected from the spirit meter.
+  applyShockwave(source, target, impulse, range) {
+    if (!target.active) return 0;
+    const dx = target.p.x - source.p.x, dz = target.p.z - source.p.z;
+    const d = Math.hypot(dx, dz);
+    if (d > range || d < 1e-5) return 0;
+    const J = impulse * Math.sqrt(1 - d / range);
+    const before = target.totalEnergy();
+    _J.set((dx / d) * J, J * 0.08, (dz / d) * J);
+    target.v.addScaled(_J, target.invMass);
+    target.ledger.ability += target.totalEnergy() - before;
+    this.events.push({ type: 'shockwaveHit', source, top: target, impulse: J, time: this.time });
+    return J;
+  }
+
+  // Add spin energy (J) from the spirit meter.
+  restoreSpin(t, energy) {
+    if (!t.active) return 0;
+    const e = t.addSpinEnergy(energy);
+    t.ledger.ability += e;
+    return e;
   }
 
   finish(t, how) {
