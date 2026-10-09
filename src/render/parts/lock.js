@@ -206,7 +206,7 @@ class Helix extends THREE.Curve {
 }
 // `k` thins the tube sampling when there are many springs (triangle budget).
 function spring(x0, x1, y, a, rc, rw, turns, q, k = 1) {
-  const per = Math.max(5, Math.round(segs(q, 12, 8, 5) * k));
+  const per = Math.max(5, Math.round(segs(q, 10, 7, 5) * k));
   const g = new THREE.TubeGeometry(new Helix(x0, x1, rc, turns), Math.round(turns * per), rw * MM, q === 'high' ? 5 : 4, false);
   g.translate(0, y * MM, 0);
   return at(g, a);

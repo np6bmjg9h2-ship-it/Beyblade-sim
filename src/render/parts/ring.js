@@ -184,10 +184,15 @@ function fromHsl(h, s, l) { return '#' + new THREE.Color().setHSL(h, clamp(s, 0,
 // A paint of `hex` with its lightness capped at maxL (and saturation nudged up
 // by ds for coloured paints): faces that look straight at the lights wash out
 // towards white, so they are painted a little darker and richer.
+// Pale and grey paints (low chroma) keep most of their lightness: a white
+// ring should stay white, not turn into a saturated pastel.
 function paint(hex, maxL = 0.5, ds = 0.06) {
   const { h, s, l } = hsl(hex);
-  return fromHsl(h, s < 0.1 ? s : s + ds, Math.min(l, maxL));
+  const c = new THREE.Color(hex).getRGB({ r: 0, g: 0, b: 0 }, THREE.SRGBColorSpace);
+  const k = clamp((Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b)) * 1.6, 0, 1);
+  return fromHsl(h, s < 0.1 ? s : s + ds * k, lerp(l, Math.min(l, maxL), k));
 }
+const shade = (hex, dl, ds = 0) => { const { h, s, l } = hsl(hex); return fromHsl(h, s + ds, l + dl); };
 
 // Everything a design needs: profile functions, blades/faces, plates and the
 // sampled outline, colours, soups per material and the decal painters.
@@ -259,7 +264,7 @@ function makeEnv(part, ctx, design) {
   E.Ks = (psi) => { const k = E.pocket(psi); return k == null ? E.Os(psi) : Math.min(E.Os(psi), k); };
 
   // outline samples: uniform + plate breakpoints + refinement on steep faces
-  const n0 = segs(q, 132, 92, 56), eps = 2e-4;
+  const n0 = segs(q, 100, 76, 48), eps = 2e-4;
   let ps = linspace(0, TAU, n0).slice(0, n0);
   for (const pl of E.plates) if (!pl.full) ps.push(mod(pl.a - eps), mod(pl.a), mod(pl.b), mod(pl.b + eps));
   ps = [...new Set(ps.map((x) => Math.round(mod(x) * 1e7) / 1e7))].sort((x, y) => x - y);
@@ -289,10 +294,9 @@ function makeEnv(part, ctx, design) {
   const main = ctx.accent || part.color || '#4fc3ff';
   const own = part.color && rgbDist(part.color, main) > 0.3 ? part.color : null;
   const C = { main, own };
-  const { l: mainL } = hsl(main);
   C.fill = paint(main, 0.5); // top faces catch key + spot + sky: paint richer
-  C.deep = paint(main, Math.max(0.16, Math.min(0.5, mainL) - 0.16), 0.08);
-  C.wall = paint(main, 0.42);
+  C.deep = shade(C.fill, -0.2, 0.04);
+  C.wall = shade(C.fill, -0.09);
   C.light = mix(main, '#ffffff', 0.55);
   C.line = inkFor(main, 0.7);
   C.frame = design.frame ? design.frame(main, C) : mix(paint(main, 0.3), '#14121f', 0.55);
@@ -560,7 +564,8 @@ function topScrew(E, r, psi, rad = 0.85) {
 // Domed rivet / stud (metal by default).
 function rivet(E, r, psi, rad = 0.6, h = 0.45, soup = E.soups.metal, y = E.T - 0.05) {
   if (E.low && rad < 1) return;
-  turned(soup, domeProf(rad, h), E.low ? 8 : 12, r, psi, y);
+  const prof = [[0, 0], [rad, 0], [rad, h * 0.3], [rad * 0.62, h * 0.86], [0, h]];
+  turned(soup, prof, E.low ? 6 : rad < 0.8 ? 8 : 12, r, psi, y);
 }
 
 // Speed streak printed alongside an edge function: a band offset `off` mm
@@ -570,36 +575,382 @@ function streak(H, a, b, edge, v, off, w, col) {
   H.fill(col);
 }
 
+// Raised strip along a polyline [[r, psi], ...] (cracks, inlays): w mm wide
+// at the base, h mm above the top.
+function strip(E, soup, pts, w, h, y0 = E.T - 0.03) {
+  const xz = pts.map(([r, p]) => [r * Math.cos(p), -r * Math.sin(p)]);
+  const st = xz.map((c, i) => {
+    const A = xz[Math.max(0, i - 1)], B = xz[Math.min(xz.length - 1, i + 1)];
+    const tx = B[0] - A[0], tz = B[1] - A[1], l = Math.hypot(tx, tz) || 1;
+    const nx = -tz / l, nz = tx / l;
+    return [[-w / 2, y0], [w / 2, y0], [w * 0.28, y0 + h], [-w * 0.28, y0 + h]].map(([o, y]) => [c[0] + nx * o, y, c[1] + nz * o]);
+  });
+  loft(soup, st);
+}
+
+// Contrasting colour: `pref` unless it is too close to the main paint.
+const pick = (main, pref, alt) => (rgbDist(main, pref) > 0.45 ? pref : alt);
+
+// Painted outline under a raised footprint polygon [[r, psi], ...].
+const outlinePoly = (H, pts, col, w = 0.55) => { H.poly(pts); H.fill(col); H.stroke(col, w); };
+
+// Closed wavy line around the axis.
+function wavyRing(H, r0, amp, k, phase, w, col) {
+  H.g.beginPath();
+  for (let i = 0; i <= 360; i++) { const p = (i / 360) * TAU; H.to(r0 + amp * Math.sin(k * p + phase), p, i === 0); }
+  H.stroke(col, w);
+}
+
+// Spiral arm band from r0 to r1, sweeping `turn` radians, width w0 -> w1 mm.
+function spiralArm(H, r0, r1, p0, turn, w0, w1, col) {
+  const n = 40, A = [], B = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, r = lerp(r0, r1, t), p = p0 + turn * t, hw = lerp(w0, w1, t) / 2 / r;
+    A.push([r, p - hw]); B.push([r, p + hw]);
+  }
+  H.poly([...A, ...B.reverse()]); H.fill(col);
+}
+
+// n-point star polygon centred on the axis.
+function starPts(n, rIn, rOut, phase) {
+  const pts = [];
+  for (let i = 0; i < n * 2; i++) pts.push([i % 2 ? rIn : rOut, phase + (i / (n * 2)) * TAU]);
+  return pts;
+}
+
+// Small 4-point sparkle at (r, psi).
+function sparkle(H, r, psi, size, col) {
+  const d = size / r, e = (size * 0.28) / r;
+  H.poly([[r + size, psi], [r + size * 0.28, psi + e], [r, psi + d], [r - size * 0.28, psi + e], [r - size, psi], [r - size * 0.28, psi - e], [r, psi - d], [r + size * 0.28, psi - e]]);
+  H.fill(col);
+}
+
 const DESIGNS = {
-  // Three swept wind fangs riding the blade edges, gale streaks printed
-  // behind them, silver strike plates on the leading faces.
+  // Three swept wind fangs riding the blade edges, a navy gale swoosh and
+  // speed streaks printed behind them, silver plates on the leading faces.
   ring_galefang: {
-    sec: () => '#f2f7ff',
+    sec: (m) => pick(m, '#f2f7ff', '#1d2a4a'),
     acc: () => '#ffe14d',
     build(E) {
-      const mid = (E.Rcol + E.Rb) / 2;
+      const mid = (E.Rcol + E.Rb) / 2 - 0.4;
       for (const bl of E.blades) {
-        const fp = fang(E, E.soups.trim, bl, { w0: 5.2, w1: 0.5, h0: 1.35, h1: 0.3, ext: 0.55 });
+        const fp = fang(E, E.soups.trim, bl, { w0: 5.4, w1: 0.5, h0: 1.45, h1: 0.3, ext: 0.55, peak: 0.7 });
         E.paints.push((H) => {
+          streak(H, fp.a, fp.b, fp.inn, fp.v, -0.3, 3.4, E.C.deep);
           H.foot(fp, E.C.line, 0.3);
-          const a = fp.a, b = fp.b;
-          streak(H, a, b, fp.inn, fp.v, 0.7, 1.1, E.C.light);
-          streak(H, a, b, fp.inn, fp.v, 2.4, 0.7, E.C.light);
-          streak(H, a, b, fp.inn, fp.v, 3.7, 0.45, E.C.acc);
+          streak(H, fp.a, fp.b, fp.inn, fp.v, 1.0, 0.8, E.C.light);
+          streak(H, fp.a, fp.b, fp.inn, fp.v, 2.4, 0.45, E.C.acc);
         });
-        const g = bl.c + E.mv * 0;
-        topScrew(E, mid, span(E, bl).t + span(E, bl).s * 0.5 * E.P * (1 - E.w));
-        void g;
+        const { t, s } = span(E, bl);
+        topScrew(E, mid, t + s * 0.62 * E.P * (1 - E.w));
+      }
+    },
+    paint(E, H) { H.ring(E.Rcol + 3.0, 0.2, E.C.line); },
+  },
+
+  // Smooth heavy crown: a polished chrome rim band, twelve battlement merlons
+  // with studs, a raised crown ring round the hub and heraldic quarters.
+  ring_bastion: {
+    plate: { mode: 'band', d: 1.3, y0: 0.12, y1: 0.84 },
+    metalFinish: 'chrome',
+    metal: () => '#aeb8c9',
+    sec: (m) => pick(m, '#2c3446', '#e9eef7'),
+    acc: () => '#ffcf4a',
+    build(E) {
+      const n = 12, half = (TAU / n) * 0.26;
+      for (let i = 0; i < n; i++) {
+        const c = ((i + 0.5) * TAU) / n;
+        const fp = feature(E, E.soups.trim, c - half, c + half, (u, p) => E.Os(p) - 0.9 - 2.6, () => 99, () => E.T + 1.1, { kind: 'flat', chamfer: 0.35, margin: 0.9 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+        rivet(E, E.Os(c) - 0.9 - 1.3, c, 0.55, 0.32, E.soups.metal, E.T + 1.05);
+      }
+      annulusTop(E, E.soups.trim, E.Rcol + 0.45, E.Rcol + 1.9, E.T - 0.03, E.T + 0.85, 0.3);
+      for (let i = 0; i < 4; i++) topScrew(E, E.Rcol + 4.3, ((i + 0.25) * TAU) / 4, 0.8);
+    },
+    paint(E, H) {
+      for (let i = 0; i < 4; i++) { H.band(E.Rcol + 2.3, E.Rb - 4.3, (i * TAU) / 4 + 0.05, (i * TAU) / 4 + TAU / 8 - 0.05); H.fill(E.C.deep); }
+      H.ring(E.Rcol + 2.25, 0.2, E.C.line);
+      H.ring(E.Rb - 4.2, 0.25, E.C.line);
+      H.ring(E.Rb - 3.75, 0.35, E.C.acc);
+    },
+  },
+
+  // Six soft wave crests in foam white, chrome crest caps, a clear halo over
+  // the printed swell round the hub.
+  ring_tidalhalo: {
+    plate: { mode: 'cap', d: 0.8, lip: 0.5 },
+    metalFinish: 'chrome',
+    metal: () => '#a9b8c6',
+    sec: (m) => pick(m, '#effffb', '#0f4f6b'),
+    clear: (m) => mix(m, '#e8fffb', 0.45),
+    acc: () => '#ffffff',
+    build(E) {
+      for (const bl of E.blades) {
+        const L = bl.b - bl.a, a = bl.a - 0.1 * L, b = bl.b + 0.1 * L;
+        const fp = feature(E, E.soups.trim, a, b, (u, p) => E.Ks(p) - 0.8 - (0.5 + 2.7 * Math.sin(Math.PI * u) ** 2), () => 99, (u) => E.T + 0.25 + 0.95 * Math.sin(Math.PI * u), { kind: 'ridge', peak: 0.62, margin: 0.8 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.28));
+      }
+      annulusTop(E, E.soups.clear, E.Rcol + 0.4, E.Rb - 4.4, E.T - 0.03, E.T + 0.7, 0.35);
+    },
+    paint(E, H) {
+      const r = (E.Rcol + E.Rb - 4) / 2;
+      H.band(E.Rcol + 0.4, E.Rb - 4.4, 0, TAU); H.fill(E.C.deep);
+      wavyRing(H, r - 0.6, 0.7, 6, 0, 0.9, E.C.light);
+      wavyRing(H, r + 0.9, 0.6, 6, Math.PI, 0.45, E.C.acc);
+      H.ring(E.Rb - 4.4, 0.25, E.C.line);
+    },
+  },
+
+  // Two hooked talons with deep catches, chrome faces, a glowing rift crack
+  // splitting each wide gap.
+  ring_rifttalon: {
+    plate: { len: 6.5, dFace: 1.8 },
+    metalFinish: 'chrome',
+    sec: (m) => pick(m, '#f4ecff', '#2a1a40'),
+    glow: () => '#6ff7ff',
+    acc: () => '#6ff7ff',
+    build(E) {
+      for (const bl of E.blades) {
+        const fp = fang(E, E.soups.trim, bl, { w0: 6.4, w1: 1.4, pw: 0.55, h0: 1.45, h1: 0.6, ext: 0.1, peak: 0.6 });
+        const { f, s } = span(E, bl);
+        // barb: the talon hooks inward at its front
+        const pb = f + (s * (E.plateCfg.len + 0.9)) / E.Rmax, r0 = fp.inn(pb) + 0.8;
+        spike(E, E.soups.trim, r0, r0 - 3.2, (t) => pb + (s * 0.1 * t), (t) => lerp(1.3, 0.15, t), (t) => E.T + lerp(1.3, 0.35, t));
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+      }
+      for (const g of E.gaps) {
+        const pts = [], n = E.low ? 4 : 7;
+        for (let i = 0; i <= n; i++) pts.push([lerp(E.Rcol + 1.6, E.Rb - 1.8, i / n), g + (i % 2 ? 0.07 : -0.05) * (1 - 0.3 * (i / n))]);
+        strip(E, E.soups.glow, pts, 0.9, 0.3);
+        E.paints.push((H) => {
+          // dark rift shard around the crack
+          const sh = pts.map(([r, p], i) => [r, p + 0.16 * (1 - i / n) + 0.03]);
+          const sl = pts.map(([r, p], i) => [r, p - 0.16 * (1 - i / n) - 0.03]);
+          H.poly([...sh, ...sl.reverse()]); H.fill(E.C.line);
+        });
+        topScrew(E, E.Rcol + 3.2, g + 0.45);
+        topScrew(E, E.Rcol + 3.2, g - 0.45);
+      }
+    },
+  },
+
+  // Four flares that rise as they reach out, a printed sun burst, and an
+  // upward rake shown by the strongly tapered upper body.
+  ring_solarflare: {
+    taperGain: 2.6,
+    sec: (m) => pick(m, '#ff4a1c', '#ffe9b0'),
+    acc: () => '#fff2a0',
+    build(E) {
+      for (const bl of E.blades) {
+        const { f, s } = span(E, bl);
+        const pf = f + (s * (E.plateCfg.len + 0.8)) / E.Rmax;
+        const pts = spike(E, E.soups.trim, E.Rcol + 1.4, E.Rmax, (t) => lerp(bl.c + s * 0.12, pf, t), (t) => lerp(2.8, 0.35, t), (t) => E.T + lerp(0.25, 1.45, t), { margin: 0.9 });
+        E.paints.push((H) => outlinePoly(H, pts, E.C.line));
+      }
+      for (const g of E.gaps) topScrew(E, (E.Rcol + E.Rb) / 2, g);
+    },
+    paint(E, H) {
+      for (let i = 0; i < 16; i++) {
+        const c = (i * TAU) / 16 + TAU / 32;
+        H.poly([[E.Rcol + 1.1, c - 0.11], [E.Rb - (i % 2 ? 2.6 : 1.2), c], [E.Rcol + 1.1, c + 0.11]]);
+        H.fill(i % 2 ? E.C.light : E.C.acc);
+      }
+      H.ring(E.Rcol + 1.5, 0.7, E.C.acc);
+    },
+  },
+
+  // Five slim translucent ghost edges, a clear inner veil and printed
+  // left-spin arrows.
+  ring_phantomedge: {
+    sec: (m) => pick(m, '#efeaff', '#2b2350'),
+    clear: (m) => mix(m, '#f4f0ff', 0.55),
+    clearOpacity: 0.5,
+    acc: () => '#bdf6ff',
+    build(E) {
+      for (const bl of E.blades) {
+        const fp = fang(E, E.soups.clear, bl, { w0: 2.6, w1: 0.3, h0: 1.35, h1: 0.3, ext: 0.45, peak: 0.8 });
+        E.paints.push((H) => {
+          streak(H, fp.a, fp.b, fp.inn, fp.v, -0.4, 2.0, E.C.light);
+          H.foot(fp, E.C.sec, 0.15);
+          streak(H, fp.a, fp.b, fp.inn, fp.v, 2.2, 0.5, E.C.deep);
+        });
+      }
+      annulusTop(E, E.soups.clear, E.Rcol + 0.4, E.Rcol + 3.4, E.T - 0.03, E.T + 0.6, 0.3);
+    },
+    paint(E, H) {
+      H.band(E.Rcol + 0.4, E.Rcol + 3.4, 0, TAU); H.fill(E.C.deep);
+      for (let i = 0; i < 15; i++) H.chevron(E.Rcol + 1.9, (i * TAU) / 15, 0.9, E.mv || 1, E.C.acc, 0.35);
+      for (const g of E.gaps) H.chevron(E.Rb - 3.2, g, 1.6, E.mv || 1, E.C.light, 0.6);
+    },
+  },
+
+  // Eight riveted gunmetal armour plates in an octagon, chrome caps on the
+  // eight low bumps, big studs in the seams and hazard print round the hub.
+  ring_ironwall: {
+    plate: { mode: 'cap', d: 1.0, lip: 0.3 },
+    sec: (m) => pick(m, '#46505e', '#c9d1dc'),
+    acc: () => '#ffc93a',
+    build(E) {
+      for (const bl of E.blades) {
+        const c = bl.c, a = bl.a - 0.02, b = bl.b + 0.02;
+        const R0 = E.Ks(c) - 1.0, Ri = E.Rcol + 2.4;
+        const fp = feature(E, E.soups.trim, a, b, (u, p) => Ri / Math.cos(p - c), (u, p) => R0 / Math.cos(p - c), () => E.T + 0.7, { kind: 'flat', chamfer: 0.45, margin: 1.0 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+        for (const d of [-0.11, 0.11]) rivet(E, (Ri + R0) / 2 + 1.5, c + d, 0.45, 0.32, E.soups.metal, E.T + 0.65);
+      }
+      for (const g of E.gaps) rivet(E, E.Ks(g) - 2.0, g, 1.05, 0.85);
+    },
+    paint(E, H) {
+      const r0 = E.Rcol + 0.9, r1 = E.Rcol + 2.2;
+      H.band(r0, r1, 0, TAU); H.fill('#1c1f26');
+      for (let i = 0; i < 40; i++) { const a = (i * TAU) / 40; H.poly([[r0, a], [r0, a + 0.07], [r1, a + 0.12], [r1, a + 0.05]]); H.fill(E.C.acc); }
+    },
+  },
+
+  // Six charcoal saw teeth on the blade edges and a printed cyclone spiral.
+  ring_cyclonesaw: {
+    sec: (m) => pick(m, '#2b2e38', '#f2f4f8'),
+    acc: () => '#ffb02e',
+    build(E) {
+      for (const bl of E.blades) {
+        const fp = fang(E, E.soups.trim, bl, { w0: 3.9, w1: 0.15, pw: 1.0, h0: 1.4, h1: 0.2, ext: 0.05, peak: 0.55 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
       }
     },
     paint(E, H) {
-      // panel line splitting the hub band from the blade deck
-      H.ring(E.Rcol + 3.2, 0.2, E.C.line);
+      const turn = 1.1 * -(E.mv || -1);
+      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1, E.Rb - 0.6, (i * TAU) / 6, turn, 0.6, 2.8, shade(E.C.fill, -0.3, 0.05));
+      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1.6, E.Rb - 2.5, (i * TAU) / 6 + 0.25, turn, 0.2, 0.55, E.C.acc);
+      H.ring(E.Rcol + 1.3, 0.5, E.C.acc);
+    },
+  },
+
+  // Symmetric comet arcs in royal blue between double-sided strike plates;
+  // shooting-star sparkles printed in the gaps.
+  ring_cometarc: {
+    plate: { len: 4.5 },
+    sec: (m) => pick(m, '#2f5bff', '#ffffff'),
+    acc: () => '#ffffff',
+    build(E) {
+      for (const bl of E.blades) {
+        const pl = (E.plateCfg.len + 0.4) / E.Rmax, a = bl.a + pl, b = bl.b - pl;
+        const fp = feature(E, E.soups.trim, a, b, (u, p) => E.Ks(p) - 0.9 - (0.6 + 3.2 * Math.sin(Math.PI * u)), () => 99, (u) => E.T + 0.3 + 1.1 * Math.sin(Math.PI * u), { kind: 'ridge', peak: 0.72 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+      }
+      for (const g of E.gaps) topScrew(E, E.Rcol + 3.0, g);
+    },
+    paint(E, H) {
+      for (const g of E.gaps) {
+        const r = E.Rb - 3.6;
+        for (const d of [-1, 1]) { H.band(r - 0.35, r + 0.35, g + d * 0.07, g + d * 0.5); H.fill(E.C.deep); }
+        sparkle(H, r, g, 2.0, E.C.acc);
+        sparkle(H, r - 2.6, g + 0.32, 0.8, E.C.light);
+        sparkle(H, r - 2.6, g - 0.32, 0.8, E.C.light);
+      }
+      H.ring(E.Rcol + 1.6, 0.25, E.C.line);
+    },
+  },
+
+  // Three broad faceted clear prisms over a printed shield lattice; the
+  // downward rake shows as a strong taper under the waist.
+  ring_aegisprism: {
+    plate: { len: 4 },
+    taperGain: 2.4,
+    clear: (m) => mix(m, '#ffffff', 0.15),
+    clearFlat: true,
+    clearOpacity: 0.55,
+    acc: () => '#ffffff',
+    build(E) {
+      for (const bl of E.blades) {
+        const pl = (E.plateCfg.len + 0.6) / E.Rmax, a = bl.a + pl, b = bl.b - pl;
+        const fp = feature(E, E.soups.clear, a, b, () => E.Rcol + 2.2, () => 99, () => E.T + 1.35, { kind: 'table', shoulder: 0.35, n: E.low ? 6 : 12 });
+        E.paints.push((H) => {
+          H.foot(fp, shade(E.C.fill, -0.32, 0.05), 0.25);
+          for (let i = 1; i < 6; i++) { const p = lerp(fp.a, fp.b, i / 6); H.g.beginPath(); H.to(fp.ri(p), p, true); H.to(fp.ro(p), p); H.stroke(E.C.light, 0.3); }
+        });
+      }
+      for (const g of E.gaps) topScrew(E, (E.Rcol + E.Rb) / 2, g);
+    },
+    paint(E, H) { H.ring(E.Rcol + 1.7, 0.25, E.C.line); },
+  },
+
+  // Left-spin jaws in black lacquer with chrome fang teeth biting inward and
+  // acid-green glowing slits; a dark vortex print.
+  ring_voidmaw: {
+    plate: { len: 6 },
+    metalFinish: 'chrome',
+    metal: () => '#c7ccd8',
+    frame: () => '#120d1a',
+    sec: (m) => pick(m, '#17111f', '#e7e0f2'),
+    glow: () => '#9dff3a',
+    acc: () => '#9dff3a',
+    build(E) {
+      for (const bl of E.blades) {
+        const fp = fang(E, E.soups.trim, bl, { w0: 5.6, w1: 0.8, pw: 0.7, h0: 1.4, h1: 0.4, ext: 0.3, peak: 0.65 });
+        const n = E.low ? 2 : 4;
+        for (let i = 0; i < n; i++) {
+          const v = 0.1 + (i / n) * 0.55, psi = fp.s > 0 ? fp.a + v * (fp.b - fp.a) : fp.b - v * (fp.b - fp.a), r0 = fp.inn(psi) + 0.7;
+          spike(E, E.soups.metal, r0, r0 - 2.1 + i * 0.25, () => psi, (t) => lerp(0.75, 0.05, t), (t) => E.T + lerp(0.95, 0.25, t), { n: 3 });
+        }
+        E.paints.push((H) => {
+          H.foot(fp, E.C.line, 0.3);
+          streak(H, fp.a, fp.b, fp.inn, fp.v, 0.9, 0.55, E.C.acc);
+        });
+        const g = bl.c + E.P / 2;
+        feature(E, E.soups.glow, g - 0.16, g + 0.16, () => E.Rcol + 1.5, () => E.Rcol + 2.3, (u) => E.T + 0.15 + 0.3 * Math.sin(Math.PI * u), { kind: 'ridge', n: 8, margin: 0 });
+      }
+    },
+    paint(E, H) {
+      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1, E.Rb - 1, (i * TAU) / 6, 1.3 * (E.mv || 1), 0.4, 1.8, E.C.line);
+      H.ring(E.Rcol + 3.0, 0.3, E.C.acc);
+    },
+  },
+
+  // Five long gold lances reaching for the widest radius over a printed
+  // navy star.
+  ring_starlance: {
+    sec: (m) => pick(m, '#ffc83a', '#2a3b8f'),
+    acc: (m) => pick(m, '#24306b', '#ffffff'),
+    build(E) {
+      for (const bl of E.blades) {
+        const { f, s } = span(E, bl);
+        const pf = f + (s * (E.plateCfg.len + 0.6)) / E.Rmax;
+        const pts = spike(E, E.soups.trim, E.Rcol + 1.2, E.Rmax, (t) => lerp(bl.c + s * 0.05, pf, t ** 1.4), (t) => lerp(1.8, 0.3, t), (t) => E.T + lerp(0.45, 1.35, t), { margin: 0.9 });
+        E.paints.push((H) => outlinePoly(H, pts, E.C.line));
+      }
+    },
+    paint(E, H) {
+      const ph = E.gaps[0];
+      H.poly(starPts(5, E.Rcol + 2.0, E.Rb - 1.2, ph)); H.fill(E.C.sec); H.stroke(E.C.sec, 0.8);
+      H.poly(starPts(5, E.Rcol + 2.0, E.Rb - 1.2, ph)); H.fill(E.C.acc);
+      H.ring(E.Rcol + 1.3, 0.4, E.C.acc);
     },
   },
 };
 
-// Fallback for unknown ids, from the part's numbers alone.
+// Fallback for unknown ids, from the part's numbers alone: swept fangs sized
+// to the blade depth (or a merlon crown when bladeless), screws in the gaps
+// and spin arrows.
 function parametric() {
-  return {};
+  return {
+    sec: (m) => pick(m, '#f2f5fb', '#1e2433'),
+    build(E) {
+      if (!E.N) {
+        for (let i = 0; i < 8; i++) {
+          const c = ((i + 0.5) * TAU) / 8;
+          const fp = feature(E, E.soups.trim, c - 0.2, c + 0.2, (u, p) => E.Os(p) - 3.4, () => 99, () => E.T + 0.9, { kind: 'flat' });
+          E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+        }
+      }
+      for (const bl of E.blades) {
+        const fp = fang(E, E.soups.trim, bl, { w0: clamp(E.Rmax - E.Rb + 1.5, 1.5, 5), w1: 0.4, h0: 1.2, h1: 0.3, ext: 0.3 });
+        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+      }
+      for (const g of E.gaps) topScrew(E, (E.Rcol + E.Rb) / 2, g);
+    },
+    paint(E, H) {
+      H.ring(E.Rcol + 2.6, 0.2, E.C.line);
+      if (E.mv) for (const g of E.gaps) H.chevron(E.Rb - 3, g, 1.4, E.mv, E.C.light, 0.55);
+    },
+  };
 }

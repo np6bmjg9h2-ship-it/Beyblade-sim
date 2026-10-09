@@ -173,8 +173,11 @@ const EMB = { x: 176, y: 96, s: 160 };
 const canvasCache = new Map();
 const INKC = '#150f22';
 
-function decalCanvas(motif, tiles, sig, acc, code, rare) {
-  const key = [motif, tiles, sig, acc, code, rare].join('|');
+// look: { motif, tiles, dc (band print colour), code, cap: { badge, fg, ring,
+// glyph } }; acc = top accent colour; rare = rarity colour or ''.
+function decalCanvas(look, acc, rare) {
+  const { motif, tiles, code, cap } = look, sig = look.dc || look.sig;
+  const key = [motif, tiles, sig, acc, code, rare, cap.badge, cap.fg, cap.ring, cap.glyph].join('|');
   if (canvasCache.has(key)) return canvasCache.get(key);
   const c = document.createElement('canvas');
   c.width = DW; c.height = DH;
@@ -234,18 +237,71 @@ function decalCanvas(motif, tiles, sig, acc, code, rare) {
     }
     g.restore();
   }
-  // emblem: dark badge, signature ring, accent glyph, part code
+  // emblem: badge in the design's cap colour, ring, glyph naming the contact
+  // type, small part code underneath
   const ex = EMB.x + EMB.s / 2, ey = EMB.y + EMB.s / 2, er = EMB.s / 2 - 2;
   disc(ex, ey, er, rare || INKC, null);
-  disc(ex, ey, er - (rare ? 8 : 0), '#1b1f2b', null);
-  g.lineWidth = 9; g.strokeStyle = sig; g.beginPath(); g.arc(ex, ey, er - 16, 0, TAU); g.stroke();
-  poly([[ex, ey - 46], [ex + 13, ey - 26], [ex - 13, ey - 26]], acc, null);
-  poly([[ex, ey + 46], [ex + 13, ey + 26], [ex - 13, ey + 26]], acc, null);
-  g.fillStyle = '#ffffff'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(code, ex, ey + 1);
+  disc(ex, ey, er - (rare ? 8 : 4), cap.badge, null);
+  g.lineWidth = 9; g.strokeStyle = cap.ring; g.beginPath(); g.arc(ex, ey, er - 16, 0, TAU); g.stroke();
+  drawGlyph(g, cap.glyph, ex, ey - 9, cap.fg, acc, poly, disc);
+  g.fillStyle = cap.fg; g.font = 'bold 19px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 4; g.strokeStyle = INKC; g.strokeText(code, ex, ey + 41); g.fillText(code, ex, ey + 41);
   canvasCache.set(key, c);
   if (canvasCache.size > 40) canvasCache.delete(canvasCache.keys().next().value);
   return c;
+}
+
+// Emblem glyph (about 36 px radius around x, y): a pictogram of the tip's
+// contact type, in fg with ink outlines and a dot of the top's accent.
+function drawGlyph(g, glyph, x, y, fg, acc, poly, disc) {
+  const ring = (cx, cy, rx, ry, rot, w) => {
+    g.beginPath(); g.ellipse(cx, cy, rx, ry, rot, 0, TAU);
+    g.lineWidth = w + 7; g.strokeStyle = INKC; g.stroke(); g.lineWidth = w; g.strokeStyle = fg; g.stroke();
+  };
+  switch (glyph) {
+    case 'needle': // spike through a collar
+      poly([[x - 9, y - 34], [x + 9, y - 34], [x + 5, y + 12], [x, y + 34], [x - 5, y + 12]], fg);
+      poly([[x - 21, y - 16], [x + 21, y - 16], [x + 15, y - 5], [x - 15, y - 5]], fg);
+      break;
+    case 'ball': // ball sitting in a cup
+      g.beginPath(); g.arc(x, y + 4, 27, 0.1, Math.PI - 0.1); g.lineWidth = 15; g.strokeStyle = INKC; g.stroke(); g.lineWidth = 8; g.strokeStyle = fg; g.stroke();
+      disc(x, y + 2, 18, fg); disc(x - 6, y - 4, 5, '#ffffff', null);
+      break;
+    case 'bolt': // strike: lightning bolt
+      poly([[x + 10, y - 36], [x - 18, y + 4], [x - 2, y + 4], [x - 12, y + 36], [x + 18, y - 6], [x + 2, y - 6]], fg);
+      break;
+    case 'tread': // tyre tread blocks
+      for (const d of [-24, 0, 24]) poly([[x + d - 6, y - 26], [x + d + 9, y - 26], [x + d + 6, y + 26], [x + d - 9, y + 26]], fg);
+      poly([[x - 36, y + 30], [x + 36, y + 30], [x + 32, y + 38], [x - 32, y + 38]], acc, INKC, 3);
+      break;
+    case 'semi': { // half disc on its flat
+      g.beginPath(); g.arc(x, y + 14, 28, Math.PI, 0); g.closePath(); g.lineWidth = 4; g.strokeStyle = INKC; g.stroke(); g.fillStyle = fg; g.fill();
+      poly([[x - 34, y + 18], [x + 34, y + 18], [x + 30, y + 27], [x - 30, y + 27]], fg);
+      break;
+    }
+    case 'star': {
+      const R = 34, k = 0.3;
+      poly([[x, y - R], [x + R * k, y - R * k], [x + R, y], [x + R * k, y + R * k], [x, y + R], [x - R * k, y + R * k], [x - R, y], [x - R * k, y - R * k]], fg);
+      break;
+    }
+    case 'bearing': // ring of balls round a hub
+      for (let i = 0; i < 8; i++) disc(x + 25 * Math.cos((i * TAU) / 8), y + 25 * Math.sin((i * TAU) / 8), 7, fg, INKC, 3);
+      disc(x, y, 10, acc, INKC, 3);
+      break;
+    case 'claw':
+      for (const d of [-17, 0, 17]) poly([[x + d - 10, y + 32], [x + d + 7, y - 34], [x + d + 13, y - 30], [x + d + 1, y + 34]], fg);
+      break;
+    case 'orbit':
+      ring(x, y, 36, 14, -0.4, 6);
+      disc(x, y, 12, fg); disc(x + 31, y - 14, 6, acc, INKC, 3);
+      break;
+    case 'hybrid': // sharp point inside a flat collar bar
+      poly([[x - 34, y + 4], [x + 34, y + 4], [x + 30, y + 14], [x - 30, y + 14]], fg);
+      poly([[x, y - 36], [x + 13, y - 4], [x, y + 34], [x - 13, y - 4]], acc);
+      break;
+    default: // chevron pointing at the floor
+      poly([[x - 26, y - 24], [x, y], [x + 26, y - 24], [x + 26, y - 6], [x, y + 20], [x - 26, y - 6]], fg);
+  }
 }
 
 // ------------------------------------------------------------ build kit
@@ -273,15 +329,16 @@ class TipKit {
     const L = this.look, glow = rarityGlow(this.ctx.rarity);
     switch (key) {
       case 'body': return toonMaterial(L.body, { finish: L.bodyFinish || 'gloss' });
+      case 'pale': return toonMaterial(L.pale, { finish: 'plastic' }); // hard plastic contact pieces
       case 'trim': return toonMaterial(L.sig, { finish: 'gloss', ...glow });
-      case 'ring': return toonMaterial(L.sig, { finish: 'gloss' });
+      case 'ring': return toonMaterial(L.ringC || L.sig, { finish: 'gloss' });
       case 'dark': return toonMaterial(L.dark || '#272b36', { finish: 'plastic' });
       case 'chrome': return toonMaterial(L.chrome || '#a9b6c8', { finish: 'chrome' });
       case 'gold': return toonMaterial(L.gold || '#f0b43a', { finish: 'metal' });
-      case 'rubber': return toonMaterial(L.rubber || tone(this.part.color, 0.1), { finish: 'rubber' });
+      case 'rubber': return toonMaterial(L.rubber || '#30333b', { finish: 'rubber' });
       case 'clear': return toonMaterial(L.clear || tone(L.sig, 0.2), { finish: 'clear', opacity: 0.42 });
       case 'decal': {
-        const m = toonMaterial('#ffffff', { finish: 'matte', map: canvasTexture(decalCanvas(L.motif, L.tiles, L.sig, this.ctx.accent, L.code, this.ctx.rarity && this.ctx.rarity.rank > 0 ? this.ctx.rarity.color : '')) });
+        const m = toonMaterial('#ffffff', { finish: 'matte', map: canvasTexture(decalCanvas(L, this.ctx.accent, this.ctx.rarity && this.ctx.rarity.rank > 0 ? this.ctx.rarity.color : '')) });
         m.alphaTest = 0.5;
         return m;
       }
@@ -297,7 +354,7 @@ class TipKit {
 
   // Seating flange (std socket): round plate with a panel-line groove, plus
   // `tabs` lock tabs reaching tabR in another material.
-  flange({ y0, r, tabs = 3, tabR = this.br + 0.2, tabW = 1.4, bin = 'dark', tabBin = 'trim', phase = 0 }) {
+  flange({ y0, r, tabs = 3, tabR = this.br + 0.2, tabW = 1.4, bin = this.look.cap.flange, tabBin = this.look.cap.tabs, phase = 0 }) {
     const y1 = this.y1, ym = (y0 + y1) / 2, c = 0.28;
     this.lathe(bin, [[0, y0], [r - c, y0], [r, y0 + c], [r, ym - 0.13], [r - 0.2, ym], [r, ym + 0.13], [r, y1 - 0.22], [r - 0.22, y1], [0, y1]]);
     for (let i = 0; i < tabs; i++) {
@@ -308,7 +365,7 @@ class TipKit {
     this.emblem(r * 0.78);
   }
   // Wide-socket flange: full bodyRadius plate with square lock notches.
-  wideFlange({ y0, notches = 4, depth = 0.9, width = 1.7, bin = 'trim', phase = 0 }) {
+  wideFlange({ y0, notches = 4, depth = 0.9, width = 1.7, bin = this.look.cap.flange, phase = 0 }) {
     const bev = 0.22, r = this.br - bev, ri = r - depth, hw = width / 2 / r;
     const shape = new THREE.Shape();
     const steps = Math.max(4, Math.round(this.n / notches));
@@ -425,44 +482,47 @@ class TipKit {
 // ------------------------------------------------------------ designs
 
 // Needle: hardened chrome needle clamped in a crimson hex collar under a
-// white eight-sided spire.
+// white octagonal column that flares into a broad shoulder (a nail-head
+// spire), red armour plates and a red seating flange.
 function needle(k) {
   const tip = contactRuns(0, k.b, [0.85, 3.2], k.arcSteps);
   k.add('chrome', revolve([...tip.runs, { pts: [[0.85, 3.2], [0.85, 3.7], [0, 3.7]] }], k.n));
   k.add('trim', revolve([{ pts: [[0.8, 2.7], [1.5, 2.7], [2.05, 3.15], [2.05, 4.25], [1.8, 4.55], [0.8, 4.55], [0.8, 2.7]] }], 0, { facets: 6, phase: TAU / 12 }));
-  const H = [[0, 4.45], [2.55, 4.45], [2.8, 4.7], [4.45, 7.25], [4.95, 7.6], ...notch(4.95, 8.0), [4.95, 8.45], [0, 8.45]];
+  const H = [[0, 4.45], [2.55, 4.45], [2.8, 4.7], [3.3, 5.4], [3.3, 6.6], [3.55, 6.85], [4.95, 7.65], ...notch(4.95, 8.05, 0.18, 0.11), [4.95, 8.45], [0, 8.45]];
   k.add('body', revolve([{ pts: H }], 0, { facets: 8 }));
-  k.band(H[2], H[3], 0.1, 0.48, { facets: 8 });
-  k.plates('trim', 8, H[2], H[3], { t0: 0.54, t1: 0.97 });
-  k.bolts('chrome', 4, H[2], H[3], 0.8, { facets: 8, every: 2, lift: 0.22, rad: 0.3, h: 0.26 });
+  k.band(H[3], H[4], 0.06, 0.94, { facets: 8 });
+  k.plates('trim', 8, H[5], H[6], { t0: 0.12, t1: 0.94, h: 0.24 });
+  k.bolts('chrome', 4, H[5], H[6], 0.55, { facets: 8, every: 2, lift: 0.24, rad: 0.3, h: 0.26 });
   k.flange({ y0: 8.45, r: 5.55, tabR: 6.2 });
   return k.finish();
 }
 
-// Pivot Ball: polished chrome ball riding in a riveted graphite cup, pale
-// ten-sided housing, teal seating flange.
+// Pivot Ball: polished chrome ball riding in a riveted teal cup, graphite
+// ten-sided housing with teal plates, teal seating flange.
 function pivotball(k) {
   const R = k.b;
   const ball = contactRuns(0, R, null, k.arcSteps + 4, 22 * DEG);
   k.add('chrome', revolve([...ball.runs, { pts: [ball.top, [0, ball.top[1]]] }], k.n));
   const cup = [[R - 0.15, 3.0], [3.05, 3.0], [3.45, 3.4], [3.45, 4.3], [3.2, 4.55], [2.0, 4.55], [R - 0.15, 3.0]];
-  k.lathe('dark', cup);
-  k.bolts('chrome', 6, [3.45, 3.4], [3.45, 4.3], 0.68, { rad: 0.26, h: 0.22, sides: 8 });
+  k.lathe('trim', cup);
+  k.bolts('chrome', 6, [3.45, 3.4], [3.45, 4.3], 0.55, { rad: 0.26, h: 0.22, sides: 8 });
   const H = [[0, 4.45], [3.3, 4.45], [3.6, 4.75], [5.3, 7.55], [5.75, 7.9], ...notch(5.75, 8.2, 0.18, 0.1), [5.75, 8.5], [0, 8.5]];
   k.add('body', revolve([{ pts: H }], 0, { facets: 10 }));
   k.band(H[2], H[3], 0.08, 0.46, { facets: 10 });
   k.plates('trim', 10, H[2], H[3], { t0: 0.52, t1: 0.97 });
   k.bolts('chrome', 5, H[2], H[3], 0.78, { facets: 10, every: 2, lift: 0.22, rad: 0.3, h: 0.26 });
-  k.flange({ y0: 8.5, r: 6.05, tabR: 6.7, bin: 'trim', tabBin: 'dark' });
+  k.flange({ y0: 8.5, r: 6.05, tabR: 6.7 });
   return k.finish();
 }
 
-// Flat Strike: hard white flat foot flaring into a cone armed with eight
-// orange strike ribs.
+// Flat Strike: hard white flat foot under a bright orange cone armed with
+// eight white strike ribs, white seating flange.
 function flatstrike(k) {
   const foot = contactRuns(k.fr, k.b, null, k.arcSteps, 0);
+  const ft = foot.top;
+  k.add('pale', revolve([...foot.runs, { pts: [ft, [ft[0], 1.15], [ft[0] - 0.3, 1.45], [0, 1.45]] }], k.n));
   const C0 = [3.0, 1.6], C1 = [5.5, 6.9];
-  k.add('body', revolve([...foot.runs, { pts: [foot.top, [foot.top[0], 1.2], [2.85, 1.45], C0, C1, [6.25, 7.35], ...notch(6.25, 7.75), [6.25, 8.15], [0, 8.15]] }], k.n));
+  k.add('body', revolve([{ pts: [[0, 1.3], [2.7, 1.3], C0, C1, [6.25, 7.35], ...notch(6.25, 7.75), [6.25, 8.15], [0, 8.15]] }], k.n));
   k.ribs('trim', 8, C0, C1, { t0: 0.12, t1: 0.92, h: 0.6, w: 0.7 });
   k.band(C0, C1, 0.42, 0.68, { off: 0.07 });
   k.bolts('chrome', 4, C0, C1, 0.86, { phase: TAU / 16 });
@@ -470,29 +530,29 @@ function flatstrike(k) {
   return k.finish();
 }
 
-// Rubber Flat: black rubber puck with a ring of tread lugs, clamped by a
-// hazard-yellow collar under a dark twelve-sided housing.
+// Rubber Flat: dark rubber puck with a ring of tread lugs, clamped by a
+// hazard-yellow collar under a stepped twelve-sided housing (stacked tyres).
 function rubberflat(k) {
   const foot = contactRuns(k.fr, k.b, null, k.arcSteps, 0);
   k.add('rubber', revolve([...foot.runs, { pts: [foot.top, [3.42, 0.98], [3.42, 2.25], [3.15, 2.5], [0, 2.5]] }], k.n));
   const lugs = k.lo ? 8 : 12;
   for (let i = 0; i < lugs; i++) k.add('rubber', prism([[3.3, 1.02], [3.66, 1.1], [3.7, 1.95], [3.45, 2.22], [3.3, 2.22]], 0.85).rotateY((i * TAU) / lugs));
   k.lathe('trim', [[3.0, 2.2], [3.95, 2.2], [4.25, 2.5], [4.25, 3.3], [3.95, 3.6], [3.0, 3.6], [3.0, 2.2]]);
-  const H = [[0, 3.45], [3.8, 3.45], [4.05, 3.7], [5.9, 6.9], [6.4, 7.3], ...notch(6.4, 7.72), [6.4, 8.15], [0, 8.15]];
+  const H = [[0, 3.45], [3.8, 3.45], [4.1, 3.75], [4.85, 4.05], [4.85, 5.35], [5.1, 5.6], [5.85, 6.05], [5.85, 6.8], [6.4, 7.3], ...notch(6.4, 7.72), [6.4, 8.15], [0, 8.15]];
   k.add('body', revolve([{ pts: H }], 0, { facets: 12 }));
-  k.band(H[2], H[3], 0.12, 0.6, { facets: 12 });
-  k.plates('trim', 12, H[2], H[3], { t0: 0.66, t1: 0.97, every: 3 });
-  k.bolts('chrome', 4, H[2], H[3], 0.82, { facets: 12, every: 3, lift: 0.22, rad: 0.3, h: 0.26 });
-  k.flange({ y0: 8.15, r: 6.6, tabR: 7.2, bin: 'trim', tabBin: 'body' });
+  k.band(H[3], H[4], 0.06, 0.94, { facets: 12 });
+  k.plates('trim', 12, H[5], H[6], { t0: 0.08, t1: 0.95, every: 3, h: 0.2 });
+  k.bolts('chrome', 4, H[6], H[7], 0.5, { facets: 12, every: 3, phase: TAU / 8, rad: 0.3, h: 0.26 });
+  k.flange({ y0: 8.15, r: 6.6, tabR: 7.2 });
   return k.finish();
 }
 
-// Semi-Flat: small white flat foot on a long green ribbed shaft, chrome
-// washer, white eight-sided crown.
+// Semi-Flat: small white flat foot on a graphite shaft with ten white ribs,
+// chrome washer, green eight-sided crown and flange.
 function semiflat(k) {
   const foot = contactRuns(k.fr, k.b, null, k.arcSteps, 0);
-  k.add('body', revolve([...foot.runs, { pts: [foot.top, [foot.top[0], 1.55], [2.1, 1.85], [0, 1.85]] }], k.n));
-  k.lathe('trim', [[0, 1.75], [1.45, 1.75], [1.45, 5.75], [0, 5.75]]);
+  k.add('pale', revolve([...foot.runs, { pts: [foot.top, [foot.top[0], 1.55], [2.1, 1.85], [0, 1.85]] }], k.n));
+  k.lathe('dark', [[0, 1.75], [1.45, 1.75], [1.45, 5.75], [0, 5.75]]);
   const ribs = k.lo ? 6 : 10;
   for (let i = 0; i < ribs; i++) k.add('trim', prism([[1.3, 1.95], [1.92, 2.3], [1.95, 5.25], [1.3, 5.6]], 0.5).rotateY((i * TAU) / ribs));
   k.lathe('chrome', [[1.4, 5.35], [2.45, 5.35], [2.7, 5.6], [2.7, 5.8], [2.45, 6.05], [1.4, 6.05], [1.4, 5.35]]);
@@ -503,23 +563,24 @@ function semiflat(k) {
   return k.finish();
 }
 
-// Wide Ball: broad pearl dome with a printed equator stripe, graphite
-// twelve-sided skirt, wide royal-blue notched flange.
+// Wide Ball: broad pearl dome with a printed equator stripe, royal-blue
+// twelve-sided skirt with white plates, wide blue notched flange.
 function wideball(k) {
   const R = k.b;
   const ball = contactRuns(0, R, null, k.arcSteps + 6, 5 * DEG);
-  k.add('body', revolve([...ball.runs, { pts: [ball.top, [0, ball.top[1]]] }], k.n));
+  k.add('pale', revolve([...ball.runs, { pts: [ball.top, [0, ball.top[1]]] }], k.n));
   k.band([0, 0], [R, R], 0.7, 0.93, { c: [0, R], off: 0.06 });
   const S0 = [5.1, 4.5], S1 = [6.9, 6.95];
-  k.add('dark', revolve([{ pts: [[R - 0.2, 4.15], [4.75, 4.15], S0, S1, [7.35, 7.3], [7.35, 7.75], [3.0, 7.75], [R - 0.2, 4.15]] }], 0, { facets: 12 }));
+  k.add('body', revolve([{ pts: [[R - 0.2, 4.15], [4.75, 4.15], S0, S1, [7.35, 7.3], [7.35, 7.75], [3.0, 7.75], [R - 0.2, 4.15]] }], 0, { facets: 12 }));
   k.plates('trim', 12, S0, S1, { t0: 0.12, t1: 0.9, every: 2, h: 0.2 });
   k.bolts('chrome', 6, S0, S1, 0.5, { facets: 12, every: 2, lift: 0.2, rad: 0.32, h: 0.26 });
   k.wideFlange({ y0: 7.7, notches: 4 });
   return k.finish();
 }
 
-// Bearing Spike: chrome spike on a visible bearing (clear drum, gold races,
-// ring of steel balls) that idles while the body spins; white housing.
+// Bearing Spike: chrome spike on a visible bearing (clear drum, gold races
+// and cage, ring of steel balls) that idles while the body spins; ice-silver
+// housing with gold plates, cyan flange.
 function bearing(k) {
   const y0 = 4.85, hn = segs(k.q, 22, 18, 12);
   const tip = contactRuns(0, k.b, [0.95, y0 - 0.35], k.arcSteps);
@@ -530,58 +591,63 @@ function bearing(k) {
     s.translate(0, (y0 + 1.0) * MM, 2.3 * MM);
     k.add('chrome', s.rotateY((i * TAU) / balls));
   }
-  // gold races above and below the balls, inside a clear drum
+  // gold races above and below the balls, a cage ring threaded through
+  // their equators, all inside a clear drum
   k.lathe('gold', [[1.2, y0 - 0.1], [2.9, y0 - 0.1], [3.15, y0 + 0.15], [3.15, y0 + 0.4], [1.2, y0 + 0.4], [1.2, y0 - 0.1]], { n: hn });
   k.lathe('gold', [[1.2, y0 + 1.6], [3.15, y0 + 1.6], [3.15, y0 + 1.85], [2.9, y0 + 2.1], [1.2, y0 + 2.1], [1.2, y0 + 1.6]], { n: hn });
+  if (!k.lo) k.lathe('gold', [[1.7, y0 + 0.86], [2.88, y0 + 0.86], [2.88, y0 + 1.14], [1.7, y0 + 1.14], [1.7, y0 + 0.86]], { n: hn });
   k.lathe('clear', [[3.0, y0 - 0.2], [3.25, y0 - 0.2], [3.55, y0 + 0.1], [3.55, y0 + 1.9], [3.25, y0 + 2.2], [3.0, y0 + 2.2], [3.0, y0 - 0.2]], { n: segs(k.q, 26, 20, 14) });
   const H = [[0, y0 + 2.15], [3.45, y0 + 2.15], [3.75, y0 + 2.45], [5.3, 9.0], [5.75, 9.3], [5.75, 9.6], [0, 9.6]];
   k.add('body', revolve([{ pts: H }], 0, { facets: 10 }));
   k.band(H[2], H[3], 0.06, 0.5, { facets: 10 });
   k.plates('gold', 10, H[2], H[3], { t0: 0.56, t1: 0.97, h: 0.2 });
-  k.flange({ y0: 9.6, r: 6.05, tabR: 6.7, tabBin: 'gold' });
+  k.flange({ y0: 9.6, r: 6.05, tabR: 6.7 });
   return k.finish(['chrome']);
 }
 
 // Grip Hold: dark rubber semi-flat ringed by sawtooth grip teeth, under a
-// red-orange hexagonal housing with rivets.
+// crimson hexagonal housing with amber plates and rivets, dark flange.
 function griphold(k) {
   const foot = contactRuns(k.fr, k.b, null, k.arcSteps, 0);
   k.add('rubber', revolve([...foot.runs, { pts: [foot.top, [foot.top[0], 2.05], [2.35, 2.35], [0, 2.35]] }], k.n));
   const teeth = k.lo ? 6 : 8;
   for (let i = 0; i < teeth; i++) k.add('rubber', prism([[2.25, 1.5], [2.85, 1.62], [3.3, 2.55], [3.3, 3.05], [2.45, 3.25]], 0.95, 0.55).rotateY((i * TAU) / teeth));
   const H = [[0, 2.95], [3.05, 2.95], [3.35, 3.25], [5.75, 6.95], [6.25, 7.3], ...notch(6.25, 7.72), [6.25, 8.15], [0, 8.15]];
-  k.add('trim', revolve([{ pts: H }], 0, { facets: 6 }));
+  k.add('body', revolve([{ pts: H }], 0, { facets: 6 }));
   k.band(H[2], H[3], 0.16, 0.58, { facets: 6 });
-  k.plates('dark', 6, H[2], H[3], { t0: 0.64, t1: 0.97, every: 1, fill: 0.6 });
+  k.plates('trim', 6, H[2], H[3], { t0: 0.64, t1: 0.97, every: 1, fill: 0.6 });
   k.bolts('chrome', 6, H[2], H[3], 0.8, { facets: 6, rad: 0.3, h: 0.24, sides: 8, lift: 0.22 });
   k.flange({ y0: 8.15, r: 6.6, tabR: 7.2, phase: TAU / 12 });
   return k.finish();
 }
 
-// Orbit Flat: wide white plastic flat with a violet orbit ring (three comet
-// knobs) idling around its waist, graphite wide flange.
+// Orbit Flat: wide white plastic flat under a violet cone, with a gold orbit
+// ring (three comet knobs) idling around its waist, white wide flange.
 function orbit(k) {
   const foot = contactRuns(k.fr, k.b, null, k.arcSteps, 0);
+  const ft = foot.top;
+  k.add('pale', revolve([...foot.runs, { pts: [ft, [ft[0], 1.25], [ft[0] - 0.3, 1.55], [3.25, 1.75], [0, 1.75]] }], k.n));
   const C0 = [3.6, 3.45], C1 = [5.7, 6.75];
-  k.add('body', revolve([...foot.runs, { pts: [foot.top, [foot.top[0], 1.25], [4.1, 1.55], [3.25, 1.75], [3.25, 3.15], C0, C1, [6.3, 7.1], ...notch(6.3, 7.42, 0.18, 0.11), [6.3, 7.75], [0, 7.75]] }], k.n));
+  k.add('body', revolve([{ pts: [[0, 1.65], [3.25, 1.65], [3.25, 3.15], C0, C1, [6.3, 7.1], ...notch(6.3, 7.42, 0.18, 0.11), [6.3, 7.75], [0, 7.75]] }], k.n));
   k.lathe('ring', [[3.35, 2.2], [5.0, 2.2], [5.35, 2.55], [5.35, 2.85], [5.05, 3.1], [3.35, 3.1], [3.35, 2.2]]);
   for (let i = 0; i < 3; i++) k.add('ring', prism([[4.0, 2.9], [5.0, 2.9], [4.8, 3.3], [4.0, 3.3]], 1.1).rotateY((i * TAU) / 3));
   k.band(C0, C1, 0.3, 0.7, { off: 0.07 });
   k.bolts('chrome', 6, C0, C1, 0.86, { phase: TAU / 12 });
-  k.wideFlange({ y0: 7.7, notches: 3, bin: 'dark' });
+  k.wideFlange({ y0: 7.7, notches: 3 });
   return k.finish(['ring']);
 }
 
-// Hybrid Spike: chrome spike centre inside a narrow magenta flat collar,
-// two-stage white housing split by a magenta mid ring.
+// Hybrid Spike: chrome spike centre inside a narrow graphite flat collar,
+// two-stage housing (magenta lower stage, graphite mid ring, white upper
+// stage with magenta plates), white flange.
 function hybrid(k) {
   const tip = contactRuns(k.fr, k.b, [2.0, 2.9], k.arcSteps);
   k.add('chrome', revolve([...tip.runs, { pts: [[2.0, 2.9], [2.0, 3.6], [0, 3.6]] }], k.n));
-  k.lathe('trim', [[1.45, 2.55], [2.6, 2.55], [3.0, 2.95], [3.0, 3.4], [2.7, 3.7], [1.45, 3.7], [1.45, 2.55]]);
+  k.lathe('dark', [[1.45, 2.55], [2.6, 2.55], [3.0, 2.95], [3.0, 3.4], [2.7, 3.7], [1.45, 3.7], [1.45, 2.55]]);
   const H1 = [[0, 3.6], [2.6, 3.6], [2.9, 3.9], [3.95, 5.95], [0, 5.95]];
-  k.add('body', revolve([{ pts: H1 }], 0, { facets: 8 }));
+  k.add('trim', revolve([{ pts: H1 }], 0, { facets: 8 }));
   k.band(H1[2], H1[3], 0.12, 0.88, { facets: 8 });
-  k.lathe('trim', [[3.5, 5.8], [4.15, 5.8], [4.45, 6.1], [4.45, 6.45], [4.2, 6.7], [3.5, 6.7], [3.5, 5.8]]);
+  k.lathe('dark', [[3.5, 5.8], [4.15, 5.8], [4.45, 6.1], [4.45, 6.45], [4.2, 6.7], [3.5, 6.7], [3.5, 5.8]]);
   const H2 = [[0, 6.6], [4.3, 6.6], [4.5, 6.8], [5.15, 7.95], [5.5, 8.2], ...notch(5.5, 8.62), [5.5, 9.05], [0, 9.05]];
   k.add('body', revolve([{ pts: H2 }], 0, { facets: 8, phase: TAU / 16 }));
   k.plates('trim', 8, H2[2], H2[3], { t0: 0.08, t1: 0.92, phase: TAU / 16, start: 1 });
@@ -630,19 +696,33 @@ function generic(k) {
 
 // ------------------------------------------------------------ looks
 
-// Signature colour, decal motif and tile count per design. Main fills come
-// from the part data; signature colours make each tip readable at a glance.
+// Colour blocking per design: housing (body), signature trim (sig), contact
+// plastic (pale, defaults to the part colour), band print colour (dc), and
+// the cap: which bins form the seating flange and its tabs, plus the emblem
+// badge / glyph colours. Each tip gets its own main hue and cap scheme so it
+// reads apart from the others from the side and from above.
+const W = '#f4f5f9', BADGE = '#1b1f2b';
 const LOOKS = {
-  tip_needle: { fn: needle, sig: '#ff2a48', motif: 'chevron', tiles: 8 },
-  tip_pivotball: { fn: pivotball, sig: '#12c7b2', motif: 'dots', tiles: 10 },
-  tip_flatstrike: { fn: flatstrike, sig: '#ff7a1a', motif: 'slash', tiles: 8 },
-  tip_rubberflat: { fn: rubberflat, sig: '#ffd21f', motif: 'hazard', tiles: 4, body: '#3c414c', bodyFinish: 'plastic' },
-  tip_semiflat: { fn: semiflat, sig: '#2fd46b', motif: 'dash', tiles: 8 },
-  tip_wideball: { fn: wideball, sig: '#2f68ff', motif: 'stars', tiles: 8 },
-  tip_bearing: { fn: bearing, sig: '#36d8ff', motif: 'ticks', tiles: 10 },
-  tip_griphold: { fn: griphold, sig: '#ff4d24', motif: 'claw', tiles: 6, dark: '#2b2523' },
-  tip_orbit: { fn: orbit, sig: '#9a5cff', motif: 'orbit', tiles: 6 },
-  tip_hybrid: { fn: hybrid, sig: '#ff2fa3', motif: 'diamond', tiles: 8 },
+  tip_needle: { fn: needle, body: W, sig: '#ff2a48', motif: 'chevron', tiles: 8,
+    cap: { flange: 'trim', tabs: 'body', badge: W, fg: '#ff2a48', ring: INKC, glyph: 'needle' } },
+  tip_pivotball: { fn: pivotball, body: '#2e3546', sig: '#12c7b2', motif: 'dots', tiles: 10,
+    cap: { flange: 'trim', tabs: 'body', badge: BADGE, fg: '#e9fffb', ring: '#12c7b2', glyph: 'ball' } },
+  tip_flatstrike: { fn: flatstrike, body: '#ff7a1a', sig: W, dc: '#ffffff', motif: 'slash', tiles: 8,
+    cap: { flange: 'trim', tabs: 'body', badge: '#ff7a1a', fg: '#ffffff', ring: INKC, glyph: 'bolt' } },
+  tip_rubberflat: { fn: rubberflat, body: '#3a404c', bodyFinish: 'plastic', sig: '#ffd21f', rubber: '#2a2d35', motif: 'hazard', tiles: 4,
+    cap: { flange: 'trim', tabs: 'body', badge: BADGE, fg: '#ffd21f', ring: '#ffd21f', glyph: 'tread' } },
+  tip_semiflat: { fn: semiflat, body: '#22c45e', sig: W, dc: '#ffffff', motif: 'dash', tiles: 8,
+    cap: { flange: 'body', tabs: 'trim', badge: W, fg: '#17a34d', ring: INKC, glyph: 'semi' } },
+  tip_wideball: { fn: wideball, body: '#2b5cff', sig: W, dc: '#2b5cff', motif: 'stars', tiles: 8,
+    cap: { flange: 'body', badge: W, fg: '#2b5cff', ring: INKC, glyph: 'star' } },
+  tip_bearing: { fn: bearing, body: '#cfd8e6', sig: '#36d8ff', motif: 'ticks', tiles: 10,
+    cap: { flange: 'trim', tabs: 'gold', badge: BADGE, fg: '#36d8ff', ring: '#f0b43a', glyph: 'bearing' } },
+  tip_griphold: { fn: griphold, body: '#d42038', sig: '#ffb21e', rubber: '#3a3332', dark: '#2b2523', motif: 'claw', tiles: 6,
+    cap: { flange: 'dark', tabs: 'trim', badge: '#ffb21e', fg: '#2b2523', ring: INKC, glyph: 'claw' } },
+  tip_orbit: { fn: orbit, body: '#7a4dff', sig: W, ringC: '#ffc23a', dc: '#ffc23a', motif: 'orbit', tiles: 6,
+    cap: { flange: 'trim', badge: '#7a4dff', fg: '#ffffff', ring: INKC, glyph: 'orbit' } },
+  tip_hybrid: { fn: hybrid, body: W, sig: '#ff2fa3', dc: '#ffffff', motif: 'diamond', tiles: 8,
+    cap: { flange: 'body', tabs: 'trim', badge: '#ff2fa3', fg: '#ffffff', ring: INKC, glyph: 'hybrid' } },
 };
 
 function codeFor(name = '') {
@@ -655,13 +735,17 @@ export function buildTip(part, ctx) {
   let look;
   if (known) look = { ...known };
   else {
-    // fallback look: hue from the id, motif from the wear type
+    // fallback look: signature hue from the id, motif and glyph from the
+    // wear type, housing in the part colour
     let h = 0;
     for (const ch of part.id || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     const c = new THREE.Color().setHSL((h % 360) / 360, 0.85, 0.55);
-    look = { fn: generic, sig: '#' + c.getHexString(), motif: { rubber: 'hazard', flat: 'slash', ball: 'dots' }[part.wear] || 'chevron', tiles: 8 };
+    const sig = '#' + c.getHexString();
+    look = { fn: generic, sig, motif: { rubber: 'hazard', flat: 'slash', ball: 'dots' }[part.wear] || 'chevron', tiles: 8,
+      cap: { flange: 'trim', tabs: 'dark', badge: BADGE, fg: '#ffffff', ring: sig, glyph: { rubber: 'tread', flat: 'semi', ball: 'ball', sharp: 'needle' }[part.wear] || 'chevron' } };
   }
   look.body = look.body || part.color || '#eeeeee';
+  look.pale = look.pale || part.color || '#f2f2f2';
   look.code = codeFor(part.name);
   return look.fn(new TipKit(part, ctx, look));
 }
