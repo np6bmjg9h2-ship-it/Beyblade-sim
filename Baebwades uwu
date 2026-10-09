@@ -1,0 +1,7 @@
+echo "# Beyblade-sim" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/np6bmjg9h2-ship-it/Beyblade-sim.git
+git push -u origin main
