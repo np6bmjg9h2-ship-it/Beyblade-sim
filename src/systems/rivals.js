@@ -75,11 +75,12 @@ export function measureHabits(result, hi, arenaRadius = 0.21) {
     if (Math.hypot(me1.x, me1.z) > 0.7 * arenaRadius) edge++;
     const dx = me1.x - me0.x, dz = me1.z - me0.z;
     const step = Math.hypot(dx, dz);
-    if (step < 0.004) continue; // < 4 cm/s: drifting, not moving with intent
-    moving++;
+    if (step < 0.008) continue; // < 8 cm/s: drifting, not moving with intent
     const ox = op1.x - me1.x, oz = op1.z - me1.z;
     const od = Math.hypot(ox, oz);
-    if (od > 1e-4 && (dx * ox + dz * oz) / (step * od) > 0.5) approach++;
+    if (od < 0.07) continue; // already in contact range: shuffling, not approaching
+    moving++;
+    if ((dx * ox + dz * oz) / (step * od) > 0.5) approach++;
   }
   const minutes = Math.max(0.25, result.rounds.reduce((s, r) => s + r.time, 0) / 60);
   const launches = st.launches || [];

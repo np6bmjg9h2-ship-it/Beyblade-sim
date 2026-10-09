@@ -24,6 +24,9 @@ function behaviour(ai, seeds = [11, 12, 13, 14, 15]) {
     const battle = new Battle({ arenaId: 'standard', format: 'single', seed, participants: [a, b], roundTime: 40, rules: { slowmo: false, abilities: false } });
     const r = battle.runHeadless(200);
     const m = measureHabits(r, 0, battle.arena.radius);
+    const pt = battle.fighters[0].controller.planTime || {};
+    const total = Object.values(pt).reduce((x, y) => x + y, 0) || 1;
+    acc.offense = (acc.offense || 0) + ((pt.attack || 0) + (pt.koPush || 0)) / total / seeds.length;
     acc.aggression += m.aggression / seeds.length;
     acc.edge += m.edge / seeds.length;
     acc.dashes += r.fighters[0].stats.dashes / seeds.length;
@@ -37,10 +40,11 @@ test('AI personalities produce measurably different behaviour with identical equ
   const agg = behaviour('aggressive');
   const end = behaviour('endurance');
   const def = behaviour('defensive');
-  assert.ok(agg.aggression > end.aggression + 0.05, `aggressive closes in more (${agg.aggression.toFixed(2)} vs ${end.aggression.toFixed(2)})`);
+  assert.ok(agg.offense > end.offense + 0.25, `aggressive spends more time attacking (${agg.offense.toFixed(2)} vs ${end.offense.toFixed(2)})`);
+  assert.ok(def.offense < agg.offense, 'defensive attacks less than aggressive');
   assert.ok(agg.dashes > end.dashes, `aggressive dashes more (${agg.dashes} vs ${end.dashes})`);
   assert.ok(end.control < agg.control, `endurance spends less spin on steering (${end.control.toFixed(4)} vs ${agg.control.toFixed(4)} J/s)`);
-  assert.ok(def.aggression < agg.aggression, 'defensive approaches less than aggressive');
+
 });
 
 test('difficulty scales skill parameters only — never physics', () => {

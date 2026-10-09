@@ -172,6 +172,9 @@ export class App {
   // ------------------------------------------------------------ frame loop
 
   frame(t) {
+    // optional frame-rate cap (the simulation step is fixed regardless)
+    const cap = this.settings.graphics.fpsCap;
+    if (cap && this.last && t - this.last < 1000 / cap - 2) { requestAnimationFrame((tt) => this.frame(tt)); return; }
     const dt = Math.min(0.1, this.last ? (t - this.last) / 1000 : 1 / 60);
     this.last = t;
     try {

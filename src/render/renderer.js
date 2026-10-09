@@ -58,8 +58,8 @@ export class GameRenderer {
 
   applyQuality() {
     const q = this.settings.quality;
-    const dpr = Math.min(window.devicePixelRatio || 1, q === 'high' ? 2 : q === 'medium' ? 1.5 : 1);
-    this.renderer.setPixelRatio(dpr);
+    const dpr = Math.min(window.devicePixelRatio || 1, q === 'high' ? 2 : q === 'medium' ? 1.5 : 1) * (this.settings.renderScale || 1);
+    this.renderer.setPixelRatio(Math.max(0.35, dpr));
     this.renderer.shadowMap.enabled = !!this.settings.shadows && q !== 'low';
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     if (this.key) {

@@ -250,11 +250,13 @@ export class TournamentHubScreen {
     this.off = this.app.tournaments.on('result', () => { if (this.ui.current === this) this.ui.refresh(this); else this.dirty = true; });
     this.app.tournaments.kick();
     this.tick = 0;
+    this.app.audio.playMusic('tournament');
   }
   onExit() { this.off?.(); }
   onResume() {
     const t = this.t;
     if (!t) { this.ui.pop(); return; }
+    this.app.audio.playMusic('tournament');
     this.ui.refresh(this);
   }
 

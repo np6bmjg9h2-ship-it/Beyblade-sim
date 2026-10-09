@@ -11,7 +11,7 @@
     "serve": "node tools/serve.js",
     "test": "node --test tests/*.test.js",
     "test:browser": "node tools/build.js && node tests/browser/run.js",
-    "balance": "node tools/balance.js"
+    "balance": "node tools/balance-par.js"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

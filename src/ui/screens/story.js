@@ -32,9 +32,10 @@ export class StoryScreen {
 
   get P() { return this.app.profile; }
 
-  onEnter() { this.app.audio.playMusic('menu'); }
+  onEnter() { this.app.audio.playMusic('story'); }
 
   onResume() {
+    this.app.audio.playMusic('story');
     if (this.busy) return;
     this.ui.refresh(this);
     // a story tournament just finished (ceremony closed)

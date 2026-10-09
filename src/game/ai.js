@@ -131,6 +131,21 @@ export class AIController {
     const mySpin = me.top.spinFraction();
     const oppSpin = snap.opp.spinFrac;
 
+    // contact awareness: compare how much spin each side lost around recent
+    // collisions (HUD-visible spin fractions); positive = contacts hurt me
+    if (me.stats.impacts !== this.lastImpacts) {
+      if (!this.contactWatch) this.contactWatch = { t: time, my: mySpin, opp: oppSpin };
+      this.lastImpacts = me.stats.impacts;
+    }
+    if (this.contactWatch && time - this.contactWatch.t > 0.6) {
+      const d = (this.contactWatch.my - mySpin) - (this.contactWatch.opp - oppSpin);
+      this.exchange = (this.exchange ?? 0) * 0.65 + d * 0.35;
+      this.contactWatch = null;
+    }
+
+    this.planTime = this.planTime || {};
+    this.planTime[this.plan] = (this.planTime[this.plan] || 0) + dt;
+
     if (time >= this.nextDecision) {
       this.nextDecision = time + P.decisionInterval * this.rng.range(0.8, 1.2);
       this.decide({ dist, closing, myR, oppR, mySpin, oppSpin, snap, me, arena, ability, oppAbility });
@@ -161,7 +176,16 @@ export class AIController {
         break;
       }
       case 'recover': T.set(-myP.x, 0, -myP.z); break;
-      case 'center': T.set(-myP.x, 0, -myP.z); if (Math.hypot(myP.x, myP.z) < 0.025) T.set(0, 0, 0); break;
+      case 'center': {
+        // if the opponent already holds the centre, settle just beside it
+        // instead of grinding into it
+        const oR = Math.hypot(oP.x, oP.z);
+        let cx = 0, cz = 0;
+        if (oR < 0.06) { const ux = oR > 1e-3 ? oP.x / oR : 1, uz = oR > 1e-3 ? oP.z / oR : 0; cx = oP.x - ux * 0.075; cz = oP.z - uz * 0.075; }
+        T.set(cx - myP.x, 0, cz - myP.z);
+        if (Math.hypot(cx - myP.x, cz - myP.z) < 0.02) T.set(0, 0, 0);
+        break;
+      }
       case 'circle': {
         const r = Math.max(1e-3, Math.hypot(myP.x, myP.z));
         T.set(-myP.z / r * -me.top.spinDir, 0, myP.x / r * -me.top.spinDir);
@@ -224,6 +248,12 @@ export class AIController {
     const edgeLine = 0.78 - 0.18 * danger;
     u.recover = predR > edgeLine ? P.edgeCaution * 1.6 + (predR - edgeLine) * 3 : 0;
     u.circle = P.aggression > 0.4 && P.aggression < 0.85 ? 0.25 : 0;
+    // contacts that cost more spin than they take: back off (less so for brawlers)
+    const bad = clamp((this.exchange || 0) * 18, 0, 1);
+    if (bad > 0) {
+      u.attack *= 1 - bad * (1 - 0.6 * P.aggression);
+      u.evade += bad * 0.6 * (1 - P.aggression);
+    }
     // late battle: whoever is ahead on spin plays safe
     if (spinLead > 0.15 && mySpin < 0.35) { u.evade += 0.4; u.attack *= 0.6; }
     // hysteresis

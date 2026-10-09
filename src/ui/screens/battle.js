@@ -74,7 +74,7 @@ export class BattleScreen {
     app.renderer.setArena(ARENA_INDEX[s.arenaId]);
     app.renderer.settings.debug = s.debugOverlay ?? !!app.settings.graphics.debugOverlay;
     this.telemetry = s.telemetry ?? !!app.settings.gameplay.telemetry;
-    app.audio.playMusic('battle');
+    app.audio.playMusic(s.music || (s.isFinal ? 'final' : s.mode === 'lab' || s.mode === 'training' ? 'lab' : 'battle'));
     app.audio.crowdAmbience(true);
     app.input.context = 'battle';
     this.startBattle();

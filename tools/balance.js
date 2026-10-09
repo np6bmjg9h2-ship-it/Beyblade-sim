@@ -10,7 +10,7 @@ export const REFERENCE_BUILDS = {
   attack: { ai: 'aggressive', parts: { ring: 'ring_galefang', core: 'core_helix', disc: 'disc_ten', lock: 'lock_click3', tip: 'tip_flatstrike' } },
   defense: { ai: 'defensive', parts: { ring: 'ring_bastion', core: 'core_quad', disc: 'disc_heavyring', lock: 'lock_ironclasp', tip: 'tip_pivotball' } },
   stamina: { ai: 'endurance', parts: { ring: 'ring_tidalhalo', core: 'core_helix', disc: 'disc_heavyring', lock: 'lock_click3', tip: 'tip_needle' } },
-  balance: { ai: 'balanced', parts: { ring: 'ring_cometarc', core: 'core_helix', disc: 'disc_ten', lock: 'lock_click3', tip: 'tip_semiflat' } },
+  balance: { ai: 'balanced', parts: { ring: 'ring_cometarc', core: 'core_helix', disc: 'disc_heavyring', lock: 'lock_click3', tip: 'tip_semiflat' } },
   burst: { ai: 'risky', parts: { ring: 'ring_rifttalon', core: 'core_helix', disc: 'disc_feather', lock: 'lock_click3', tip: 'tip_rubberflat' } },
 };
 

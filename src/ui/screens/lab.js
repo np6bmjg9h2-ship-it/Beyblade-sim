@@ -38,6 +38,9 @@ export class PracticeLabScreen {
 
   get P() { return this.app.profile; }
 
+  onEnter() { this.app.audio.playMusic('lab'); }
+  onResume() { this.app.audio.playMusic('lab'); this.ui.refresh(this); }
+
   render() {
     const P = this.P;
     if (this.cfg.a == null) this.cfg.a = 'loadout:' + P.activeLoadout;

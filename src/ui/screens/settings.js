@@ -40,6 +40,8 @@ export class SettingsScreen {
       case 'graphics':
         rows.append(
           selector('Quality', [{ value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }], S.graphics.quality, (v) => { S.graphics.quality = v; commit(); }, { desc: 'Resolution scale, crowd, particle budgets and shadow resolution.' }),
+          selector('Render resolution', [1, 0.85, 0.7, 0.5].map((v) => ({ value: v, label: `${Math.round(v * 100)}%` })), S.graphics.renderScale ?? 1, (v) => { S.graphics.renderScale = v; commit(); }, { id: 'gfx-scale', desc: 'Renders the 3D scene at a lower resolution for speed on slower machines. The interface stays sharp.' }),
+          selector('Frame rate cap', [{ value: 0, label: 'Unlimited (display)' }, { value: 60, label: '60 fps' }, { value: 30, label: '30 fps' }], S.graphics.fpsCap ?? 0, (v) => { S.graphics.fpsCap = v; commit(); }, { id: 'gfx-fps', desc: 'Caps rendering to save power. The physics always runs at a fixed 120 Hz step either way.' }),
           toggle('Shadows', S.graphics.shadows, (v) => { S.graphics.shadows = v; commit(); }),
           toggle('Reduced effects', S.graphics.reducedEffects, (v) => { S.graphics.reducedEffects = v; commit(); }, { desc: 'Fewer particles, no spin trails, lighter flashes.' }),
           toggle('Show FPS', S.graphics.showFps, (v) => { S.graphics.showFps = v; commit(); }),

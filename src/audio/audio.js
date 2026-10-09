@@ -259,7 +259,10 @@ export class AudioEngine {
     const tracks = {
       menu: { bpm: 84, prog: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 55, 59]], arp: true, bass: true, lead: false },
       battle: { bpm: 132, prog: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]], arp: true, bass: true, lead: true },
-      story: { bpm: 72, prog: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], arp: true, bass: false, lead: false },
+      story: { bpm: 72, prog: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], arp: true, bass: false, lead: false, melody: [0, -1, 2, -1, 4, -1, 2, 1] },
+      tournament: { bpm: 118, prog: [[52, 55, 59], [48, 52, 55], [50, 53, 57], [47, 50, 54]], arp: true, bass: true, lead: true, melody: [0, 2, 4, -1, 4, 2, 0, -1] },
+      final: { bpm: 144, prog: [[45, 48, 52], [41, 45, 48], [43, 47, 50], [40, 44, 47]], arp: true, bass: true, lead: true, melody: [2, -1, 4, 2, 0, -1, 4, 5], snare: true },
+      lab: { bpm: 96, prog: [[55, 59, 62], [57, 60, 64], [52, 55, 59], [53, 57, 60]], arp: true, bass: false, lead: false },
     };
     const tr = tracks[kind];
     if (!tr) return;
@@ -293,9 +296,25 @@ export class AudioEngine {
     if (tr.bass && step % 2 === 0) note(chord[0] - 12, spb * 1.8, 'sawtooth', 0.045);
     if (step % 8 === 0) for (const m of chord) note(m, spb * 7.5, 'sine', 0.025);
     if (tr.lead && step % 16 === 6) note(chord[2] + 24, spb * 3, 'square', 0.025);
-    if (tr.bpm > 100 && step % 2 === 0) {
-      // percussion: kick on beats, hat offbeats
+    // melodic motif over the chord (scale degrees; -1 = rest), every other bar
+    if (tr.melody && step % 2 === 0 && Math.floor(step / 8) % 2 === 1) {
+      const deg = tr.melody[(step / 2) % tr.melody.length];
+      if (deg >= 0) { const scale = [0, 2, 3, 5, 7, 8, 10]; note(chord[0] + 12 + scale[deg % 7], spb * 1.6, 'triangle', 0.035); }
+    }
+    if (tr.bpm > 100) {
+      const noise = (dur, gain, hp) => {
+        const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        const src = c.createBufferSource(); src.buffer = buf;
+        const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+        const g = c.createGain(); g.gain.value = gain;
+        src.connect(f); f.connect(g); g.connect(this.mus); src.start(t);
+      };
+      // percussion: kick on beats, hats on offbeats, snare on 2 and 4 (finals)
       if (step % 4 === 0) { const o = c.createOscillator(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); const g = c.createGain(); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15); o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + 0.2); }
+      if (step % 2 === 1) noise(0.04, 0.03, 7000);
+      if (tr.snare && step % 8 === 4) noise(0.12, 0.06, 1500);
     }
   }
 

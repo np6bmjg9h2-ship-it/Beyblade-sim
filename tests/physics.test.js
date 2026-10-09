@@ -206,7 +206,8 @@ test('part changes produce measurable, explainable physical differences', () => 
   };
   const sharp = tipRun('tip_needle');
   const flat = tipRun('tip_flatstrike');
-  assert.ok(sharp.t > flat.t * 2, `needle outlasts flat (${sharp.t.toFixed(1)} s vs ${flat.t.toFixed(1)} s)`);
+  // (balance pass: the flat tip drains less than it used to, but a needle still lasts far longer)
+  assert.ok(sharp.t > flat.t * 1.6, `needle outlasts flat (${sharp.t.toFixed(1)} s vs ${flat.t.toFixed(1)} s)`);
   assert.ok(flat.perSec > sharp.perSec * 3, `flat tip moves more (${flat.perSec.toFixed(2)} vs ${sharp.perSec.toFixed(2)} m/s)`);
   // offset core moves the centre of mass off the axis
   const offset = specFromParts({ ...BUILDS.balance, core: 'core_lunar' });

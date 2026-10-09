@@ -24,8 +24,8 @@ const MAX_SPIN = 1600; // rad/s safety clamp
 const REST_THRESHOLD = 0.08; // m/s approach speed needed for restitution
 const SLOP = 0.00015; // m allowed penetration
 const STEER_BASE = 0.28; // fraction of weight available as steering force
-const STEER_IDLE_COST = 0.08; // m/s equivalent drain while steering
-const STEER_EFF = 0.55; // conversion efficiency spin -> linear work
+const STEER_IDLE_COST = 0.03; // m/s equivalent drain while steering
+const STEER_EFF = 0.62; // conversion efficiency spin -> linear work
 const BASE_NUTATION_DAMPING = 2; // 1/s intrinsic material damping
 // Velocity-weakening friction for ring/wall contacts: polymer and metal
 // contacts lose friction at high sliding speed (flash heating), so
