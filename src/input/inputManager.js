@@ -33,7 +33,7 @@ export class InputManager extends Emitter {
     this.bindings = opts.bindings || buildBindings(this.settings.preset);
     this.context = 'menu';
     this.keysDown = new Set();
-    this.keysPressedQ = new Set();
+    this.keysPressedQ = new Map(); // code -> presses since last poll
     this.keysReleasedQ = new Set();
     this.state = {}; // ctx -> action -> { v, prev }
     this.padPrev = new Map(); // pad index -> buttons values
@@ -41,7 +41,7 @@ export class InputManager extends Emitter {
     this.lastDevice = { type: 'keyboard', padType: 'generic' };
     this.capture = null;
     this.navTimers = {};
-    this.navFired = new Set();
+    this.navFired = new Map(); // dir -> count this frame
     this.enabled = true;
     this.textEntry = false;
     this.lastPadId = '';
@@ -87,17 +87,16 @@ export class InputManager extends Emitter {
   onKeyDown(e) {
     const tag = e.target?.tagName;
     const typing = this.textEntry || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-    if (this.capture && this.capture.kind !== 'pad') {
-      if (e.code !== 'Escape') {
-        e.preventDefault();
-        const cap = this.capture; this.capture = null;
-        cap.resolve({ key: e.code });
-        return;
-      }
+    if (this.capture) {
+      e.preventDefault();
+      const cap = this.capture; this.capture = null;
+      if (e.code === 'Escape' || cap.kind === 'pad' || cap.kind === 'axis') cap.resolve(null);
+      else cap.resolve({ key: e.code });
+      return;
     }
     if (typing) return;
     if (['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', 'PageUp', 'PageDown'].includes(e.code)) e.preventDefault();
-    if (!this.keysDown.has(e.code)) this.keysPressedQ.add(e.code);
+    if (!this.keysDown.has(e.code)) this.keysPressedQ.set(e.code, (this.keysPressedQ.get(e.code) || 0) + 1);
     this.keysDown.add(e.code);
     this.setDevice('keyboard');
   }
@@ -171,9 +170,10 @@ export class InputManager extends Emitter {
       for (let i = 0; i < cur.length; i++) {
         if (cur[i] > 0.5 && !(prev[i] > 0.5)) {
           active = true;
-          if (this.capture && this.capture.kind !== 'key') {
+          if (this.capture) {
             const cap = this.capture; this.capture = null;
-            cap.resolve({ button: i });
+            // Start/Menu cancels a capture; a keyboard capture is cancelled by any pad button
+            cap.resolve(i === 9 || cap.kind === 'key' ? null : { button: i });
           }
         }
       }
@@ -197,10 +197,11 @@ export class InputManager extends Emitter {
         const st = cs[action] || (cs[action] = { v: 0, prev: 0, pressedKey: false, releasedKey: false });
         st.prev = st.v;
         st.v = this.enabled ? this.evaluate(bind, pads) : 0;
-        st.pressedKey = false; st.releasedKey = false;
+        st.pressedKey = false; st.releasedKey = false; st.pressCount = 0;
         const keys = bind.axis ? [...(bind.neg || []), ...(bind.pos || [])] : (bind.keys || []);
         for (const kc of keys) {
-          if (this.keysPressedQ.has(kc)) st.pressedKey = true;
+          const n = this.keysPressedQ.get(kc) || 0;
+          if (n) { st.pressedKey = true; st.pressCount += n; }
           if (this.keysReleasedQ.has(kc)) st.releasedKey = true;
         }
       }
@@ -240,16 +241,18 @@ export class InputManager extends Emitter {
     for (const d of NAV_DIRS) {
       const st = cs[d];
       if (!st) continue;
+      // fresh key presses since the last poll always navigate (even several per frame)
+      if (st.pressedKey) { this.navFired.set(d, st.pressCount); this.navTimers[d] = st.v > 0.5 ? 0 : null; continue; }
       if (st.v > 0.5) {
         const t = this.navTimers[d];
-        if (t == null) { this.navTimers[d] = 0; this.navFired.add(d); }
+        if (t == null) { this.navTimers[d] = 0; this.navFired.set(d, Math.max(1, st.pressCount)); }
         else {
           const nt = t + dt;
           this.navTimers[d] = nt;
           if (nt > REPEAT_DELAY) {
             const before = Math.floor((t - REPEAT_DELAY) / REPEAT_RATE);
             const after = Math.floor((nt - REPEAT_DELAY) / REPEAT_RATE);
-            if (after > before || t <= REPEAT_DELAY) this.navFired.add(d);
+            if (after > before || t <= REPEAT_DELAY) this.navFired.set(d, 1);
           }
         }
       } else this.navTimers[d] = null;
@@ -271,7 +274,7 @@ export class InputManager extends Emitter {
     if (!s) return false;
     return (s.v <= 0.5 && s.prev > 0.5) || (s.releasedKey && s.v <= 0.5);
   }
-  nav(dir) { return this.navFired.has('nav_' + dir); }
+  nav(dir) { return this.navFired.get('nav_' + dir) || 0; }
   consume(action, ctx) {
     const s = this._st(action, ctx);
     if (s) { s.prev = s.v; s.pressedKey = false; }

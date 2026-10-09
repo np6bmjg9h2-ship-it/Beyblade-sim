@@ -37,11 +37,11 @@ const MAX_ROUNDS = 9;
 
 // Durability tuning: points (of 100) lost per event
 const WEAR = {
-  impactK: 22, impactJ0: 0.025, // ring damage per N*s above J0
-  wallK: 10, wallJ0: 0.04,
-  clickLock: 1.4, burstLock: 4.5, burstRing: 1.5,
-  tipPerMeter: 0.05, tipPerSecond: 0.012,
-  scrapePerSecond: 0.4,
+  impactK: 6, impactJ0: 0.04, // ring damage per N*s above J0
+  wallK: 4, wallJ0: 0.05,
+  clickLock: 0.8, burstLock: 3.0, burstRing: 1.0,
+  tipPerMeter: 0.03, tipPerSecond: 0.006,
+  scrapePerSecond: 0.3,
 };
 
 class Fighter {

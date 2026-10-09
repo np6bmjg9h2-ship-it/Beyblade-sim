@@ -13,7 +13,7 @@ export const ARENAS = [
     wall: { height: 0.046, restitution: 0.55, friction: 0.175, lean: 0.12, openings: [{ angle: 90, width: 22, lipHeight: 0.002 }, { angle: 210, width: 22, lipHeight: 0.002 }, { angle: 330, width: 22, lipHeight: 0.002 }] },
     surface: { friction: 1.0, restitution: 0.2, tag: 'standard' },
     bands: [],
-    theme: { floor: '#1d2a3c', floorEdge: '#2f4766', wall: '#5a7699', accent: '#4fc3ff', sky: '#0a1020', fog: '#0a1020', ring: '#2c3e57' },
+    theme: { floor: '#3a5578', floorEdge: '#1f3352', wall: '#6f93c2', accent: '#4fc3ff', sky: '#0a1020', fog: '#0a1020', ring: '#2c3e57' },
   },
   {
     id: 'vortex', name: 'Vortex Bowl', unlock: 'story:ch1_qualifier',
@@ -24,7 +24,7 @@ export const ARENAS = [
     wall: { height: 0.05, restitution: 0.5, friction: 0.15, lean: 0.18, openings: [] },
     surface: { friction: 0.9, restitution: 0.2, tag: 'smooth' },
     bands: [{ r0: 0.13, r1: 0.16, friction: 2.2, tag: 'rail' }],
-    theme: { floor: '#1b1636', floorEdge: '#3a2a6b', wall: '#6d55c9', accent: '#b68cff', sky: '#0b0818', fog: '#0b0818', ring: '#ffb94d' },
+    theme: { floor: '#3b3070', floorEdge: '#251a4f', wall: '#7d66d9', accent: '#b68cff', sky: '#0b0818', fog: '#0b0818', ring: '#ffb94d' },
   },
   {
     id: 'edgebreaker', name: 'Edgebreaker Arena', unlock: 'story:ch2_edge',
@@ -35,7 +35,7 @@ export const ARENAS = [
     wall: { height: 0.02, restitution: 0.55, friction: 0.175, lean: 0.1, openings: [{ angle: 0, width: 34, lipHeight: 0 }, { angle: 120, width: 34, lipHeight: 0 }, { angle: 240, width: 34, lipHeight: 0 }] },
     surface: { friction: 1.05, restitution: 0.2, tag: 'standard' },
     bands: [{ r0: 0.165, r1: 0.22, friction: 0.6, tag: 'slick' }],
-    theme: { floor: '#2b1b14', floorEdge: '#5c2f1b', wall: '#c2572b', accent: '#ff7a3d', sky: '#120804', fog: '#120804', ring: '#ffdd55' },
+    theme: { floor: '#5a3a28', floorEdge: '#3a2216', wall: '#c2572b', accent: '#ff7a3d', sky: '#120804', fog: '#120804', ring: '#ffdd55' },
   },
   {
     id: 'crystal', name: 'Crystal Rink', unlock: 'story:ch2_crystal',
@@ -46,7 +46,7 @@ export const ARENAS = [
     wall: { height: 0.042, restitution: 0.6, friction: 0.11, lean: 0.12, openings: [] },
     surface: { friction: 0.55, restitution: 0.25, tag: 'ice', spinDrag: 0.85 },
     bands: [],
-    theme: { floor: '#163040', floorEdge: '#2c6d8a', wall: '#a8e8ff', accent: '#bff6ff', sky: '#06121a', fog: '#06121a', ring: '#e6fbff' },
+    theme: { floor: '#3f7a96', floorEdge: '#24526b', wall: '#a8e8ff', accent: '#bff6ff', sky: '#06121a', fog: '#06121a', ring: '#e6fbff' },
   },
   {
     id: 'magma', name: 'Magma Crater', unlock: 'story:ch3_crater',
@@ -57,7 +57,7 @@ export const ARENAS = [
     wall: { height: 0.044, restitution: 0.5, friction: 0.225, lean: 0.12, openings: [{ angle: 45, width: 20, lipHeight: 0.003 }, { angle: 225, width: 20, lipHeight: 0.003 }] },
     surface: { friction: 1.35, restitution: 0.18, tag: 'rough', spinDrag: 1.15 },
     bands: [],
-    theme: { floor: '#2a0f0a', floorEdge: '#5a1a0c', wall: '#ff5a1f', accent: '#ff8c3a', sky: '#120302', fog: '#1a0502', ring: '#ffb347' },
+    theme: { floor: '#4a2418', floorEdge: '#5a1a0c', wall: '#ff5a1f', accent: '#ff8c3a', sky: '#120302', fog: '#1a0502', ring: '#ffb347' },
   },
   {
     id: 'skyfall', name: 'Skyfall Plateau', unlock: 'story:ch4_skyfall',
@@ -68,7 +68,7 @@ export const ARENAS = [
     wall: { height: 0.012, restitution: 0.5, friction: 0.175, lean: 0.05, openings: [{ angle: 45, width: 40, lipHeight: 0 }, { angle: 135, width: 40, lipHeight: 0 }, { angle: 225, width: 40, lipHeight: 0 }, { angle: 315, width: 40, lipHeight: 0 }] },
     surface: { friction: 1.0, restitution: 0.2, tag: 'standard' },
     bands: [],
-    theme: { floor: '#203048', floorEdge: '#4d6f9a', wall: '#dfe9ff', accent: '#9fd0ff', sky: '#8fb4e0', fog: '#a9c4e6', ring: '#ffffff' },
+    theme: { floor: '#4d6f9a', floorEdge: '#2e4a70', wall: '#dfe9ff', accent: '#9fd0ff', sky: '#8fb4e0', fog: '#a9c4e6', ring: '#ffffff' },
   },
   {
     id: 'zero', name: 'Arena Zero', unlock: 'story:ch6_zero',
@@ -79,7 +79,7 @@ export const ARENAS = [
     wall: { height: 0.044, restitution: 0.55, friction: 0.165, lean: 0.14, openings: [{ angle: 30, width: 14, lipHeight: 0.002 }, { angle: 150, width: 14, lipHeight: 0.002 }, { angle: 270, width: 14, lipHeight: 0.002 }] },
     surface: { friction: 1.0, restitution: 0.2, tag: 'standard' },
     bands: [{ r0: 0.09, r1: 0.11, friction: 1.8, tag: 'rail' }, { r0: 0.17, r1: 0.2, friction: 0.55, tag: 'slick' }],
-    theme: { floor: '#0c0c14', floorEdge: '#26264a', wall: '#7a7aff', accent: '#3df5e1', sky: '#020208', fog: '#03030c', ring: '#3df5e1' },
+    theme: { floor: '#24244a', floorEdge: '#12122a', wall: '#7a7aff', accent: '#3df5e1', sky: '#020208', fog: '#03030c', ring: '#3df5e1' },
   },
 ];
 

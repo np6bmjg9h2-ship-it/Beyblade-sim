@@ -21,7 +21,7 @@ export const ACTION_LABELS = {
   },
   battle: {
     steer_x: 'Steer (X)', steer_y: 'Steer (Y)', cam_x: 'Camera (X)', cam_y: 'Camera (Y)',
-    ability1: 'Signature ability', ability2: 'Secondary ability', tactical1: 'Tactical: Brace', tactical2: 'Tactical: Focus charge',
+    ability1: 'Signature ability', ability2: 'Secondary ability', tactical1: 'Spirit Guard (LB+RB: Ultimate)', tactical2: 'Spirit Surge (LB+RB: Ultimate)', ultimate: 'Ultimate (keyboard)',
     dash: 'Dash', brace: 'Grip brace', counter: 'Counter stance', focus: 'Cycle camera',
     cmd_up: 'Quick: hold centre', cmd_down: 'Quick: evade', cmd_left: 'Quick: circle left', cmd_right: 'Quick: circle right',
     pause: 'Pause', telemetry: 'Telemetry',
@@ -74,6 +74,7 @@ function base() {
       ability2: { keys: ['KeyI', 'KeyG'], pad: b(6) },
       tactical1: { keys: ['KeyQ'], pad: b(4) },
       tactical2: { keys: ['KeyE'], pad: b(5) },
+      ultimate: { keys: ['KeyR', 'KeyV'], pad: [] },
       dash: { keys: ['Space', 'KeyJ'], pad: b(0) },
       brace: { keys: ['KeyK', 'ShiftLeft'], pad: b(1) },
       counter: { keys: ['KeyL'], pad: b(2) },

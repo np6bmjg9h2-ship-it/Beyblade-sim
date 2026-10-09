@@ -68,8 +68,8 @@ export class AbilityRuntime {
     if (!top.active) return { ok: false, reason: 'Not spinning' };
     const d = this.slotDef(slot);
     if (!d) return { ok: false, reason: slot === 'ultimate' ? 'Not awakened' : 'Locked' };
-    if (this.cool[slot] > 0) return { ok: false, reason: 'Cooling down' };
-    if (this.spirit + 1e-6 < this.costOf(slot)) return { ok: false, reason: 'Not enough spirit' };
+    if (this.cool[slot] > 0) return { ok: false, reason: 'Cooldown' };
+    if (this.spirit + 1e-6 < this.costOf(slot)) return { ok: false, reason: 'Low spirit' };
     if (this.channel) return { ok: false, reason: 'Channelling' };
     if (d.condition?.spinBelow && top.spinFraction() > d.condition.spinBelow) return { ok: false, reason: `Needs spin below ${Math.round(d.condition.spinBelow * 100)}%` };
     return { ok: true };

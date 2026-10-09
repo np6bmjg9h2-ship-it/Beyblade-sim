@@ -1,0 +1,11 @@
+// Main-menu entries. Each entry opens a screen or runs an action. Only
+// implemented features are listed.
+
+import { QuickBattleScreen } from './quickBattle.js';
+import { SettingsScreen } from './settings.js';
+
+export const MENU_ENTRIES = [
+  { id: 'quick', label: 'Quick Battle', desc: 'Jump straight into a match against an AI opponent.', primary: true, screen: () => new QuickBattleScreen() },
+  { id: 'settings', label: 'Settings', desc: 'Graphics, audio, controls, controller calibration and accessibility.', screen: () => new SettingsScreen() },
+  { id: 'save', label: 'Save Game', desc: 'Write your progress to this save slot now.', action: async (app) => { if (await app.save()) app.ui.toast('Game saved.', 'good'); } },
+];
