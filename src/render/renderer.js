@@ -9,6 +9,8 @@ import { TopVisual } from './topMesh.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
+import { INK_LAYER, setInkResolution, setSpecBoost } from './toon.js';
+import { createLights, TONE } from './lighting.js';
 
 export class GameRenderer {
   constructor(canvas, settings = {}) {
@@ -16,32 +18,15 @@ export class GameRenderer {
     this.settings = { quality: 'high', shadows: true, reducedEffects: false, debug: false, ...settings };
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.settings.quality !== 'low', powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    // Neutral tone mapping keeps the saturated cel palette from washing out
+    this.renderer.toneMapping = TONE.mapping;
+    this.renderer.toneMappingExposure = TONE.exposure;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.005, 30);
     this.rig = new CameraRig(this.camera);
+    const L = createLights(this.scene);
+    Object.assign(this, { hemi: L.hemi, key: L.key, rimA: L.rimA, rimB: L.rimB, spot: L.spot });
     this.applyQuality();
-    // lights
-    this.hemi = new THREE.HemisphereLight('#dbe8ff', '#2a3040', 1.35);
-    this.scene.add(this.hemi);
-    this.key = new THREE.DirectionalLight('#fff4e6', 2.8);
-    this.key.position.set(0.6, 1.4, 0.4);
-    this.key.shadow.camera.left = -0.3; this.key.shadow.camera.right = 0.3;
-    this.key.shadow.camera.top = 0.3; this.key.shadow.camera.bottom = -0.3;
-    this.key.shadow.camera.near = 0.5; this.key.shadow.camera.far = 3;
-    this.key.shadow.bias = -0.0004;
-    this.scene.add(this.key);
-    this.rimA = new THREE.PointLight('#4fc3ff', 1.2, 2, 1.5);
-    this.rimA.position.set(-0.4, 0.25, -0.3);
-    this.scene.add(this.rimA);
-    this.rimB = new THREE.PointLight('#ff7a3d', 1.0, 2, 1.5);
-    this.rimB.position.set(0.4, 0.25, 0.35);
-    this.scene.add(this.rimB);
-    this.spot = new THREE.SpotLight('#ffffff', 6, 3, 0.55, 0.6, 1.2);
-    this.spot.position.set(0, 1.2, 0);
-    this.spot.target.position.set(0, 0, 0);
-    this.scene.add(this.spot, this.spot.target);
     this.effects = new Effects(this.scene, this.effectQuality());
     this.arenaObj = null;
     this.visuals = [];
@@ -67,6 +52,11 @@ export class GameRenderer {
       const s = q === 'high' ? 2048 : 1024;
       this.key.shadow.mapSize.set(s, s);
     }
+    // ink outlines live on their own layer
+    const ink = this.settings.outlines !== false;
+    if (ink) this.camera.layers.enable(INK_LAYER); else this.camera.layers.disable(INK_LAYER);
+    setSpecBoost(q === 'low' ? 0.7 : 1);
+    setInkResolution(this.canvas.clientWidth || window.innerWidth, this.canvas.clientHeight || window.innerHeight, this.renderer.getPixelRatio());
   }
 
   setSettings(s) {
@@ -81,6 +71,7 @@ export class GameRenderer {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
+    setInkResolution(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
   }
@@ -112,9 +103,10 @@ export class GameRenderer {
   setFighters(fighters) {
     this.clearFighters();
     for (const f of fighters) {
-      const v = new TopVisual(f.assembly, { color: f.p.color || f.assembly.parts.ring.color, beast: f.p.beast?.id });
+      const v = new TopVisual(f.assembly, { color: f.p.color || f.assembly.parts.ring.color, beast: f.p.beast?.id, quality: this.settings.quality });
       v.root.visible = false;
       v.fighter = f;
+      v.playAssemble();
       this.scene.add(v.root);
       this.visuals.push(v);
       this.launchers.push(this.makeLauncher(f.p.color || f.assembly.parts.ring.color));
@@ -278,6 +270,10 @@ export class GameRenderer {
   }
 
   render(dt) {
+    for (const v of this.visuals) {
+      if (!v.assembling) continue;
+      if (v.animate(dt) && v.root.visible) this.effects.ring([v.root.position.x, v.root.position.y, v.root.position.z], 0.004, 0.035, 0.22, '#ffffff');
+    }
     this.effects.update(dt);
     this.renderer.render(this.scene, this.camera);
     this.frameTimes.push(dt);
