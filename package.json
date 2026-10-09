@@ -1,0 +1,20 @@
+{
+  "name": "chaos-spin-arena-zero",
+  "version": "0.1.0",
+  "description": "Chaos Spin: Arena Zero — a physics-driven spinning-top RPG, loot system, Bit-Beast adventure and tournament simulator for the browser.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.js",
+    "watch": "node tools/build.js --watch",
+    "start": "node tools/build.js && node tools/serve.js",
+    "serve": "node tools/serve.js",
+    "test": "node --test tests/",
+    "test:browser": "node tools/build.js && node tests/browser/run.js",
+    "balance": "node tools/balance.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "three": "0.170.0"
+  }
+}
