@@ -484,6 +484,43 @@ scenarios.story = async () => {
   } finally { await h.close(); }
 };
 
+async function newGame(h) {
+  await h.open();
+  await h.padNeutral();
+  await h.padButton(0);
+  await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots');
+  await h.padButton(0);
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 10000, 'name');
+  await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.osk-key')].find((k) => k.textContent.includes('Done'))));
+  await h.padButton(0);
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu');
+}
+
+async function openTile(h, id, screen) {
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu for ' + id);
+  await h.focusId(id); await h.padButton(0);
+  await h.waitFor((s) => window.__app.ui.current?.constructor.screenName === s, 10000, screen, screen);
+}
+
+scenarios.screens = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await h.eval(() => { const p = window.__app.profile; p.player.skillPoints = 3; Object.assign(p.stats, { battles: 12, wins: 7, losses: 5, rounds: 30, roundsWon: 17, launches: 30, perfectLaunches: 9, highestImpact: 0.142 }); Object.assign(p.stats.finishes, { spin: 8, out: 5, burst: 3, decision: 1 }); Object.assign(p.stats.losses_by, { spin: 6, out: 4, burst: 2 }); p.stats.arenaUse = { standard: 9, vortex: 3 }; p.stats.buildUse = { 'Gale Striker': 8, 'Tidal Drift': 4 }; p.stats.beastUse = { orrery: 12 }; window.__app.ui.refresh(window.__app.ui.current); });
+    await openTile(h, 'skills', 'SkillsScreen');
+    await h.focusId('skill-agg_dash'); await h.padButton(0);
+    const r = await h.eval(() => [window.__app.profile.player.skills.agg_dash, window.__app.profile.player.skillPoints]);
+    if (r[0] !== 1 || r[1] !== 2) throw new Error('learning a skill failed: ' + r);
+    await h.shot('x01_skills');
+    await h.padButton(1);
+    await openTile(h, 'stats', 'StatsScreen');
+    await h.shot('x02_stats');
+    await h.padButton(5); await h.shot('x03_stats_usage');
+    await h.padButton(5); await h.padButton(1);
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

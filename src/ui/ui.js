@@ -126,7 +126,7 @@ export class UI {
   autoFocus(screen) {
     const pref = screen.el.querySelector('[data-autofocus]:not([disabled])') || this.focusables(screen.el)[0];
     if (pref) this.focus(pref, { silent: true });
-    else this.focused = null;
+    else { if (this.focused) this.focused.classList.remove('focused'); this.focused = null; this.descBar.classList.remove('show'); }
   }
 
   inActiveScope(el) {

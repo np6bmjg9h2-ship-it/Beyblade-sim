@@ -401,3 +401,32 @@ table.standings .st-pts { font-weight: 800; }
 .swatch { display: block; width: 34px; height: 34px; border-radius: 50%; }
 .creator-name { font-size: 40px; font-weight: 900; }
 .dlg-text.narration { font-style: italic; color: #d4ddef; }
+
+/* ---------------------------------------------------------------- skills */
+.skill-cols { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; flex: 1; min-height: 0; overflow: auto; }
+.skill-col { border-top: 3px solid var(--pc); display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.sk-path { font-weight: 800; color: var(--pc); font-size: 16px; }
+.sk-pdesc { min-height: 34px; }
+.skill-btn { text-align: left; padding: 8px 10px; opacity: .8; }
+.skill-btn.can { opacity: 1; border-color: rgba(255,216,77,.5); }
+.skill-btn.learned { opacity: 1; background: rgba(79,195,255,.08); }
+.skill-btn.maxed { opacity: 1; background: rgba(127,227,168,.1); border-color: rgba(127,227,168,.45); }
+.sk-head { display: flex; justify-content: space-between; gap: 6px; }
+.sk-rank { font-variant-numeric: tabular-nums; color: #b9c6dd; }
+
+/* ---------------------------------------------------------------- charts */
+.barlist { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; }
+.bl-row { display: grid; grid-template-columns: 140px 1fr 90px; gap: 10px; align-items: center; font-size: 13px; position: relative; padding: 3px 0; }
+.bl-row:hover { background: rgba(255,255,255,.04); }
+.bl-row:hover::after { content: attr(data-tip); position: absolute; left: 150px; top: -26px; background: #18223a; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; white-space: nowrap; z-index: 5; color: #eef4ff; pointer-events: none; }
+.bl-label { color: #c6d4ee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bl-track { height: 12px; display: block; }
+.bl-fill { display: block; height: 100%; border-radius: 0 4px 4px 0; min-width: 2px; }
+.bl-val { color: #eef4ff; font-variant-numeric: tabular-nums; text-align: right; }
+.linechart { display: flex; flex-direction: column; gap: 4px; }
+.lc-legend { display: flex; gap: 14px; font-size: 12px; color: #c6d4ee; min-height: 16px; }
+.lc-key { display: inline-flex; align-items: center; gap: 6px; }
+.lc-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+.lc-plot { position: relative; }
+.lc-tip { display: none; position: absolute; background: #18223a; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: 12px; color: #eef4ff; pointer-events: none; min-width: 120px; }
+.lc-tip-x { color: #9fb0cc; margin-bottom: 2px; }
