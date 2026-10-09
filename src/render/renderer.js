@@ -11,6 +11,7 @@ import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
 import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree } from './toon.js';
 import { createLights, TONE } from './lighting.js';
+import { InspectStage } from './inspect.js';
 
 export class GameRenderer {
   constructor(canvas, settings = {}) {
@@ -74,6 +75,22 @@ export class GameRenderer {
     setInkResolution(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
+    this.inspect?.resize(w, h);
+  }
+
+  // ------------------------------------------------------------ inspect view
+
+  // Switch rendering to the turntable showroom (the main scene keeps running).
+  openInspect() {
+    if (!this.inspect) this.inspect = new InspectStage();
+    this.inspectActive = true;
+    this.resize();
+    return this.inspect;
+  }
+
+  closeInspect() {
+    this.inspectActive = false;
+    this.inspect?.clear();
   }
 
   setArena(def) {
@@ -270,6 +287,13 @@ export class GameRenderer {
   }
 
   render(dt) {
+    if (this.inspectActive) {
+      this.inspect.update(dt);
+      this.renderer.render(this.inspect.scene, this.inspect.camera);
+      this.frameTimes.push(dt);
+      if (this.frameTimes.length > 120) this.frameTimes.shift();
+      return;
+    }
     for (const v of this.visuals) {
       if (!v.assembling) continue;
       if (v.animate(dt) && v.root.visible) this.effects.ring([v.root.position.x, v.root.position.y, v.root.position.z], 0.004, 0.035, 0.22, '#ffffff');
@@ -289,6 +313,7 @@ export class GameRenderer {
   dispose() {
     window.removeEventListener('resize', this._onResize);
     this.clearFighters();
+    this.inspect?.dispose();
     this.renderer.dispose();
   }
 }

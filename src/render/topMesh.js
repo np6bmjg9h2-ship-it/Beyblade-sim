@@ -87,6 +87,24 @@ export class TopVisual {
     }
   }
 
+  // Ghost every part except `slot` (null restores all) for the inspect view.
+  setGhost(slot) {
+    for (const [s, p] of Object.entries(this.parts)) {
+      const ghost = !!slot && s !== slot;
+      p.group.traverse((o) => {
+        if (o.userData.isInk) { o.visible = !ghost; return; }
+        if (!o.isMesh) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          const g = m.userData._ghost || (m.userData._ghost = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite });
+          m.transparent = ghost || g.transparent;
+          m.opacity = ghost ? Math.min(g.opacity, 0.14) : g.opacity;
+          m.depthWrite = ghost ? false : g.depthWrite;
+          m.needsUpdate = true;
+        }
+      });
+    }
+  }
+
   // Parts drop in one after another and click into place.
   playAssemble(duration = 1.1) {
     this.assembling = true;

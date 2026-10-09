@@ -18,6 +18,7 @@ import { validateLoadout, loadoutSummary, loadoutItems } from '../../systems/loa
 import { resolveLaunchGear } from '../../game/launch.js';
 import * as WS from '../../systems/workshop.js';
 import { rollLoot } from '../../systems/loot.js';
+import { InspectScreen } from './inspect.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -104,6 +105,7 @@ export class WorkshopScreen {
       selector('Default technique', P.techniques.map((t) => ({ value: t, label: TECHNIQUE_INDEX[t].name, desc: TECHNIQUE_INDEX[t].desc })), L.technique, (v) => { L.technique = v; }, { id: 'tech' }),
       selector('Intended role', ROLES.map((r) => ({ value: r, label: r })), L.role || 'Balance', (v) => { L.role = v; }, { id: 'role' }),
       h('div', { class: 'row gap' },
+        btn('Inspect 3D', () => this.inspectLoadout(L), { id: 'inspect3d', disabled: !loadoutSummary(P, L).assembly, desc: 'Turn the assembled top around in 3D, explode it into its parts and look at each one.' }),
         btn('Rename', () => this.renameLoadout(), { desc: 'Give this loadout a custom name.' }),
         btn(this.loadoutIndex === P.activeLoadout ? 'Active ✓' : 'Set active', () => { P.activeLoadout = this.loadoutIndex; this.ui.refresh(this); this.ui.toast(`${L.name} is now your active loadout.`, 'good'); }, { class: 'primary', desc: 'The active loadout is used in Quick Battle, tournaments and story battles.' }),
         P.loadouts.length > 1 ? btn('Delete', () => this.deleteLoadout(), { class: 'danger' }) : null));
@@ -304,12 +306,32 @@ export class WorkshopScreen {
     this.ui.refresh(this);
   }
 
+  inspectLoadout(L) {
+    const P = this.p;
+    const S = loadoutSummary(P, L);
+    if (!S.assembly) { this.ui.toast('This loadout cannot be assembled yet.', 'warn'); return; }
+    this.ui.push(new InspectScreen({ assembly: S.assembly, color: P.player.color, beast: L.beast, title: L.name, items: loadoutItems(P, L).parts }));
+  }
+
+  // Inspect one part, fitted into the active loadout's top.
+  inspectItem(it) {
+    const P = this.p;
+    const L = P.loadouts[P.activeLoadout];
+    const items = { ...loadoutItems(P, L).parts, [it.slot]: it };
+    let asm = null;
+    try { asm = assembleTop(Object.fromEntries(Object.entries(items).filter(([, v]) => v)), { force: true, spin: L.spin }); } catch { asm = null; }
+    if (!asm) { this.ui.toast('This part cannot be shown on your active loadout.', 'warn'); return; }
+    this.ui.push(new InspectScreen({ assembly: asm, color: P.player.color, beast: L.beast, title: `${itemName(it)} on ${L.name}`, items, focus: it.slot }));
+  }
+
   async itemActions(it) {
     const P = this.p;
     const equipped = WS.isEquipped(P, it.uid);
     const L = P.loadouts[P.activeLoadout];
+    const isPart = SLOTS.includes(it.slot);
     const choice = await this.ui.choose(itemName(it), [
       { label: `Equip to ${L.name}`, value: 'equip', disabled: equipped, desc: 'Quick-equip into the active loadout.' },
+      ...(isPart ? [{ label: 'Inspect in 3D', value: 'inspect', desc: 'See this part on its own and fitted into your active top.' }] : []),
       { label: it.favourite ? 'Unfavourite' : 'Favourite ★', value: 'fav' },
       { label: it.locked ? 'Unlock' : 'Lock 🔒', value: 'lock' },
       { label: 'Nickname…', value: 'nick' },
@@ -322,6 +344,7 @@ export class WorkshopScreen {
       const v = validateLoadout(P, L);
       this.ui.toast(v.ok ? `Equipped ${itemName(it)}.` : `Equipped, but the loadout is now invalid: ${v.errors[0]}`, v.ok ? 'good' : 'warn', 4000);
     }
+    if (choice === 'inspect') { this.inspectItem(it); return; }
     if (choice === 'fav') WS.toggleFlag(P, it.uid, 'favourite');
     if (choice === 'lock') WS.toggleFlag(P, it.uid, 'locked');
     if (choice === 'nick') { this.ui.push(new TextPrompt('Nickname', it.nickname || '', 20, (v) => { WS.setNickname(P, it.uid, v); this.ui.refresh(this); })); return; }
