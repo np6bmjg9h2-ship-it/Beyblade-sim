@@ -7,6 +7,7 @@ import { WorkshopScreen } from './workshop.js';
 import { BeastsScreen } from './beasts.js';
 import { TournamentsScreen } from './tournament.js';
 import { StoryScreen } from './story.js';
+import { PracticeLabScreen } from './lab.js';
 import { SkillsScreen } from './skills.js';
 import { StatsScreen } from './stats.js';
 import { trialStatus } from '../../systems/beasts.js';
@@ -15,6 +16,7 @@ import { BEASTS } from '../../data/beasts.js';
 export const MENU_ENTRIES = [
   { id: 'story', label: 'Story', desc: 'Six chapters from the harbor rooftops to Arena Zero: rivals, training, tournaments and the secret of Orrery.', primary: true, screen: () => new StoryScreen(), badge: (p) => !p.story?.completed?.length },
   { id: 'quick', label: 'Quick Battle', desc: 'Jump straight into a match against an AI opponent.', screen: () => new QuickBattleScreen() },
+  { id: 'lab', label: 'Practice Lab', desc: 'Launch range, sparring targets with the physics debug overlay, and a Build Lab that compares two builds by simulation.', screen: () => new PracticeLabScreen() },
   { id: 'tournaments', label: 'Tournaments', desc: 'The competitive circuit: brackets, leagues, rivals, scouting and your career record.', screen: () => new TournamentsScreen({ openActive: true }), badge: (p) => !!p.tournaments.active },
   { id: 'workshop', label: 'Workshop', desc: 'Assemble loadouts, manage inventory, repair, upgrade, craft and browse your collection.', screen: () => new WorkshopScreen() },
   { id: 'beasts', label: 'Bit-Beasts', desc: 'Your spirit partners: bond, lore, abilities, resonance, Spirit Trials and Awakening.', screen: () => new BeastsScreen(), badge: (p) => BEASTS.some((b) => trialStatus(p, b.id).available) },

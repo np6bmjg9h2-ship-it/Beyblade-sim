@@ -57,7 +57,8 @@ export class BattleScreen {
     R.banner = mk('hud-banner');
     R.camera = mk('hud-camera');
     R.objectives = mk('hud-objectives');
-    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives);
+    R.lab = mk('hud-lab');
+    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives, R.lab);
     return el;
   }
 
@@ -71,8 +72,8 @@ export class BattleScreen {
     app.renderer.rig.setPlayerSide(0);
     app.renderer.rig.yawOff = 0; app.renderer.rig.pitchOff = 0; app.renderer.rig.zoomOff = 0;
     app.renderer.setArena(ARENA_INDEX[s.arenaId]);
-    app.renderer.settings.debug = !!app.settings.graphics.debugOverlay;
-    this.telemetry = !!app.settings.gameplay.telemetry;
+    app.renderer.settings.debug = s.debugOverlay ?? !!app.settings.graphics.debugOverlay;
+    this.telemetry = s.telemetry ?? !!app.settings.gameplay.telemetry;
     app.audio.playMusic('battle');
     app.audio.crowdAmbience(true);
     app.input.context = 'battle';
@@ -170,6 +171,7 @@ export class BattleScreen {
     const b = this.battle;
     app.renderer.onBattleEvent(type, e, b);
     if (this.objectives) this.objectives.onEvent(type, e, b, b.fighters.findIndex((f) => f.human));
+    if (this.session.labTools && type === 'launch' && e.fighter.human) this.logLaunch(e.result);
     const human = b.fighters.find((f) => f.human);
     const involvesHuman = (f) => f && f === human;
     switch (type) {
@@ -256,6 +258,22 @@ export class BattleScreen {
     }
     this.updateHud(dt);
     if (this.objectives) this.updateObjectives(dt);
+  }
+
+  // Practice Lab: launch analysis for the last launches.
+  logLaunch(r) {
+    const q = r.quality;
+    (this.launchLog = this.launchLog || []).unshift({ label: q.label, energy: r.energy, rpm: Math.round((Math.abs(r.spin) * 60) / (2 * Math.PI)), tilt: q.tiltDeg, charge: q.charge, dev: q.deviation, win: q.window, tech: q.techniqueName, ok: q.techniqueSuccess });
+    this.launchLog.length = Math.min(6, this.launchLog.length);
+    const R = this.refs.lab;
+    R.innerHTML = '';
+    const best = Math.max(...this.launchLog.map((x) => x.energy));
+    R.append(h('div', { class: 'obj-title' }, 'Launch analysis'),
+      ...this.launchLog.map((x, i) => h('div', { class: 'lab-row' + (i === 0 ? ' latest' : '') },
+        h('b', { class: x.label === 'Perfect' ? 'gold' : x.label === 'Good' ? 'good' : 'bad' }, x.label),
+        h('span', {}, `${x.energy.toFixed(2)} J · ${x.rpm.toLocaleString()} RPM · tilt ${x.tilt.toFixed(1)}°`),
+        h('span', { class: 'muted small' }, `charge ${(x.charge * 100).toFixed(0)}% (${x.dev >= 0 ? '+' : ''}${(x.dev * 100).toFixed(1)} vs gold ±${(x.win * 100).toFixed(1)}) · ${x.tech}${x.ok === false ? ' failed' : x.ok ? ' ✓' : ''}`))),
+      h('div', { class: 'obj-tip' }, `Best ${best.toFixed(2)} J. Release at 92% charge, inside the gold band. Pause → Relaunch to go again.`));
   }
 
   // Story training: show objective progress; end the session once all are met.
@@ -561,6 +579,8 @@ class PauseOverlay {
       btn(s.telemetry ? 'Hide telemetry' : 'Show telemetry', () => { s.telemetry = !s.telemetry; this.ui.refresh(this); }, { desc: 'Advanced physics readout: energy ledger, tilt, speeds, lock stress.' }),
       btn(`Camera: ${CAMERA_NAMES[this.app.renderer.rig.mode]}`, () => { this.app.renderer.rig.cycle(); this.ui.refresh(this); }),
       btn(this.app.renderer.settings.debug ? 'Hide physics debug overlay' : 'Show physics debug overlay', () => { this.app.renderer.settings.debug = !this.app.renderer.settings.debug; if (!this.app.renderer.settings.debug && s.battle.sim) s.battle.sim.debug.enabled = false; this.ui.refresh(this); }, { desc: 'Contact points, collision normals, velocity vectors, spin axis, angular momentum and centre of mass.' }),
+      s.session.labTools ? btn('Relaunch (restart round)', () => { this.ui.pop(); s.resume(); s.battle.restartRound(); }, { id: 'lab-relaunch', desc: 'Throw this round away and go straight back to launch setup.' }) : null,
+      s.session.labTools ? btn(`Simulation speed: ${s.battle.speedMul === 0.5 ? '0.5×' : s.battle.speedMul === 0.25 ? '0.25×' : '1×'}`, () => { s.battle.speedMul = s.battle.speedMul === 0.5 ? 0.25 : s.battle.speedMul === 0.25 ? 1 : 0.5; this.ui.refresh(this); }, { id: 'lab-speed', desc: 'Slow the whole simulation down to study contacts. The physics step stays fixed.' }) : null,
       btn('Settings', () => this.ui.push(new SettingsScreen())),
       s.session.allowRestart === false ? null : btn('Restart match', async () => { if (await this.ui.confirm('Restart match?', 'The current match will be abandoned without rewards.')) { this.ui.pop(); s.resume(); s.app.renderer.clearFighters(); s.startBattle(); } }),
       btn(s.session.forfeitLabel || 'Quit match', async () => { if (await this.ui.confirm('Quit match?', s.session.forfeitWarning || 'You will leave without rewards. Equipment wear from completed rounds is kept.', { danger: true, yes: 'Quit' })) { this.ui.pop(); s.resume(); s.forfeit(); } }, { class: 'danger' }));

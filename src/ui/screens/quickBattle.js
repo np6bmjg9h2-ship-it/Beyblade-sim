@@ -30,7 +30,7 @@ export class QuickBattleScreen {
       selector('Opponent', ARCHETYPES.map((a) => ({ value: a.id, label: a.name, desc: `${a.desc} AI: ${AI_PROFILES[a.ai].name}.` })), this.cfg.opponent, (v) => { this.cfg.opponent = v; this.ui.refresh(this); }, { id: 'opp' }),
       selector('Difficulty', DIFFICULTIES.map((d) => ({ value: d.id, label: d.name, desc: 'Scales the AI\'s launch accuracy, reaction time and steering precision — never its physics.' })), this.cfg.difficulty, (v) => { this.cfg.difficulty = v; }, { id: 'diff' }),
       selector('Stadium', unlocked.map((a) => ({ value: a.id, label: a.name, desc: a.desc })), this.cfg.arena, (v) => { this.cfg.arena = v; this.ui.refresh(this); }, { id: 'arena' }),
-      selector('Format', Object.values(FORMATS).map((f) => ({ value: f.id, label: f.name })), this.cfg.format, (v) => { this.cfg.format = v; }, { id: 'format', desc: 'Points race: Spin Finish 1, Ring Out 2, Shatter 2, Judge Decision 1.' }),
+      selector('Format', Object.values(FORMATS).filter((f) => !f.hidden).map((f) => ({ value: f.id, label: f.name })), this.cfg.format, (v) => { this.cfg.format = v; }, { id: 'format', desc: 'Points race: Spin Finish 1, Ring Out 2, Shatter 2, Judge Decision 1.' }),
     );
     const start = btn('Start Battle', () => this.start(), { class: 'primary big', disabled: !val.ok });
     start.dataset.id = 'start';

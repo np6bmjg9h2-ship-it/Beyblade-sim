@@ -521,6 +521,51 @@ scenarios.screens = async () => {
   } finally { await h.close(); }
 };
 
+scenarios.lab = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await openTile(h, 'lab', 'PracticeLabScreen');
+    await h.focusId('lab-range'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'range battle');
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'range setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => window.__app.ui.current.launchLog?.length === 1, 10000, 'launch analysed');
+    await h.page.waitForTimeout(600);
+    await h.shot('l01_range');
+    // pause -> relaunch
+    await h.padButton(9);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
+    await h.focusId('lab-relaunch'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && window.__app.ui.current.battle.phase === 'setup', 10000, 'relaunch setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => window.__app.ui.current.launchLog?.length === 2, 10000, 'second launch analysed');
+    const rounds = await h.eval(() => window.__app.ui.current.battle.roundResults.length);
+    if (rounds !== 0) throw new Error('relaunch recorded a round result');
+    // leave via pause menu
+    await h.padButton(9);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause 2');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.pause-panel .btn')].find((b) => b.textContent.includes('Leave the lab'))));
+    await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'leave confirm');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent === 'Quit')));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PracticeLabScreen', 10000, 'back to lab');
+    // build lab comparison
+    await h.padButton(5); await h.padButton(5);
+    await h.waitFor(() => window.__app.ui.current.tab === 'build', 5000, 'build tab');
+    await h.focusId('lab-run'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.current.results, 120000, 'comparison results');
+    await h.page.waitForTimeout(300);
+    await h.shot('l02_buildlab');
+    const r = await h.eval(() => { const x = window.__app.ui.current.results; return { n: x.h2h.n, w: x.h2h.wins[0] + x.h2h.wins[1] + x.h2h.draws, a: x.spin[0].samples.length, b: x.spin[1].samples.length }; });
+    if (r.w !== r.n || r.a < 5 || r.b < 5) throw new Error('comparison incomplete ' + JSON.stringify(r));
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

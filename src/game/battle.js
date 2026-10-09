@@ -25,6 +25,7 @@ export const FORMATS = {
   bo3: { id: 'bo3', name: 'Best of 3', roundsToWin: 2 },
   bo5: { id: 'bo5', name: 'Best of 5', roundsToWin: 3 },
   points: { id: 'points', name: 'Points Race (4)', pointsToWin: 4 },
+  endless: { id: 'endless', name: 'Endless practice', roundsToWin: 999, maxRounds: 999, hidden: true },
 };
 export const FINISH_POINTS = { spin: 1, out: 2, burst: 2, decision: 1 };
 export const FINISH_NAMES = { spin: 'Spin Finish', out: 'Ring Out', burst: 'Shatter Finish', decision: 'Judge Decision', draw: 'Draw' };
@@ -280,7 +281,7 @@ export class Battle extends Emitter {
     if (this.phase === 'battle' || this.phase === 'finishing' || (this.phase === 'countdown' && this.ignited)) {
       // slow-motion handling (simulation stays fixed-step; fewer ticks per real second)
       if (this.slowmoT > 0) { this.slowmoT -= dt; if (this.slowmoT <= 0) this.timeScale = 1; }
-      this.acc += dt * this.timeScale;
+      this.acc += dt * this.timeScale * (this.speedMul || 1);
       let n = 0;
       while (this.acc >= TICK && n < 12) {
         this.acc -= TICK;
@@ -497,6 +498,17 @@ export class Battle extends Emitter {
     }
   }
 
+  // Practice Lab: throw the current round away and launch again (no result recorded).
+  restartRound() {
+    if (this.phase === 'matchOver') return false;
+    this.round = Math.max(0, this.round - 1);
+    this.pendingResult = null;
+    this.timeScale = 1;
+    this.slowmoT = 0;
+    this.startRound();
+    return true;
+  }
+
   // Developer/test hook: end the current round as if fighter `index` had finished `how`.
   debugFinish(index, how = 'out') {
     if (this.phase !== 'battle') return false;
@@ -569,7 +581,7 @@ export class Battle extends Emitter {
   }
 
   matchDecided() {
-    if (this.round >= MAX_ROUNDS) return true;
+    if (this.round >= (this.format.maxRounds || MAX_ROUNDS)) return true;
     if (this.format.pointsToWin) return this.fighters.some((f) => f.stats.points >= this.format.pointsToWin);
     return this.fighters.some((f) => f.stats.roundsWon >= this.format.roundsToWin);
   }
