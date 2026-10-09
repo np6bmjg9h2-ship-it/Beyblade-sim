@@ -375,3 +375,29 @@ table.standings .st-pts { font-weight: 800; }
 .dlg-choice { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .dlg-choice.sel { border-color: var(--accent); background: rgba(79,195,255,.12); }
 .dlg-hint { align-self: flex-end; }
+
+/* ---------------------------------------------------------------- training objectives */
+.hud-objectives { position: absolute; left: 22px; top: 210px; width: 300px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.hud-objectives:empty { display: none; }
+.obj-title { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.obj { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; background: rgba(8,14,28,.72); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.obj.done { color: var(--good); border-color: rgba(127,227,168,.5); }
+.obj-box { flex: none; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 4px; display: grid; place-items: center; font-size: 12px; }
+.obj-tip { font-size: 12px; color: #b9c6dd; background: rgba(8,14,28,.55); border-radius: 6px; padding: 4px 8px; }
+
+/* ---------------------------------------------------------------- story */
+.ch-tile { border-left: 4px solid var(--chc); padding-left: 10px; }
+.ch-num { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--chc, var(--accent)); }
+.ch-title { font-size: 18px; font-weight: 800; }
+.ch-head { display: flex; flex-direction: column; gap: 8px; border-left: 4px solid var(--chc); padding-left: 14px; }
+.ch-head h2 { margin: 0; }
+.chapter-card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: radial-gradient(ellipse at center, rgba(4,8,18,.88), rgba(2,4,10,.97)); pointer-events: auto; animation: fadein .5s ease-out; }
+.cc-num { font-size: 16px; letter-spacing: .5em; color: var(--chc); }
+.cc-title { font-size: 76px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; color: #fff; text-shadow: 0 0 40px var(--chc); }
+.cc-loc { font-size: 18px; color: #b9c6dd; letter-spacing: .2em; text-transform: uppercase; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.swatch-btn { padding: 4px; border-radius: 50%; }
+.swatch-btn.sel { outline: 2px solid #fff; }
+.swatch { display: block; width: 34px; height: 34px; border-radius: 50%; }
+.creator-name { font-size: 40px; font-weight: 900; }
+.dlg-text.narration { font-style: italic; color: #d4ddef; }

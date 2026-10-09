@@ -655,6 +655,11 @@ export function finishTournament(profile, t) {
     const L = profile.loadouts.find((l) => l.id === t.loadout.id);
     if (L) for (const uid of [...Object.values(L.parts), L.launcher, L.cable]) { const it = uid && profile.inventory[uid]; if (it) { it.history.tournamentWins = (it.history.tournamentWins || 0) + 1; it.history.moments.unshift(`${new Date().toLocaleDateString()}: Won the ${def.name}`); it.history.moments.length = Math.min(8, it.history.moments.length); } }
   }
+  if (t.storyNode) {
+    const SR = profile.story.results = profile.story.results || {};
+    SR[t.storyNode] = { place, withdrawn: !!t.withdrawn, at: Date.now(), tournament: t.id };
+    summary.storyNode = t.storyNode;
+  }
   t.rewarded = true;
   t.summary = summary;
   profile.tournaments.active = null;

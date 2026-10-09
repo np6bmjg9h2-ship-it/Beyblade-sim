@@ -182,4 +182,29 @@ export const TOURNAMENTS = [
   },
 ];
 
-export const TOURNAMENT_INDEX = Object.fromEntries(TOURNAMENTS.map((t) => [t.id, t]));
+// Story brackets (not listed on the circuit board; entered from Story mode).
+const storyPrize = (credits, xp, ranking) => ({ 1: place(credits, xp, ranking, { loot: [{ tier: 1, minRarity: 'rare' }] }), 2: place(Math.round(credits * 0.6), Math.round(xp * 0.7), Math.round(ranking * 0.5)), 4: place(Math.round(credits * 0.35), Math.round(xp * 0.5), Math.round(ranking * 0.25)), 16: place(80, 80, 5) });
+export const STORY_TOURNAMENTS = [
+  { id: 'story_harbor_qualifier', name: 'Harbor Rookie Qualifier', tier: 1, format: 'single', size: 8, hidden: true, story: true, color: '#9fd7ff',
+    desc: 'Eight rookies, one ticket to the city circuit.', matchFormat: { default: 'single', final: 'bo3' }, arenas: ['standard'],
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['sora', 'juno'], fillers: ['striker', 'wall', 'drifter', 'all', 'striker'],
+    prizes: storyPrize(300, 200, 40) },
+  { id: 'story_city_open', name: 'City Open', tier: 2, format: 'double', size: 8, hidden: true, story: true, color: '#7fe3a8',
+    desc: 'The city\'s double-elimination open.', matchFormat: { default: 'bo3', lower: 'single', final: 'bo3' }, arenas: ['standard', 'vortex', 'edgebreaker'],
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['sora', 'rook', 'mirelle', 'daichi'], fillers: ['upper', 'all', 'drifter'],
+    prizes: storyPrize(500, 320, 70) },
+  { id: 'story_crater_cup', name: 'Crater Invitational', tier: 3, format: 'single', size: 16, hidden: true, story: true, color: '#ffd84d',
+    desc: 'Sixteen battlers on the crater rim.', matchFormat: { default: 'bo3', final: 'bo3' }, arenas: ['magma', 'standard'],
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['kaela', 'theo', 'rook', 'sora', 'mirelle', 'juno'], fillers: ['upper', 'striker', 'breaker', 'wall', 'all', 'drifter', 'counter', 'all', 'striker'],
+    prizes: storyPrize(800, 500, 110) },
+  { id: 'story_national_qualifier', name: 'National Qualifier', tier: 4, format: 'swiss', size: 16, rounds: 4, hidden: true, story: true, color: '#ff9f43',
+    desc: 'Four Swiss rounds on the plateau; the top three qualify for Arena Zero.', matchFormat: { default: 'bo3' }, arenas: ['skyfall', 'crystal', 'vortex', 'magma'],
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['nyx', 'juno', 'theo', 'mirelle', 'kaela', 'daichi', 'sora'], fillers: ['champion', 'counter', 'upper', 'breaker', 'all', 'wall', 'drifter', 'striker'],
+    prizes: storyPrize(1200, 700, 160) },
+  { id: 'story_zero_championship', name: 'Arena Zero Championship', tier: 5, format: 'single', size: 16, hidden: true, story: true, color: '#ff6ad5',
+    desc: 'The Championship.', matchFormat: { default: 'bo3', final: 'bo5' }, arenas: ['skyfall', 'crystal', 'magma', 'zero'], finalArena: 'zero',
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['aurelia', 'valen', 'nyx', 'mirelle', 'theo', 'kaela', 'juno', 'daichi', 'sora', 'rook'], fillers: ['champion', 'counter', 'upper', 'breaker', 'all'],
+    prizes: storyPrize(3000, 1500, 400) },
+];
+
+export const TOURNAMENT_INDEX = Object.fromEntries([...TOURNAMENTS, ...STORY_TOURNAMENTS].map((t) => [t.id, t]));

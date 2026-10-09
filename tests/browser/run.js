@@ -27,6 +27,22 @@ async function forcePlayerRound(h) {
   await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
 }
 
+// Move focus to a tile with d-pad presses chosen from on-screen positions.
+async function padNavigateTo(h, id, max = 10) {
+  for (let i = 0; i < max; i++) {
+    const d = await h.eval((target) => {
+      const f = window.__app.ui.focused, t = document.querySelector(`[data-id="${target}"]`);
+      if (!f || !t || f === t) return null;
+      const a = f.getBoundingClientRect(), b = t.getBoundingClientRect();
+      const dy = (b.top + b.height / 2) - (a.top + a.height / 2), dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+      if (Math.abs(dy) > a.height / 2) return dy > 0 ? 13 : 12;
+      return dx > 0 ? 15 : 14;
+    }, id);
+    if (d == null) return;
+    await h.padButton(d);
+  }
+}
+
 scenarios.keyboard = async () => {
   const h = await launch();
   try {
@@ -42,6 +58,7 @@ scenarios.keyboard = async () => {
     const name = await h.eval(() => window.__app.profile.player.name);
     if (name !== 'Kai') throw new Error('name not set: ' + name);
     await h.shot('k02_menu');
+    await h.focusId('quick');
     await h.key('Enter');
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 10000, 'quick battle');
     // keyboard navigation down to Start
@@ -112,8 +129,8 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'main menu');
     await h.shot('g01_menu');
     // Settings via controller: d-pad to the Settings tile, then A
-    // walk the tile grid with the d-pad (down a row, then right) until Settings is focused
-    for (let i = 0; i < 8; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'settings') break; await h.padButton(i === 0 ? 13 : 15); }
+    // walk the tile grid with the d-pad until Settings is focused
+    await padNavigateTo(h, 'settings');
     const onSettings = await h.eval(() => window.__app.ui.focused?.dataset.id);
     if (onSettings !== 'settings') throw new Error('d-pad navigation did not reach Settings: ' + onSettings);
     await h.padButton(0);
@@ -129,7 +146,7 @@ scenarios.gamepad = async () => {
     await h.shot('g02_settings');
     await h.padButton(1); // back
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu again');
-    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'quick') break; await h.padButton(i % 2 ? 14 : 12); }
+    await padNavigateTo(h, 'quick');
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 10000, 'quick battle');
     for (let i = 0; i < 5; i++) await h.padButton(13);
@@ -357,6 +374,112 @@ scenarios.tournament = async () => {
     await h.shot('t07_career');
     await h.padButton(5);
     await h.shot('t08_rivals');
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
+// Press confirm through dialogue / title cards until `until` holds.
+async function advanceStory(h, until, max = 120, choiceDown = 0) {
+  for (let i = 0; i < max; i++) {
+    if (await h.eval(until)) return true;
+    const scr = await h.eval(() => window.__app.ui.current?.constructor.screenName);
+    if (scr === 'DialogueScreen') {
+      const atChoice = await h.eval(() => { const d = window.__app.ui.current; return !!d.choices && d.i >= d.lines.length - 1; });
+      if (atChoice && choiceDown) { await h.eval(() => { const d = window.__app.ui.current; d.shown = d.full.length; }); for (let k = 0; k < choiceDown; k++) await h.padButton(13); choiceDown = 0; }
+      await h.padButton(0);
+    } else if (scr === 'ChapterCardScreen') {
+      await h.page.waitForTimeout(450);
+      await h.padButton(0);
+    } else await h.page.waitForTimeout(100);
+  }
+  return h.eval(until);
+}
+
+scenarios.story = async () => {
+  const h = await launch();
+  const scr = () => h.eval(() => window.__app.ui.current?.constructor.screenName);
+  try {
+    await h.open();
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 10000, 'name');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.osk-key')].find((k) => k.textContent.includes('Done'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu');
+    const first = await h.eval(() => window.__app.ui.focused?.dataset.id);
+    if (first !== 'story') throw new Error('Story is not the default menu tile: ' + first);
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'StoryScreen', 10000, 'story screen');
+    await h.shot('s01_story');
+    await h.focusId('story-start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ChapterCardScreen', 10000, 'chapter card');
+    await h.shot('s02_card');
+    await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'DialogueScreen', 5);
+    await h.shot('s03_dialogue');
+    // through the intro to battler creation
+    if (!(await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'CreatorScreen'))) throw new Error('creator not reached');
+    await h.focusId('style-guardian'); await h.padButton(0);
+    await h.focusId('color-ff9f43'); await h.padButton(0);
+    await h.shot('s04_creator');
+    await h.focusId('creator-done'); await h.padButton(0);
+    const style = await h.eval(() => window.__app.profile.player.archetype);
+    if (style !== 'guardian') throw new Error('style not saved: ' + style);
+    // scenes until the training node is next
+    if (!(await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'StoryScreen' && window.__app.profile.story.node === 'ch1_training' && !window.__app.ui.current.busy))) throw new Error('training node not reached');
+    const items = await h.eval(() => Object.values(window.__app.profile.inventory).filter((i) => i.source === 'story').map((i) => i.base));
+    if (!items.includes('ring_ironwall')) throw new Error('guardian starter parts missing: ' + items);
+    await h.shot('s05_nextup');
+    await h.eval(() => { window.__testRoundTime = 30; window.__testSpeed = 2; });
+    await h.focusId('story-play'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'training battle');
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'training setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'training running');
+    await h.page.waitForTimeout(300);
+    await h.padButton(0); // Dash: a real objective, measured from the battle event
+    await h.waitFor(() => window.__app.ui.current.objectives?.list.find((o) => o.type === 'dash').done, 5000, 'dash objective');
+    await h.shot('s06_training');
+    // the remaining objectives need aiming skill; complete them through the tracker for the test
+    await h.eval(() => { const ob = window.__app.ui.current.objectives; for (const o of ob.list) { o.done = true; o.progress = o.n || 1; } ob.changed = true; });
+    await advanceStory(h, () => window.__app.profile.story.node === 'ch1_sora1' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy);
+    // first rival battle
+    await h.focusId('story-play'); await h.padButton(0);
+    await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10);
+    for (let round = 0; round < 4; round++) {
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      await forcePlayerRound(h);
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    await h.padButton(1);
+    // win lines, Orrery scene, the gift choice (pick the second option), then the Daichi battle card
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_daichi' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy, 160, 1))) throw new Error('did not reach the Daichi battle');
+    const st = await h.eval(() => ({ flags: window.__app.profile.story.flags, choice: window.__app.profile.story.choices.ch1_gift, rival: window.__app.profile.rivals.sora }));
+    if (!st.flags.ch1_orrery) throw new Error('Orrery flag missing');
+    if (st.choice !== 'weight') throw new Error('choice not recorded: ' + st.choice);
+    if (!st.rival?.met) throw new Error('Sora not recorded as met');
+    await h.shot('s07_daichi_card');
+    // persistence
+    await h.page.waitForTimeout(600);
+    await h.page.reload();
+    await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'reloaded');
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots again');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu after reload');
+    const node = await h.eval(() => window.__app.profile.story.node);
+    if (node !== 'ch1_daichi') throw new Error('story progress not saved: ' + node);
+    await h.focusId('story'); await h.padButton(0);
+    await h.waitFor(() => !!document.querySelector('[data-id="story-play"]'), 10000, 'next-up card after reload');
     return { errors: h.errors };
   } finally { await h.close(); }
 };

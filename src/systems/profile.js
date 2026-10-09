@@ -31,7 +31,7 @@ export function defaultSettings() {
   return {
     audio: { master: 0.8, sfx: 0.9, music: 0.45, ambience: 0.5, muted: false },
     graphics: { quality: 'high', shadows: true, reducedEffects: false, showFps: false, debugOverlay: false },
-    gameplay: { slowmo: true, camera: 'broadcast', hudScale: 1, telemetry: false, subtitles: true, dialogueSpeed: 1, colorblind: false, highContrast: false },
+    gameplay: { slowmo: true, camera: 'broadcast', hudScale: 1, telemetry: false, subtitles: true, dialogueSpeed: 1, colorblind: false, highContrast: false, storyDifficulty: 'normal' },
     input: { ...DEFAULT_INPUT_SETTINGS },
     bindings: null,
   };

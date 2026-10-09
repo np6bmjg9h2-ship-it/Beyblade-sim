@@ -3,6 +3,7 @@
 // telemetry panel, pause menu, round results and hand-off to the match
 // summary. All input in battle flows through here.
 
+import { ObjectiveTracker } from '../../game/objectives.js';
 import { h, btn } from '../ui.js';
 import { Battle, FINISH_NAMES } from '../../game/battle.js';
 import { HumanController } from '../../game/humanController.js';
@@ -55,7 +56,8 @@ export class BattleScreen {
     R.launch = mk('launch-ui');
     R.banner = mk('hud-banner');
     R.camera = mk('hud-camera');
-    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera);
+    R.objectives = mk('hud-objectives');
+    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives);
     return el;
   }
 
@@ -80,6 +82,7 @@ export class BattleScreen {
   startBattle() {
     const app = this.app;
     const s = this.session;
+    this._toResults = false;
     const testRound = typeof window !== 'undefined' && window.__testRoundTime;
     const battle = new Battle({
       arenaId: s.arenaId, format: s.format, roundTime: testRound || s.roundTime, seed: s.seed, mode: s.mode,
@@ -87,6 +90,8 @@ export class BattleScreen {
     });
     this.battle = battle;
     this.humans = battle.fighters.filter((f) => f.human).map((f) => new HumanController(app, battle, f.index));
+    this.objectives = s.objectives ? new ObjectiveTracker(s.objectives) : null;
+    this.objectivesDoneT = null;
     battle.on('roundStart', () => this.onRoundStart());
     battle.on('*', (type, e) => this.onEvent(type, e));
     battle.update(0);
@@ -164,6 +169,7 @@ export class BattleScreen {
     const app = this.app;
     const b = this.battle;
     app.renderer.onBattleEvent(type, e, b);
+    if (this.objectives) this.objectives.onEvent(type, e, b, b.fighters.findIndex((f) => f.human));
     const human = b.fighters.find((f) => f.human);
     const involvesHuman = (f) => f && f === human;
     switch (type) {
@@ -249,6 +255,32 @@ export class BattleScreen {
       for (const f of b.fighters) app.audio.setHum(f.id, f.top.spinAbs, Math.hypot(f.top.v.x, f.top.v.z), f.launch.launched && f.top.active);
     }
     this.updateHud(dt);
+    if (this.objectives) this.updateObjectives(dt);
+  }
+
+  // Story training: show objective progress; end the session once all are met.
+  updateObjectives(dt) {
+    const b = this.battle;
+    const ob = this.objectives;
+    const hi = b.fighters.findIndex((f) => f.human);
+    ob.tick(b, hi, dt * ((typeof window !== 'undefined' && window.__testSpeed) || 1));
+    if (ob.changed) {
+      ob.changed = false;
+      const R = this.refs.objectives;
+      R.innerHTML = '';
+      R.append(h('div', { class: 'obj-title' }, this.session.objectivesTitle || 'Objectives'),
+        ...ob.list.map((o) => h('div', { class: 'obj' + (o.done ? ' done' : '') }, h('span', { class: 'obj-box' }, o.done ? '✓' : ''), ob.text(o))),
+        ...(this.session.tips || []).map((t) => h('div', { class: 'obj-tip' }, t)));
+    }
+    if (ob.complete && this.objectivesDoneT == null) {
+      this.objectivesDoneT = 0;
+      this.notify('TRAINING COMPLETE!', 'gold');
+      this.app.audio.ui('levelup');
+    }
+    if (this.objectivesDoneT != null && !b.result) {
+      this.objectivesDoneT += dt;
+      if (this.objectivesDoneT > 1.6) { b.finishMatch(); this.toResults(); }
+    }
   }
 
   handleInput(input, dt) {
@@ -462,6 +494,8 @@ export class BattleScreen {
   }
 
   async toResults() {
+    if (this._toResults) return;
+    this._toResults = true;
     const app = this.app;
     const res = this.matchResult || this.battle.result;
     let rewards = null;

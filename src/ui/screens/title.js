@@ -7,7 +7,7 @@ import { SLOTS } from '../../systems/save.js';
 import { MainMenu } from './mainMenu.js';
 import { SettingsScreen } from './settings.js';
 
-const NAME_SUGGESTIONS = ['Kaito', 'Rhea', 'Juno', 'Sora', 'Mika', 'Dax', 'Nova', 'Ren', 'Iris', 'Tomo', 'Vale', 'Kestrel', 'Ash', 'Lumi', 'Orion'];
+const NAME_SUGGESTIONS = ['Kaito', 'Rhea', 'Sena', 'Pip', 'Mika', 'Dax', 'Nova', 'Ren', 'Iris', 'Tomo', 'Vale', 'Kestrel', 'Ash', 'Lumi', 'Orion'];
 
 export class TitleScreen {
   static screenName = 'TitleScreen';

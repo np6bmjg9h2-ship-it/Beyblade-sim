@@ -2,6 +2,7 @@
 // sensitivity, vibration, remapping, calibration) and accessibility.
 // Everything is controller-navigable; changes apply immediately and persist.
 
+import { STORY_DIFFICULTY } from '../../systems/story.js';
 import { h, btn, selector, slider, toggle } from '../ui.js';
 import { PRESETS, ACTION_LABELS, CONTEXTS, buildBindings, PAD_GLYPHS, AXIS_GLYPHS, keyGlyph, detectPadType } from '../../input/bindings.js';
 import { CAMERA_NAMES } from '../../render/camera.js';
@@ -31,6 +32,7 @@ export class SettingsScreen {
           selector('Default camera', Object.keys(CAMERA_NAMES).filter((k) => !['launch', 'victory'].includes(k)).map((k) => ({ value: k, label: CAMERA_NAMES[k] })), S.gameplay.camera, (v) => { S.gameplay.camera = v; commit(); }, { desc: 'Camera mode at the start of each battle. Cycle in battle with ' + app.input.glyph('focus', 'battle') + '.' }),
           toggle('Advanced telemetry by default', S.gameplay.telemetry, (v) => { S.gameplay.telemetry = v; commit(); }, { desc: 'Show the detailed physics panel (energy ledger, tilt, speeds) at battle start.' }),
           slider('HUD scale', 0.8, 1.3, 0.05, S.gameplay.hudScale, (v) => { S.gameplay.hudScale = v; commit(); }, { format: pct }),
+          selector('Story difficulty', Object.entries(STORY_DIFFICULTY).map(([k, d]) => ({ value: k, label: d.name, desc: d.desc })), S.gameplay.storyDifficulty || 'normal', (v) => { S.gameplay.storyDifficulty = v; commit(); }, { id: 'story-difficulty', desc: 'Scales story opponents\' launch accuracy, reaction time and steering. Physics never changes. Can be changed at any time.' }),
           toggle('Story subtitles', S.gameplay.subtitles, (v) => { S.gameplay.subtitles = v; commit(); }),
           slider('Dialogue text speed', 0.5, 3, 0.25, S.gameplay.dialogueSpeed, (v) => { S.gameplay.dialogueSpeed = v; commit(); }, { format: (v) => `${v.toFixed(2)}×` }),
         );

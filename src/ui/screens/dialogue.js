@@ -23,17 +23,17 @@ export class DialogueScreen {
 
   render() {
     const L = this.line || { text: '' };
-    const portrait = L.beast ? beastImg(L.beast, 84) : h('div', { class: 'dlg-initials', style: { background: L.color || '#2a3a5c' } }, (L.speaker || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2));
+    const portrait = L.narrator || !L.speaker ? null : L.beast ? beastImg(L.beast, 84) : h('div', { class: 'dlg-initials', style: { background: L.color || '#2a3a5c' } }, L.speaker.split(/\s+/).map((w) => w[0]).join('').slice(0, 2));
     this.textEl = h('div', { class: 'dlg-text' }, '');
     const last = this.i >= this.lines.length - 1;
     const choiceEls = last && this.choices ? h('div', { class: 'dlg-choices' }, this.choices.map((c, k) => h('div', { class: 'dlg-choice' + (k === this.choiceIdx ? ' sel' : ''), onclick: () => { this.choiceIdx = k; this.finish(); } }, c.label))) : null;
     const el = h('div', { class: 'dialogue-wrap', onclick: () => this.advance() },
       this.title ? h('div', { class: 'dlg-title' }, this.title) : null,
       h('div', { class: 'dialogue panel' + (L.side === 'right' ? ' right' : '') },
-        h('div', { class: 'dlg-portrait', style: { borderColor: L.color || '#4fc3ff' } }, portrait),
+        portrait ? h('div', { class: 'dlg-portrait', style: { borderColor: L.color || '#4fc3ff' } }, portrait) : null,
         h('div', { class: 'dlg-body' },
           h('div', { class: 'dlg-speaker', style: { color: L.color || '#9fd7ff' } }, L.speaker || ''),
-          this.textEl,
+          (this.textEl.className = 'dlg-text' + (L.narrator ? ' narration' : ''), this.textEl),
           choiceEls,
           h('div', { class: 'dlg-hint muted small' }, `${this.i + 1}/${this.lines.length}`))));
     this.shown = 0;
