@@ -105,13 +105,19 @@ export class Battle extends Emitter {
     this.ignited = false;
     this.headless = !!opts.headless;
     this.cameraYaw = 0;
+    // deterministic replays: record the human's inputs, or play them back
+    this.rec = opts.record ? { v: 1, setups: {}, releases: {}, spawns: {}, controls: [] } : null;
+    this.replay = opts.replay ? new ReplayInput(opts.replay) : null;
+    this.roundTicks = 0;
   }
 
   // ------------------------------------------------------------ round setup
 
   startRound() {
     this.round++;
-    this.phase = this.fighters.some((f) => f.human) ? 'setup' : 'countdown';
+    this.roundTicks = 0;
+    this._recLast = {};
+    this.phase = this.fighters.some((f) => f.human) && !this.replay ? 'setup' : 'countdown';
     this.phaseT = 0;
     this.battleTime = 0;
     this.ignited = false;
@@ -157,6 +163,16 @@ export class Battle extends Emitter {
       f.launch.ai = plan;
     }
     for (const f of this.fighters) f.launch.meter = new ChargeMeter(f.gear, f.launch.technique);
+    if (this.replay) {
+      this.replay.startRound(this.round);
+      for (const f of this.fighters) {
+        const su = this.replay.setup(this.round, f.index);
+        if (!su) continue;
+        f.launch.aim = { ...su.aim }; f.launch.technique = su.technique; f.launch.spin = su.spin;
+        f.launch.meter.setTechnique(su.technique);
+        f.launch.confirmed = true;
+      }
+    }
     this.sim = new Simulation({ arena: this.arena, tops });
     for (const f of this.fighters) f.ability.sim = this.sim;
     this.emit('roundStart', { round: this.round, phase: this.phase });
@@ -207,7 +223,11 @@ export class Battle extends Emitter {
     L.spin = spin;
   }
   confirmSetup(i) {
-    this.fighters[i].launch.confirmed = true;
+    const cf = this.fighters[i];
+    if (this.rec && cf.human && !cf.launch.confirmed) {
+      (this.rec.setups[this.round] = this.rec.setups[this.round] || {})[i] = { aim: { ...cf.launch.aim }, technique: cf.launch.technique, spin: cf.launch.spin };
+    }
+    cf.launch.confirmed = true;
     if (this.phase === 'setup' && this.fighters.every((f) => f.launch.confirmed)) {
       this.phase = 'countdown';
       this.phaseT = 0;
@@ -222,12 +242,14 @@ export class Battle extends Emitter {
     this.doRelease(f, f.launch.meter.charge);
   }
 
-  doRelease(f, charge) {
+  doRelease(f, charge, forced = null) {
     const L = f.launch;
     L.released = true;
     L.releaseTime = this.phaseT;
     L.meter.released = true;
-    if (this.phase === 'countdown' && this.phaseT < FALSE_START) L.falseStart = true;
+    if (forced) L.falseStart = !!forced.falseStart;
+    else if (this.phase === 'countdown' && this.phaseT < FALSE_START) L.falseStart = true;
+    if (this.rec) (this.rec.releases[this.round] = this.rec.releases[this.round] || {})[f.index] = { charge, falseStart: !!L.falseStart };
     const opp = this.fighters[1 - f.index];
     const res = computeLaunch({
       gear: f.gear, techId: L.technique, charge, aim: L.aim, spinDir: L.spin, topSpec: f.top.spec,
@@ -245,6 +267,7 @@ export class Battle extends Emitter {
 
   spawnTop(f) {
     const L = f.launch;
+    if (this.rec) (this.rec.spawns[this.round] = this.rec.spawns[this.round] || {})[f.index] = this.roundTicks;
     const r = L.result;
     // spin direction can change the assembled warnings but not geometry
     f.top.launch({ tipPos: r.tipPos, axis: r.axis, spin: r.spin, velocity: r.velocity });
@@ -298,6 +321,18 @@ export class Battle extends Emitter {
     const prevSec = Math.ceil(COUNTDOWN - (t - dt));
     const sec = Math.ceil(COUNTDOWN - t);
     if (sec !== prevSec && sec > 0) this.emit('countdown', { n: sec });
+    if (this.replay) {
+      // releases come from the recording at IGNITE; spawns happen in tick()
+      if (!this.ignited && t >= COUNTDOWN) {
+        this.ignited = true;
+        this.emit('ignite', {});
+        for (const f of this.fighters) {
+          const r = this.replay.release(this.round, f.index);
+          if (r && !f.launch.released) this.doRelease(f, r.charge, r);
+        }
+      }
+      return;
+    }
     for (const f of this.fighters) {
       const L = f.launch;
       if (L.released) continue;
@@ -334,11 +369,21 @@ export class Battle extends Emitter {
     const sim = this.sim;
     const [A, B] = this.fighters;
     const time = this.battleTime;
+    if (this.replay && this.phase === 'countdown') {
+      for (const f of this.fighters) if (!f.launch.launched && f.launch.released && this.replay.spawn(this.round, f.index) === this.roundTicks) this.spawnTop(f);
+      if (this.fighters.every((f) => f.launch.launched)) { this.phase = 'battle'; this.emit('battleStart', {}); }
+    }
     for (const f of this.fighters) {
       if (!f.launch.launched) continue;
       const opp = this.fighters[1 - f.index];
       let c;
-      if (f.human) c = humanControls[f.index] || emptyControls();
+      if (f.human && this.replay) c = this.replay.controls(f.index, this.round, this.roundTicks);
+      else if (f.human) {
+        c = humanControls[f.index] || emptyControls();
+        // quantised so that recordings replay bit-exactly
+        c.steer.x = Math.round(c.steer.x * 64) / 64; c.steer.z = Math.round(c.steer.z * 64) / 64;
+        if (this.rec) this.recordControls(f.index, c);
+      }
       else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability });
       f.controls = c;
       this.applyControls(f, opp, c);
@@ -351,6 +396,7 @@ export class Battle extends Emitter {
       f.mods.evaluate(this.conditionContext(f, opp), f.top.mods);
     }
     const events = sim.tick();
+    this.roundTicks++;
     if (this.phase === 'battle' || this.phase === 'countdown') this.battleTime += TICK;
     this.processEvents(events);
     this.sample();
@@ -360,6 +406,24 @@ export class Battle extends Emitter {
     } else if (this.phase === 'battle' && this.rules.decisionAtTime && this.battleTime >= this.roundTime) {
       this.decision();
     }
+  }
+
+  recordControls(i, c) {
+    const flags = (c.dash ? 1 : 0) | (c.counter ? 2 : 0) | (c.ability1 ? 4 : 0) | (c.ability2 ? 8 : 0) | (c.ultimate ? 16 : 0) | (c.tactical1 ? 32 : 0) | (c.tactical2 ? 64 : 0) | (c.brace ? 128 : 0);
+    const key = `${c.steer.x},${c.steer.z},${flags}`;
+    if (this._recLast[i] === key) return;
+    this._recLast[i] = key;
+    this.rec.controls.push([this.round, this.roundTicks, i, c.steer.x, c.steer.z, flags]);
+  }
+
+  // Everything needed to re-simulate this match exactly.
+  replayData() {
+    if (!this.rec || !this.result) return null;
+    return {
+      v: 1, seed: this.seed, arenaId: this.arenaDef.id, format: this.format.id, roundTime: this.roundTime, mode: this.mode,
+      rules: { ...this.rules }, rec: this.rec,
+      summary: { winner: this.result.winner, rounds: this.result.rounds.map((r) => ({ winner: r.winner, how: r.how, time: +r.time.toFixed(3) })) },
+    };
   }
 
   applyControls(f, opp, c) {
@@ -693,5 +757,39 @@ export class Battle extends Emitter {
     }
     if (this.phase !== 'matchOver') this.finishMatch();
     return this.result;
+  }
+}
+
+// Playback of recorded inputs (see Battle.recordControls / replayData).
+export class ReplayInput {
+  constructor(rec) {
+    this.rec = rec;
+    this.list = rec.controls || [];
+    this.cursor = {};
+    this.state = {};
+  }
+  startRound(round) {
+    this.round = round;
+    for (const k of Object.keys(this.state)) this.state[k] = null;
+  }
+  setup(round, i) { return this.rec.setups?.[round]?.[i] || null; }
+  release(round, i) { return this.rec.releases?.[round]?.[i] || null; }
+  spawn(round, i) { return this.rec.spawns?.[round]?.[i] ?? 0; }
+  controls(i, round, tick) {
+    let k = this.cursor[i] ?? 0;
+    const L = this.list;
+    // advance through this fighter's entries up to (round, tick)
+    while (k < L.length && (L[k][0] < round || (L[k][0] === round && L[k][1] <= tick))) {
+      if (L[k][2] === i) this.state[i] = L[k];
+      k++;
+    }
+    this.cursor[i] = k;
+    const e = this.state[i];
+    const c = emptyControls();
+    if (!e || e[0] !== round) return c;
+    c.steer.set(e[3], 0, e[4]);
+    const fl = e[5];
+    c.dash = !!(fl & 1); c.counter = !!(fl & 2); c.ability1 = !!(fl & 4); c.ability2 = !!(fl & 8); c.ultimate = !!(fl & 16); c.tactical1 = !!(fl & 32); c.tactical2 = !!(fl & 64); c.brace = !!(fl & 128);
+    return c;
   }
 }

@@ -437,3 +437,4 @@ table.standings .st-pts { font-weight: 800; }
 .modes-grid { max-width: 1100px; }
 table.standings tr.promo td:first-child { box-shadow: inset 3px 0 0 var(--good); }
 table.standings tr.releg td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+.replay-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: stretch; }

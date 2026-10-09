@@ -659,6 +659,63 @@ scenarios.modes = async () => {
   } finally { await h.close(); }
 };
 
+scenarios.replay = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await openTile(h, 'quick', 'QuickBattleScreen');
+    await h.eval(() => { window.__testRoundTime = 8; window.__testSpeed = 3; });
+    await h.focusId('start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'battle');
+    for (let round = 0; round < 6; round++) {
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padAxes([0.5, 0, 0, -0.3]); await h.page.waitForTimeout(200); await h.padAxes([0, 0, 0, 0]);
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      // real steering and techniques during the round (all recorded)
+      for (let k = 0; k < 4; k++) {
+        if (await h.eval(() => window.__app.ui.current.battle?.phase !== 'battle')) break;
+        await h.padAxes([Math.cos(k), Math.sin(k), 0, 0]); await h.page.waitForTimeout(250);
+        if (k === 1) await h.padButton(0);
+        if (k === 2) await h.padButton(2);
+      }
+      await h.padAxes([0, 0, 0, 0]);
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 60000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    const ctl = await h.eval(() => window.__app.ui.stack.find((s) => s.constructor.screenName === 'BattleScreen').battle.rec.controls.length);
+    if (ctl < 5) throw new Error('too few recorded controls: ' + ctl);
+    await h.page.waitForTimeout(500);
+    await h.focusId('watch-replay'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && !!window.__app.ui.current.session.replay, 10000, 'replay screen');
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 20000, 'replay running');
+    await h.shot('r01_replay');
+    for (let i = 0; i < 8; i++) {
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase) || window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 90000, 'replay round');
+      if ((await h.eval(() => window.__app.ui.current?.constructor.screenName)) === 'ResultsScreen') break;
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'replay results');
+    const verified = await h.eval(() => window.__app.ui.stack.filter((s) => s.constructor.screenName === 'BattleScreen').pop().verified);
+    await h.shot('r02_replay_done');
+    if (verified !== true) throw new Error('replay did not reproduce the original match');
+    // replay is listed under Statistics
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 10000, 'original results');
+    await h.padButton(1); await h.padButton(1);
+    await openTile(h, 'stats', 'StatsScreen');
+    for (let i = 0; i < 3; i++) await h.padButton(5);
+    await h.waitFor(() => (window.__app.ui.current.replays || []).length === 1, 10000, 'replay listed');
+    await h.shot('r03_replays_tab');
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

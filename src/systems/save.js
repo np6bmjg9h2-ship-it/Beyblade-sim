@@ -9,6 +9,7 @@ import { SCHEMA_VERSION, newProfile, normalizeProfile } from './profile.js';
 const DB_NAME = 'chaos-spin-arena-zero';
 const STORE = 'saves';
 export const SLOTS = ['slot1', 'slot2', 'slot3'];
+export const REPLAY_KEEP = 12;
 
 class MemoryStore {
   constructor() { this.m = new Map(); }
@@ -170,7 +171,40 @@ export class SaveManager {
     return true;
   }
 
+  // ---------------------------------------------------------- replays
+  // Stored per slot under separate keys; the newest REPLAY_KEEP unpinned
+  // replays are kept, pinned ones until deleted.
+  async listReplays(slot) { return (await this.store.get('replays:' + slot)) || []; }
+
+  async saveReplay(slot, rep, keep = REPLAY_KEEP) {
+    const list = await this.listReplays(slot);
+    const meta = { id: rep.id, date: rep.date, title: rep.title, mode: rep.mode, names: rep.names, score: rep.score, arenaId: rep.arenaId, winner: rep.summary.winner, pinned: false };
+    await this.store.set(`replay:${slot}:${rep.id}`, rep);
+    list.unshift(meta);
+    const unpinned = list.filter((r) => !r.pinned);
+    for (const old of unpinned.slice(keep)) { await this.store.del(`replay:${slot}:${old.id}`); list.splice(list.indexOf(old), 1); }
+    await this.store.set('replays:' + slot, list);
+    return meta;
+  }
+
+  async getReplay(slot, id) { return this.store.get(`replay:${slot}:${id}`); }
+
+  async deleteReplay(slot, id) {
+    const list = (await this.listReplays(slot)).filter((r) => r.id !== id);
+    await this.store.del(`replay:${slot}:${id}`);
+    await this.store.set('replays:' + slot, list);
+  }
+
+  async pinReplay(slot, id, pinned) {
+    const list = await this.listReplays(slot);
+    const r = list.find((x) => x.id === id);
+    if (r) r.pinned = !!pinned;
+    await this.store.set('replays:' + slot, list);
+  }
+
   async remove(slot) {
+    for (const r of await this.listReplays(slot)) await this.store.del(`replay:${slot}:${r.id}`);
+    await this.store.del('replays:' + slot);
     await this.store.del(slot);
     await this.store.del(slot + '_backup');
     const meta = await this.meta();

@@ -1,7 +1,8 @@
 // Statistics: overview, finishes, launches, stadiums, Bit-Beasts, builds,
 // records and recent battles, all from the saved profile.
 
-import { h } from '../ui.js';
+import { h, btn } from '../ui.js';
+import { replayScreen } from './results.js';
 import { statRow, fmtTime } from '../widgets.js';
 import { barList } from '../charts.js';
 import { ARENA_INDEX } from '../../data/arenas.js';
@@ -9,7 +10,7 @@ import { BEAST_INDEX, bondLevel } from '../../data/beasts.js';
 import { FINISH_NAMES } from '../../game/battle.js';
 import { describeHabits } from '../../systems/rivals.js';
 
-const TABS = [{ id: 'overview', label: 'Overview' }, { id: 'usage', label: 'Usage' }, { id: 'history', label: 'History' }];
+const TABS = [{ id: 'overview', label: 'Overview' }, { id: 'usage', label: 'Usage' }, { id: 'history', label: 'History' }, { id: 'replays', label: 'Replays' }];
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
 
 export class StatsScreen {
@@ -18,7 +19,7 @@ export class StatsScreen {
 
   render() {
     const S = this.app.profile.stats;
-    const body = this.tab === 'overview' ? this.overview(S) : this.tab === 'usage' ? this.usage(S) : this.history(S);
+    const body = this.tab === 'overview' ? this.overview(S) : this.tab === 'usage' ? this.usage(S) : this.tab === 'replays' ? this.replaysView() : this.history(S);
     return h('div', { class: 'std-screen stats' },
       h('div', { class: 'screen-head' }, h('h1', {}, 'Statistics'),
         h('div', { class: 'tabbar' }, h('kbd', {}, this.app.input.glyph('tab_prev')), TABS.map((t) => h('div', { class: 'tab' + (t.id === this.tab ? ' active' : ''), onclick: () => { this.tab = t.id; this.ui.refresh(this); } }, t.label)), h('kbd', {}, this.app.input.glyph('tab_next')))),
@@ -60,6 +61,31 @@ export class StatsScreen {
       h('div', { class: 'panel scroll' },
         h('h3', {}, 'Bit-Beasts'), barList(top(S.beastUse, (k) => BEAST_INDEX[k]?.name || k), { format: (v) => `${v} battles` }),
         ...Object.values(P.beasts).map((b) => statRow(BEAST_INDEX[b.id]?.name || b.id, `Bond ${bondLevel(b.bondXp)} · ${b.stats.winsWith || 0} wins together${b.awakened ? ' · Awakened' : ''}`))));
+  }
+
+  async loadReplays() {
+    this.replays = await this.app.saves.listReplays(this.app.slot).catch(() => []);
+    if (this.ui.current === this && this.tab === 'replays') this.ui.refresh(this);
+  }
+
+  onEnter() { this.loadReplays(); }
+  onResume() { this.loadReplays(); }
+
+  replaysView() {
+    const list = this.replays || [];
+    return h('div', { class: 'panel scroll col gap', 'data-wrap': '' },
+      h('h3', {}, 'Replays'),
+      h('div', { class: 'small muted' }, 'Every match you play is recorded as your inputs plus the battle seed, then re-simulated on playback with the same physics — the replay is checked against the original result. The newest 12 are kept; pinned replays are kept until deleted.'),
+      ...(list.length ? list.map((r) => h('div', { class: 'replay-row' },
+        btn(h('div', {}, h('b', {}, `${r.pinned ? '📌 ' : ''}${r.names.join(' vs ')}`), h('div', { class: 'small muted' }, `${r.title} · ${r.score} · ${new Date(r.date).toLocaleString()}`)), () => this.watch(r.id), { class: 'tour-btn', id: 'rep-' + r.id, desc: 'Watch this replay.' }),
+        btn(r.pinned ? 'Unpin' : 'Pin', async () => { await this.app.saves.pinReplay(this.app.slot, r.id, !r.pinned); this.loadReplays(); }, { id: 'pin-' + r.id }),
+        btn('Delete', async () => { if (await this.ui.confirm('Delete replay?', `${r.names.join(' vs ')} · ${r.score}`, { danger: true, yes: 'Delete' })) { await this.app.saves.deleteReplay(this.app.slot, r.id); this.loadReplays(); } }, { class: 'danger', id: 'del-' + r.id }))) : [h('div', { class: 'muted' }, this.replays ? 'No replays yet — play a match.' : 'Loading…')]));
+  }
+
+  async watch(id) {
+    const rep = await this.app.saves.getReplay(this.app.slot, id).catch(() => null);
+    if (!rep) { this.ui.toast('Replay not available.', 'bad'); return; }
+    this.ui.push(replayScreen(rep));
   }
 
   history(S) {

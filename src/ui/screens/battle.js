@@ -15,7 +15,7 @@ import { PERFECT_CENTER } from '../../game/launch.js';
 import { TICK, LEDGER_KEYS } from '../../physics/simulation.js';
 import { CAMERA_NAMES } from '../../render/camera.js';
 import { beastImg, fmtTime, fmtRpm } from '../widgets.js';
-import { ResultsScreen } from './results.js';
+import { ResultsScreen, BattleScreenRef } from './results.js';
 import { SettingsScreen } from './settings.js';
 
 const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping', numerical: 'Numerical' };
@@ -85,12 +85,16 @@ export class BattleScreen {
     const s = this.session;
     this._toResults = false;
     const testRound = typeof window !== 'undefined' && window.__testRoundTime;
-    const battle = new Battle({
-      arenaId: s.arenaId, format: s.format, roundTime: testRound || s.roundTime, seed: s.seed, mode: s.mode,
-      participants: s.participants, rules: { slowmo: app.settings.gameplay.slowmo, ...(s.rules || {}) },
-    });
+    const R = s.replay;
+    const hasHuman = s.participants.some((p) => p.human);
+    const battle = R
+      ? new Battle({ arenaId: R.arenaId, format: R.format, roundTime: R.roundTime, seed: R.seed, mode: 'replay', participants: R.participants, rules: R.rules, replay: R.rec })
+      : new Battle({
+        arenaId: s.arenaId, format: s.format, roundTime: testRound || s.roundTime, seed: s.seed ?? ((Math.random() * 2 ** 31) >>> 0), mode: s.mode,
+        participants: s.participants, rules: { slowmo: app.settings.gameplay.slowmo, ...(s.rules || {}) }, record: hasHuman && s.mode !== 'lab',
+      });
     this.battle = battle;
-    this.humans = battle.fighters.filter((f) => f.human).map((f) => new HumanController(app, battle, f.index));
+    this.humans = R ? [] : battle.fighters.filter((f) => f.human).map((f) => new HumanController(app, battle, f.index));
     this.objectives = s.objectives ? new ObjectiveTracker(s.objectives) : null;
     this.objectivesDoneT = null;
     battle.on('roundStart', () => this.onRoundStart());
@@ -516,13 +520,39 @@ export class BattleScreen {
     this._toResults = true;
     const app = this.app;
     const res = this.matchResult || this.battle.result;
+    if (this.session.replay) { this.finishReplay(res); return; }
+    this.saveReplay();
     let rewards = null;
     if (app.processMatch) rewards = await app.processMatch(res, this.session, this.battle);
     if (this.session.onFinish) {
       const handled = await this.session.onFinish(res, rewards, this);
       if (handled) return;
     }
-    this.ui.push(new ResultsScreen({ result: res, rewards, session: this.session, battle: this.battle, onRematch: this.session.allowRematch === false ? null : () => this.rematch(), onExit: () => this.exit() }));
+    this.ui.push(new ResultsScreen({ result: res, rewards, session: this.session, battle: this.battle, replayId: this.replayId, onRematch: this.session.allowRematch === false ? null : () => this.rematch(), onExit: () => this.exit() }));
+  }
+
+  // Store a replay of the match just finished (fire and forget).
+  saveReplay() {
+    const app = this.app;
+    const data = this.battle.replayData();
+    if (!data || !app.slot) return;
+    const b = this.battle;
+    const rep = {
+      ...data, id: `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`, date: Date.now(), title: this.session.title || 'Battle',
+      participants: JSON.parse(JSON.stringify(this.session.participants)), names: b.fighters.map((f) => f.name),
+      score: b.result.score.map((x) => (b.format.pointsToWin ? x.points : x.rounds)).join('-'),
+    };
+    this.replayId = rep.id;
+    app.saves.saveReplay(app.slot, rep).catch((e) => console.warn('Replay not saved', e));
+  }
+
+  // Replay finished: check it re-simulated to the recorded outcome.
+  finishReplay(res) {
+    const want = this.session.replay.summary;
+    const same = res.winner === want.winner && res.rounds.length === want.rounds.length && res.rounds.every((r, i) => r.how === want.rounds[i].how && Math.abs(r.time - want.rounds[i].time) < 1e-3);
+    this.verified = same;
+    this.ui.push(new ResultsScreen({ result: res, rewards: null, session: { ...this.session, continueLabel: same ? 'Done — replay verified ✓' : 'Done — replay diverged' }, battle: this.battle, rematchLabel: 'Watch again', onRematch: () => this.rematch(), onExit: () => this.exit() }));
+    this.ui.toast(same ? 'Replay verified: identical outcome to the original match.' : 'This replay diverged from the original (recorded on a different game version?).', same ? 'good' : 'warn', 4000);
   }
 
   rematch() {
@@ -580,7 +610,7 @@ class PauseOverlay {
       btn(`Camera: ${CAMERA_NAMES[this.app.renderer.rig.mode]}`, () => { this.app.renderer.rig.cycle(); this.ui.refresh(this); }),
       btn(this.app.renderer.settings.debug ? 'Hide physics debug overlay' : 'Show physics debug overlay', () => { this.app.renderer.settings.debug = !this.app.renderer.settings.debug; if (!this.app.renderer.settings.debug && s.battle.sim) s.battle.sim.debug.enabled = false; this.ui.refresh(this); }, { desc: 'Contact points, collision normals, velocity vectors, spin axis, angular momentum and centre of mass.' }),
       s.session.labTools ? btn('Relaunch (restart round)', () => { this.ui.pop(); s.resume(); s.battle.restartRound(); }, { id: 'lab-relaunch', desc: 'Throw this round away and go straight back to launch setup.' }) : null,
-      s.session.labTools ? btn(`Simulation speed: ${s.battle.speedMul === 0.5 ? '0.5×' : s.battle.speedMul === 0.25 ? '0.25×' : '1×'}`, () => { s.battle.speedMul = s.battle.speedMul === 0.5 ? 0.25 : s.battle.speedMul === 0.25 ? 1 : 0.5; this.ui.refresh(this); }, { id: 'lab-speed', desc: 'Slow the whole simulation down to study contacts. The physics step stays fixed.' }) : null,
+      s.session.labTools || s.session.replayTools ? btn(`Simulation speed: ${s.battle.speedMul === 0.5 ? '0.5×' : s.battle.speedMul === 0.25 ? '0.25×' : '1×'}`, () => { s.battle.speedMul = s.battle.speedMul === 0.5 ? 0.25 : s.battle.speedMul === 0.25 ? 1 : 0.5; this.ui.refresh(this); }, { id: 'lab-speed', desc: 'Slow the whole simulation down to study contacts. The physics step stays fixed.' }) : null,
       btn('Settings', () => this.ui.push(new SettingsScreen())),
       s.session.allowRestart === false ? null : btn('Restart match', async () => { if (await this.ui.confirm('Restart match?', 'The current match will be abandoned without rewards.')) { this.ui.pop(); s.resume(); s.app.renderer.clearFighters(); s.startBattle(); } }),
       btn(s.session.forfeitLabel || 'Quit match', async () => { if (await this.ui.confirm('Quit match?', s.session.forfeitWarning || 'You will leave without rewards. Equipment wear from completed rounds is kept.', { danger: true, yes: 'Quit' })) { this.ui.pop(); s.resume(); s.forfeit(); } }, { class: 'danger' }));
@@ -595,3 +625,5 @@ BattleScreen.prototype.forfeit = function forfeit() {
   this.session.onForfeit?.(this);
   this.ui.pop();
 };
+
+BattleScreenRef.cls = BattleScreen;

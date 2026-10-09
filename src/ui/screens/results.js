@@ -13,6 +13,12 @@ export class ResultsScreen {
   static screenName = 'ResultsScreen';
   constructor(opts) { this.opts = opts; this.tab = 'summary'; }
 
+  async watchReplay() {
+    const rep = await this.app.saves.getReplay(this.app.slot, this.opts.replayId).catch(() => null);
+    if (!rep) { this.ui.toast('Replay not available.', 'bad'); return; }
+    this.ui.push(replayScreen(rep));
+  }
+
   render() {
     const { result: r, rewards, battle } = this.opts;
     const hi = r.fighters.findIndex((f) => f.human);
@@ -39,7 +45,8 @@ export class ResultsScreen {
       row('Counters', f.stats.counters || 0), row('Dashes', f.stats.dashes || 0), row('Lock slips taken / dealt', `${f.stats.lockClicksTaken} / ${f.stats.lockClicksDealt}`));
     const rewardsEl = rewards ? renderRewards(rewards, this.app) : h('div', { class: 'muted' }, 'No rewards in this mode.');
     const actions = h('div', { class: 'row gap' },
-      this.opts.onRematch ? btn('Rematch', () => this.opts.onRematch(), { class: 'primary' }) : null,
+      this.opts.onRematch ? btn(this.opts.rematchLabel || 'Rematch', () => this.opts.onRematch(), { class: 'primary' }) : null,
+      this.opts.replayId ? btn('Watch replay', () => this.watchReplay(), { id: 'watch-replay', desc: 'Re-simulates the match from your recorded inputs.' }) : null,
       btn(this.opts.session.continueLabel || 'Continue', () => this.opts.onExit(), { class: this.opts.onRematch ? '' : 'primary' }));
     return h('div', { class: 'std-screen results' },
       h('div', { class: 'results-head ' + (r.winner == null ? 'draw' : won || hi < 0 ? 'win' : 'lose') }, h('h1', {}, title), h('div', { class: 'res-score' }, `${r.fighters[0].name}  ${score}  ${r.fighters[1].name}`)),
@@ -68,3 +75,9 @@ export function renderRewards(rw, app) {
   if (rw.notes) for (const n of rw.notes) el.append(h('div', { class: 'small muted' }, n));
   return el;
 }
+
+// A BattleScreen that re-simulates a stored replay.
+export function replayScreen(rep) {
+  return new BattleScreenRef.cls({ title: `Replay · ${rep.title}`, replay: rep, arenaId: rep.arenaId, format: rep.format, participants: rep.participants, noRewards: true, allowRematch: true, replayTools: true, allowRestart: false, forfeitLabel: 'Stop replay', forfeitWarning: 'Leave the replay?' });
+}
+export const BattleScreenRef = { cls: null };
