@@ -177,7 +177,8 @@ export class Battle extends Emitter {
     if (resonant) {
       // the universal Resonant core gives half strength except to Orrery
       const scale = aff === 'spirit' && def.id !== 'orrery' && !(res?.set && f.items.some(({ item }) => item?.set === res.set)) ? 0.5 : 1;
-      f.mods.add({ id: 'resonance:' + def.id, name: 'Resonance', origin: 'resonance', cond: { type: 'always' }, deltas: res.deltas.map(([c, v]) => [c, v * scale]) });
+      const boost = 1 + (b.resonanceBoost || 0);
+      f.mods.add({ id: 'resonance:' + def.id, name: 'Resonance', origin: 'resonance', cond: { type: 'always' }, deltas: res.deltas.map(([c, v]) => [c, v * scale * boost]) });
       f.resonant = true;
     } else f.resonant = false;
   }
@@ -494,6 +495,14 @@ export class Battle extends Emitter {
       // simultaneous finish on the same tick -> draw
       this.pendingResult = { winner: null, loser: null, how: 'draw', rawHow: 'draw' };
     }
+  }
+
+  // Developer/test hook: end the current round as if fighter `index` had finished `how`.
+  debugFinish(index, how = 'out') {
+    if (this.phase !== 'battle') return false;
+    this.sim.finish(this.fighters[index].top, how);
+    this.processEvents(this.sim.events.splice(0));
+    return true;
   }
 
   decision() {

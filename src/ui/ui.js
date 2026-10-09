@@ -26,6 +26,7 @@ export function btn(label, onActivate, opts = {}) {
   const el = h('button', { class: 'btn ' + (opts.class || ''), type: 'button', 'data-focus': '', disabled: opts.disabled, title: opts.title }, label);
   el.addEventListener('click', (e) => { e.preventDefault(); if (!el.disabled) onActivate?.(e); });
   if (opts.desc) el.dataset.desc = opts.desc;
+  if (opts.id) el.dataset.id = opts.id;
   return el;
 }
 
@@ -101,7 +102,8 @@ export class UI {
   // Re-render the current screen in place, keeping focus by data-id when possible.
   refresh(screen = this.current) {
     if (!screen) return;
-    const fid = this.focused?.dataset?.id;
+    const background = screen !== this.current;
+    const fid = background ? screen._lastFocus?.dataset?.id : this.focused?.dataset?.id;
     const old = screen.el;
     const scroll = [...old.querySelectorAll('[data-scroll]')].map((e) => [e.dataset.scroll, e.scrollTop]);
     screen.el = screen.render(screen.params);
@@ -109,6 +111,12 @@ export class UI {
     if (screen.overlay) screen.el.classList.add('screen-overlay');
     old.replaceWith(screen.el);
     for (const [k, top] of scroll) { const e = screen.el.querySelector(`[data-scroll="${k}"]`); if (e) e.scrollTop = top; }
+    if (background) {
+      // never steal focus from the active screen; just remember where to return
+      screen.el.classList.add('inactive');
+      screen._lastFocus = fid ? screen.el.querySelector(`[data-id="${CSS.escape(fid)}"]`) : null;
+      return;
+    }
     const again = fid ? screen.el.querySelector(`[data-id="${CSS.escape(fid)}"]`) : null;
     if (again) this.focus(again, { silent: true, noScroll: true });
     else this.autoFocus(screen);

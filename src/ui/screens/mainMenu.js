@@ -26,7 +26,8 @@ export class MainMenu {
     for (const e of MENU_ENTRIES) {
       if (e.hidden?.(p)) continue;
       const locked = e.locked?.(p);
-      const b = btn(h('div', { class: 'tile' }, h('div', { class: 'tile-title' }, e.label), h('div', { class: 'tile-desc' }, locked || e.desc)), () => this.open(e), { class: 'tile-btn' + (e.primary ? ' primary' : ''), disabled: !!locked });
+      const badge = e.badge?.(p);
+      const b = btn(h('div', { class: 'tile' }, h('div', { class: 'tile-title' }, e.label, badge ? h('span', { class: 'badge' }, '!') : null), h('div', { class: 'tile-desc' }, locked || e.desc)), () => this.open(e), { class: 'tile-btn' + (e.primary ? ' primary' : ''), disabled: !!locked });
       b.dataset.id = e.id;
       b.dataset.desc = locked || e.desc;
       grid.append(b);

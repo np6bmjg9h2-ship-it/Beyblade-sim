@@ -106,7 +106,9 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'main menu');
     await h.shot('g01_menu');
     // Settings via controller: d-pad to the Settings tile, then A
-    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'settings') break; await h.padButton(15); }
+    await h.padButton(13); // d-pad down: Settings sits under Quick Battle in the tile grid
+    const onSettings = await h.eval(() => window.__app.ui.focused?.dataset.id);
+    if (onSettings !== 'settings') throw new Error('d-pad down from Quick Battle reached ' + onSettings);
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'SettingsScreen', 10000, 'settings');
     await h.padButton(5); await h.padButton(5); await h.padButton(5); // RB x3 -> Controls tab
@@ -120,7 +122,7 @@ scenarios.gamepad = async () => {
     await h.shot('g02_settings');
     await h.padButton(1); // back
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu again');
-    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'quick') break; await h.padButton(14); }
+    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'quick') break; await h.padButton(i % 2 ? 14 : 12); }
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 10000, 'quick battle');
     for (let i = 0; i < 5; i++) await h.padButton(13);
@@ -206,6 +208,63 @@ scenarios.workshop = async () => {
     for (let i = 0; i < 3; i++) { await h.padButton(5); await h.shot('ws_tab' + i); }
     await h.padButton(1);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'back to menu');
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
+scenarios.beasts = async () => {
+  const h = await launch();
+  try {
+    await h.open();
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots');
+    await h.padButton(0); // slot 1 (fresh browser profile)
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 10000, 'name');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.osk-key')].find((k) => k.textContent.includes('Done'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu');
+    await h.eval(() => { window.__app.profile.player.level = 2; window.__app.ui.refresh(window.__app.ui.current); });
+    await h.focusId('beasts'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BeastsScreen', 10000, 'beasts screen');
+    await h.shot('b01_beasts');
+    await h.focusId('beast-ferrowulf'); await h.padButton(0);
+    const label = await h.eval(() => document.querySelector('[data-id="spirit-trial"]')?.textContent);
+    if (!label) throw new Error('Ferrowulf trial not offered at level 2');
+    await h.focusId('spirit-trial');
+    await h.eval(() => { window.__testRoundTime = 20; window.__testSpeed = 3; });
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'trial battle');
+    for (let round = 0; round < 4; round++) {
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'battle running');
+      if (round === 0) await h.shot('b02_trial');
+      // deterministic outcome: the trial champion is rung out
+      await h.waitFor(() => { const b = window.__app.ui.current.battle; return b.fighters.every((f) => f.launch.launched) && b.battleTime > 0.5; }, 15000, 'both launched');
+      await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    await h.shot('b03_results');
+    const owned = await h.eval(() => !!window.__app.profile.beasts.ferrowulf);
+    if (!owned) throw new Error('Ferrowulf was not recruited after winning the trial');
+    const how = await h.eval(() => window.__app.ui.current.opts?.result?.rounds?.map((r) => r.how).join(',') || '');
+    if (!how.includes('out')) throw new Error('forced ring-outs were not scored as ring-outs: ' + how);
+    const unlockShown = await h.eval(() => document.body.textContent.includes('has bonded with you'));
+    if (!unlockShown) throw new Error('recruit message missing from results');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BeastsScreen', 10000, 'back to beasts');
+    await h.focusId('beast-ferrowulf'); await h.padButton(0);
+    await h.shot('b04_owned');
+    await h.focusId('bond-loadout');
+    await h.padButton(0);
+    const lb = await h.eval(() => window.__app.profile.loadouts[window.__app.profile.activeLoadout].beast);
+    if (lb !== 'ferrowulf') throw new Error('bonding to loadout failed: ' + lb);
     return { errors: h.errors };
   } finally { await h.close(); }
 };
