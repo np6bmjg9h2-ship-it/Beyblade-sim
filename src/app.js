@@ -15,6 +15,7 @@ import { ARENA_INDEX } from './data/arenas.js';
 import { Rng } from './core/rng.js';
 import { TitleScreen } from './ui/screens/title.js';
 import { processMatch } from './systems/progression.js';
+import { TournamentRunner } from './game/tournamentRunner.js';
 
 export class App {
   constructor(root) {
@@ -45,6 +46,7 @@ export class App {
       throw e;
     }
     this.ui = new UI(this, this.uiRoot);
+    this.tournaments = new TournamentRunner(this);
     // audio needs a user gesture
     const unlock = () => { this.audio.unlock(); if (this.sceneMode === 'showcase') this.audio.playMusic('menu'); };
     window.addEventListener('pointerdown', unlock, { once: true });
@@ -91,6 +93,7 @@ export class App {
   setProfile(profile, slot) {
     this.profile = normalizeProfile(profile);
     this.slot = slot;
+    this.tournaments?.reset();
   }
 
   async save(reason = 'manual') {

@@ -8,6 +8,16 @@ import { scaledProfile } from '../data/aiProfiles.js';
 import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { aiReleaseCharge, MAX_LEAN } from './launch.js';
 
+const TWEAK_LIMITS = { reaction: [0.06, 1] };
+export function applyTweaks(P, tweaks) {
+  for (const [k, v] of Object.entries(tweaks)) {
+    if (typeof P[k] !== 'number') continue;
+    const [lo, hi] = TWEAK_LIMITS[k] || [0, 0.98];
+    P[k] = Math.max(lo, Math.min(hi, P[k] + v));
+  }
+  return P;
+}
+
 export function emptyControls() {
   return {
     steer: new Vec3(), dash: false, brace: false, counter: false,
@@ -16,8 +26,12 @@ export function emptyControls() {
 }
 
 export class AIController {
-  constructor({ profile = 'balanced', difficulty = 1, seed = 1, knownTechniques } = {}) {
-    this.profile = typeof profile === 'string' ? scaledProfile(profile, difficulty) : profile;
+  constructor({ profile = 'balanced', difficulty = 1, seed = 1, knownTechniques, tweaks = null, adaptRounds = false } = {}) {
+    this.profile = typeof profile === 'string' ? scaledProfile(profile, difficulty) : { ...profile };
+    // rival adaptation: bounded behavioural nudges only (never physics)
+    if (tweaks) applyTweaks(this.profile, tweaks);
+    this.adaptRounds = adaptRounds || this.profile.id === 'elite';
+    this.adaptLog = [];
     this.rng = new Rng(seed);
     this.knownTechniques = knownTechniques || null;
     this.history = []; // { t, opp:{p,v,spinFrac,spirit}, me }
@@ -35,6 +49,21 @@ export class AIController {
     this.pushDir = new Vec3(1, 0, 0);
   }
 
+  // Between rounds, adaptive AIs adjust to how the last round was lost or won.
+  adaptBetweenRounds({ won, how, oppStats }) {
+    if (!this.adaptRounds) return null;
+    const t = {};
+    let note = null;
+    if (!won && how === 'out') { t.edgeCaution = 0.12; t.centerPref = 0.1; note = 'plays further from the edge'; }
+    else if (!won && how === 'burst') { t.aggression = -0.08; t.counterSkill = 0.1; note = 'avoids head-on lock damage'; }
+    else if (!won && (how === 'spin' || how === 'decision')) { t.steerEconomy = 0.1; t.aggression = this.profile.aggression > 0.5 ? 0.08 : -0.08; note = this.profile.aggression > 0.5 ? 'presses harder before spin runs out' : 'saves more spin'; }
+    else if (won && oppStats && oppStats.dashes > 3) { t.counterSkill = 0.06; note = 'watches for dashes'; }
+    if (!note) return null;
+    applyTweaks(this.profile, t);
+    this.adaptLog.push(note);
+    return note;
+  }
+
   // ------------------------------------------------------------ launch
 
   chooseLaunch(ctx) {
@@ -42,14 +71,19 @@ export class AIController {
     const rng = this.rng;
     const { arena, side, gear, spinOptions, oppSpin } = ctx;
     const techs = (P.technique || ['normal']).filter((t) => !TECHNIQUE_INDEX[t]?.adv || (this.knownTechniques ? this.knownTechniques.includes(t) : true));
-    const tech = techs.length ? rng.pick(techs) : 'normal';
-    const rBase = P.centerPref > 0.7 ? 0.035 : P.aggression > 0.7 ? 0.09 : 0.06;
+    const danger = arena.danger || 0;
+    // dangerous stadiums: cautious AIs prefer controlled launches
+    let tech = techs.length ? rng.pick(techs) : 'normal';
+    if (danger > 0.3 && techs.includes('controlled') && rng.chance(P.edgeCaution * danger)) tech = 'controlled';
+    const rBase = (P.centerPref > 0.7 ? 0.035 : P.aggression > 0.7 ? 0.09 : 0.06) * (1 - 0.4 * danger);
     const ang = side === 0 ? Math.PI : 0;
     const a = ang + rng.range(-0.5, 0.5);
     const x = Math.cos(a) * (rBase + rng.range(-0.01, 0.02));
     const z = Math.sin(a) * (rBase + rng.range(-0.01, 0.02));
     // lean toward the centre/opponent for aggressive builds
-    const lean = clamp(P.lean + rng.range(-0.04, 0.04), 0, MAX_LEAN);
+    // banked launches curve hard on flat tips: lean less where exits are open
+    const leanMul = clamp(1 - danger * (0.35 + 0.6 * P.edgeCaution), 0.15, 1);
+    const lean = clamp(P.lean * leanMul + rng.range(-0.03, 0.03), 0, MAX_LEAN);
     const dir = Math.atan2(-z, -x) + rng.range(-0.4, 0.4);
     // spin: technical AIs may pick opposite spin if their launcher allows
     let spin = spinOptions[0];
@@ -136,15 +170,22 @@ export class AIController {
       }
       default:
     }
-    let mag = T.length();
-    if (mag > 1e-4) {
-      T.scale(1 / mag);
-      // steering economy: endurance AIs only steer firmly when it matters
-      const urgent = this.plan === 'recover' || this.plan === 'koPush' || this.plan === 'evade';
-      let strength = urgent ? 1 : 1 - P.steerEconomy * 0.75;
-      if (this.plan === 'center') strength *= clamp(Math.hypot(myP.x, myP.z) / (0.3 * R), 0, 1);
-      T.scale(strength);
-    }
+    // Velocity control: steer toward (desired velocity - current velocity) so
+    // the top brakes, cancels drift and then heads for the target, instead of
+    // pushing sideways while it orbits the rim.
+    const mag = T.length();
+    const myR0 = Math.hypot(myP.x, myP.z);
+    let desSpeed = { attack: 0.5 + 0.45 * P.aggression, koPush: 0.85, evade: 0.45, recover: 0.4, center: 0.3, circle: 0.3 }[this.plan] ?? 0.3;
+    if (this.plan === 'center' || this.plan === 'recover') desSpeed = Math.min(desSpeed, myR0 * 2.5);
+    const ux = mag > 1e-4 ? T.x / mag : 0, uz = mag > 1e-4 ? T.z / mag : 0;
+    const gain = 4 + 2 * P.steerSkill; // 1 / response time (s)
+    T.set((ux * desSpeed - myV.x) * gain, 0, (uz * desSpeed - myV.z) * gain);
+    const tl = T.length();
+    if (tl > 1) T.scale(1 / tl);
+    // steering economy: endurance AIs only steer firmly when it matters
+    const urgent = this.plan === 'recover' || this.plan === 'koPush' || this.plan === 'evade' || this.plan === 'attack';
+    T.scale(urgent ? 1 : 1 - P.steerEconomy * 0.6);
+    if (!urgent && T.length() < 0.25 * P.steerEconomy) T.set(0, 0, 0);
     // imperfect steering: low-frequency noise inversely proportional to skill
     if (this.rng.chance(0.05)) this.noise.set(this.rng.gauss(0, 1), 0, this.rng.gauss(0, 1)).scale((1 - P.steerSkill) * 0.45);
     T.add(this.noise);
@@ -174,7 +215,14 @@ export class AIController {
     u.koPush = oppR > 0.5 ? P.aggression * 0.8 + P.risk * 0.6 + (oppR - 0.5) * 2 : 0;
     u.evade = (spinLead < -0.08 ? (1 - P.aggression) * 0.9 : 0) + (closing > 0.5 && dist < 0.1 ? (1 - P.aggression) * 0.6 : 0);
     u.center = P.centerPref * (1 - P.aggression) + 0.1;
-    u.recover = myR > 0.78 ? P.edgeCaution * 1.6 + (myR - 0.78) * 3 : 0;
+    // recover early when drifting outward fast (predicted position), sooner in open stadiums
+    const danger = s.arena.danger || 0;
+    const myP = me.top.p, myV = me.top.v;
+    const R = s.arena.radius;
+    const vOut = (myP.x * myV.x + myP.z * myV.z) / Math.max(1e-4, Math.hypot(myP.x, myP.z));
+    const predR = myR + Math.max(0, vOut) * (P.reaction + P.decisionInterval) / R;
+    const edgeLine = 0.78 - 0.18 * danger;
+    u.recover = predR > edgeLine ? P.edgeCaution * 1.6 + (predR - edgeLine) * 3 : 0;
     u.circle = P.aggression > 0.4 && P.aggression < 0.85 ? 0.25 : 0;
     // late battle: whoever is ahead on spin plays safe
     if (spinLead > 0.15 && mySpin < 0.35) { u.evade += 0.4; u.attack *= 0.6; }

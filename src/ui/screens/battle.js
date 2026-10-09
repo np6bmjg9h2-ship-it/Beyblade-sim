@@ -436,6 +436,7 @@ export class BattleScreen {
       h('div', { class: 'bn-finish' }, FINISH_NAMES[rr.how] || rr.how),
       h('div', { class: 'bn-winner' }, winner ? `${winner.name} wins the round` : 'Draw'),
       h('div', { class: 'bn-expl' }, rr.explanation),
+      ...(rr.adapt || []).filter((a) => !b.fighters[a.index].human).map((a) => h('div', { class: 'bn-adapt' }, `${a.name} adapts: ${a.note}.`)),
       h('div', { class: 'bn-cont' }, h('kbd', {}, this.app.input.glyph('confirm', 'menu')), b.phase === 'matchOver' ? ' Match summary' : ' Next round'));
     if (winner) {
       const v = this.app.renderer.visuals[winner.index];

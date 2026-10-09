@@ -11,6 +11,7 @@ import { computeSkillEffects } from '../data/skills.js';
 import { BEAST_INDEX, bondLevel } from '../data/beasts.js';
 import { ARCHETYPE_INDEX } from '../data/opponents.js';
 import { Rng, mixSeeds } from '../core/rng.js';
+import { measureHabits, updateHabits, buildRole, recordRivalResult } from './rivals.js';
 
 const XP_CAP_PER_ITEM = 320;
 
@@ -160,6 +161,20 @@ export function processMatch(profile, result, session, battle) {
       rw.items.push(item);
       if (first) rw.notes.push(`New discovery: ${itemName(item)} added to your collection log.`);
     } else profile.seeds.counter++;
+  }
+
+  // ---------------------------------------------------------- habits & rivals
+  const role = buildRole(me.p.build || {});
+  if (session.mode !== 'lab' && session.mode !== 'exhibition') {
+    updateHabits(profile, measureHabits(result, hi, battle.arena?.radius), role);
+  }
+  const rivalId = session.rivalId || opp.p.rivalId;
+  if (rivalId) {
+    const lastHow = result.rounds[result.rounds.length - 1]?.how;
+    recordRivalResult(profile, rivalId, {
+      won, draw, role, buildId: opp.p.plan?.buildId, how: lastHow,
+      event: `${new Date().toLocaleDateString()}: ${won ? 'Won' : draw ? 'Drew' : 'Lost'} ${result.score.map((x) => x.rounds).join('-')}${session.title ? ` (${session.title})` : ''}`,
+    });
   }
 
   // ---------------------------------------------------------- statistics

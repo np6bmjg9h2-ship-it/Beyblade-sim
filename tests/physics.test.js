@@ -147,6 +147,25 @@ test('fast tops never tunnel through the stadium wall', () => {
   }
 });
 
+test('low walls and exit lips stop the lower body; fast tops ride over a low lip', () => {
+  // flat floor, a low 8 mm wall and one exit with a 2 mm lip at +x
+  const def = { id: 'lip', name: 'lip', radius: 0.2, profile: [[0, 0], [0.2, 0]], surface: { friction: 1, tag: 'standard' }, bands: [],
+    wall: { height: 0.008, restitution: 0.4, friction: 0.2, openings: [{ angle: 0, width: 40, lipHeight: 0.002 }] } };
+  const spec = specFromParts(BUILDS.defense);
+  const run = (dirAng, speed) => {
+    const arena = new Arena(def);
+    const v = [Math.cos(dirAng) * speed, 0, Math.sin(dirAng) * speed];
+    const { top, sim } = spinUp(spec, { arena, at: [Math.cos(dirAng) * 0.12, 0, Math.sin(dirAng) * 0.12], spin: -600, v });
+    runUntil(sim, () => !top.active, 2);
+    return top;
+  };
+  // the ring passes above an 8 mm wall, but the tip body must not slide through it
+  assert.equal(run(Math.PI / 2, 0.6).state, 'spinning', 'low wall holds');
+  // the 2 mm exit lip: slow tops are stopped, fast tops hop over (1/2 v^2 > g h)
+  assert.equal(run(0, 0.12).state, 'spinning', 'slow top stopped by the lip');
+  assert.equal(run(0, 0.9).state, 'out', 'fast top rides over the lip');
+});
+
 test('random extreme launches stay numerically stable', () => {
   let recoveries = 0;
   for (let i = 0; i < 25; i++) {

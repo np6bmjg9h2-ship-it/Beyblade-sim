@@ -21,6 +21,12 @@ async function timedLaunch(h, { pad = false } = {}) {
   return h.eval(() => window.__app.ui.current.battle.fighters[0].launch.result.quality);
 }
 
+// Let a round start, then end it as a player win (unless physics already ended it).
+async function forcePlayerRound(h) {
+  await h.waitFor(() => { const b = window.__app.ui.current.battle; return (b.phase === 'battle' && b.fighters.every((f) => f.launch.launched)) || ['finishing', 'roundOver', 'matchOver'].includes(b.phase); }, 15000, 'battle running');
+  await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+}
+
 scenarios.keyboard = async () => {
   const h = await launch();
   try {
@@ -106,9 +112,10 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'main menu');
     await h.shot('g01_menu');
     // Settings via controller: d-pad to the Settings tile, then A
-    await h.padButton(13); // d-pad down: Settings sits under Quick Battle in the tile grid
+    // walk the tile grid with the d-pad (down a row, then right) until Settings is focused
+    for (let i = 0; i < 8; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'settings') break; await h.padButton(i === 0 ? 13 : 15); }
     const onSettings = await h.eval(() => window.__app.ui.focused?.dataset.id);
-    if (onSettings !== 'settings') throw new Error('d-pad down from Quick Battle reached ' + onSettings);
+    if (onSettings !== 'settings') throw new Error('d-pad navigation did not reach Settings: ' + onSettings);
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'SettingsScreen', 10000, 'settings');
     await h.padButton(5); await h.padButton(5); await h.padButton(5); // RB x3 -> Controls tab
@@ -242,8 +249,7 @@ scenarios.beasts = async () => {
       await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'battle running');
       if (round === 0) await h.shot('b02_trial');
       // deterministic outcome: the trial champion is rung out
-      await h.waitFor(() => { const b = window.__app.ui.current.battle; return b.fighters.every((f) => f.launch.launched) && b.battleTime > 0.5; }, 15000, 'both launched');
-      await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+      await forcePlayerRound(h);
       await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
       const done = await h.eval(() => !!window.__app.ui.current.battle.result);
       await h.padButton(0);
@@ -265,6 +271,92 @@ scenarios.beasts = async () => {
     await h.padButton(0);
     const lb = await h.eval(() => window.__app.profile.loadouts[window.__app.profile.activeLoadout].beast);
     if (lb !== 'ferrowulf') throw new Error('bonding to loadout failed: ' + lb);
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
+scenarios.tournament = async () => {
+  const h = await launch();
+  const cur = () => h.eval(() => window.__app.ui.current?.constructor.screenName);
+  try {
+    await h.open();
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 10000, 'name');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.osk-key')].find((k) => k.textContent.includes('Done'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu');
+    await h.focusId('tournaments'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentsScreen', 10000, 'board');
+    await h.focusId('tour-rookie_cup'); await h.padButton(0);
+    await h.shot('t01_board');
+    await h.focusId('enter'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'confirm modal');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'hub');
+    const mode = await h.eval(() => window.__app.tournaments.mode);
+    if (mode !== 'worker') throw new Error('simulation worker not running: ' + mode);
+    await h.shot('t02_hub');
+    // scouting report
+    await h.focusId('hub-scout'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ScoutScreen', 5000, 'scout');
+    await h.shot('t03_scout');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 5000, 'hub again');
+    // play the first match
+    await h.eval(() => { window.__testRoundTime = 20; window.__testSpeed = 3; });
+    await h.focusId('hub-play'); await h.padButton(0);
+    for (let i = 0; i < 6 && (await cur()) === 'DialogueScreen'; i++) { if (i === 0) await h.shot('t04_dialogue'); await h.padButton(0); }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'battle');
+    for (let round = 0; round < 4; round++) {
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      await forcePlayerRound(h);
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'back to hub');
+    const st = await h.eval(() => { const t = window.__app.profile.tournaments.active; const ms = t.stages[0].matches; return { mine: ms.find((m) => (m.a === 0 || m.b === 0) && m.round === 0), sim: ms.filter((m) => m.simulated).length, id: t.id }; });
+    if (st.mine.status !== 'done' || st.mine.winner !== 0) throw new Error('player match not recorded as a win: ' + JSON.stringify(st.mine));
+    // other first-round matches are simulated by the worker with real physics
+    await h.waitFor(() => window.__app.profile.tournaments.active.stages[0].matches.filter((m) => m.round === 0 && m.simulated).length >= 3, 60000, 'AI matches simulated');
+    await h.shot('t05_bracket');
+    // persistence: reload the page and resume the tournament
+    await h.page.waitForTimeout(800);
+    await h.page.reload();
+    await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'reloaded');
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots again');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu after reload');
+    const same = await h.eval(() => window.__app.profile.tournaments.active?.id);
+    if (same !== st.id) throw new Error('tournament not persisted: ' + same);
+    await h.focusId('tournaments'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'hub restored');
+    // withdraw -> ceremony -> career
+    await h.focusId('hub-withdraw'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'withdraw confirm');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent === 'Withdraw')));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'CeremonyScreen', 10000, 'ceremony');
+    await h.shot('t06_ceremony');
+    await h.focusId('cer-continue'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentsScreen', 10000, 'board after');
+    await h.padButton(5);
+    await h.waitFor(() => window.__app.ui.current.tab === 'career', 5000, 'career tab');
+    const hist = await h.eval(() => window.__app.profile.tournaments.history[0]);
+    if (!hist?.withdrawn) throw new Error('career history missing withdrawal');
+    await h.shot('t07_career');
+    await h.padButton(5);
+    await h.shot('t08_rivals');
     return { errors: h.errors };
   } finally { await h.close(); }
 };

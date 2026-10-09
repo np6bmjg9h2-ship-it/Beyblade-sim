@@ -75,6 +75,9 @@ export class Arena {
     this._tmp = { y: 0, dy: 0 };
     this.edgeHeight = this.heightAtR(this.radius);
     this.rimY = this.edgeHeight + this.wallHeight;
+    // 0..1: how easily a top leaves this stadium (open exits, low walls, little centring)
+    const exitFrac = this.openings.reduce((s, o) => s + (o.lipHeight > 0.004 ? 0.3 : 1) * o.half * 2, 0) / (Math.PI * 2);
+    this.danger = Math.min(1, exitFrac * 2.2 + (this.wallHeight < 0.02 ? 0.3 : 0) + (this.edgeHeight < 0.015 ? 0.15 : 0));
   }
 
   heightAtR(r) { return evalSpline(this.spline, r, this._tmp).y; }

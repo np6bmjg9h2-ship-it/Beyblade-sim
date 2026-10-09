@@ -59,7 +59,7 @@ class Fighter {
       losses: { spin: 0, out: 0, burst: 0, decision: 0 }, maxSpin: 0, heavyHitsTaken: 0, comebacks: 0,
       energy: {}, wear: {}, wearCauses: {}, roundsFought: 0, minSpinFracInWin: 1,
     };
-    this.controller = this.human ? null : new AIController({ profile: p.ai || 'balanced', difficulty: p.difficulty ?? 1, seed: mixSeeds(battle.seed, index, 'ai'), knownTechniques: p.knownTechniques });
+    this.controller = this.human ? null : new AIController({ profile: p.ai || 'balanced', difficulty: p.difficulty ?? 1, seed: mixSeeds(battle.seed, index, 'ai'), knownTechniques: p.knownTechniques, tweaks: p.aiTweaks, adaptRounds: p.adaptRounds });
     this.controls = emptyControls();
     this.top = null;
     this.mods = null;
@@ -250,7 +250,7 @@ export class Battle extends Emitter {
     f.top.maxSpinRate = Math.abs(r.spin);
     L.launched = true;
     const q = r.quality;
-    f.stats.launches.push({ round: this.round, label: q.label, perfect: q.perfect, energy: r.energy, spin: Math.abs(r.spin), tilt: q.tiltDeg, technique: q.technique, techniqueSuccess: q.techniqueSuccess, poorAngle: q.poorAngle });
+    f.stats.launches.push({ round: this.round, spinDir: L.spin, r: Math.hypot(L.aim?.x || 0, L.aim?.z || 0), label: q.label, perfect: q.perfect, energy: r.energy, spin: Math.abs(r.spin), tilt: q.tiltDeg, technique: q.technique, techniqueSuccess: q.techniqueSuccess, poorAngle: q.poorAngle });
     if (q.perfect) { f.stats.perfectLaunches++; f.ability.gain(20); }
     else if (q.label === 'Good') f.ability.gain(8);
     f.stats.maxSpin = Math.max(f.stats.maxSpin, Math.abs(r.spin));
@@ -553,6 +553,13 @@ export class Battle extends Emitter {
       ledgers: this.fighters.map((f) => ({ ...(f.top.ledger || {}) })),
       wear: this.fighters.map((f) => ({ ...f.roundWear })),
     };
+    // adaptive AIs adjust their behaviour for the next round (visible to the player)
+    rr.adapt = [];
+    for (const f of this.fighters) {
+      if (!f.controller || this.matchDecided()) continue;
+      const note = f.controller.adaptBetweenRounds({ won: rr.winner === f.index, how, oppStats: this.fighters[1 - f.index].stats });
+      if (note) { rr.adapt.push({ index: f.index, name: f.name, note }); this.emit('aiAdapt', { fighter: f, note }); }
+    }
     this.roundResults.push(rr);
     this.phase = 'roundOver';
     this.phaseT = 0;

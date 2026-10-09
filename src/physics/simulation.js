@@ -23,8 +23,8 @@ const MAX_LIN_SPEED = 9; // m/s, safety clamp (tunnelling guard)
 const MAX_SPIN = 1600; // rad/s safety clamp
 const REST_THRESHOLD = 0.08; // m/s approach speed needed for restitution
 const SLOP = 0.00015; // m allowed penetration
-const STEER_BASE = 0.16; // fraction of weight available as steering force
-const STEER_IDLE_COST = 0.15; // m/s equivalent drain while steering
+const STEER_BASE = 0.28; // fraction of weight available as steering force
+const STEER_IDLE_COST = 0.08; // m/s equivalent drain while steering
 const STEER_EFF = 0.55; // conversion efficiency spin -> linear work
 const BASE_NUTATION_DAMPING = 2; // 1/s intrinsic material damping
 // Velocity-weakening friction for ring/wall contacts: polymer and metal
@@ -627,11 +627,12 @@ export class Simulation {
     }
   }
 
-  // Exit lips: the tip body (lowest part of the stack) is stopped by the low
-  // lip across an exit unless it has been lifted over it.
+  // Rim and exit lips: the tip body (lowest part of the stack) is stopped by
+  // the wall or by the low lip across an exit unless it has been lifted over
+  // it. Ring layers are handled by genWall; on low-walled stadiums the rings
+  // pass above the rim, so without this the lower body would slide through.
   genLip(t) {
     const arena = this.arena;
-    if (!arena.openings.length) return;
     const tip = t.spec.tip;
     t.axisPoint(tip.endZ + 0.003, _c);
     const cr = Math.hypot(_c.x, _c.z);
@@ -639,13 +640,22 @@ export class Simulation {
     if (reach <= arena.radius || cr < 1e-6) return;
     const ang = Math.atan2(_c.z, _c.x);
     const o = arena.openingAt(ang);
-    if (!o || o.lipHeight <= 0) return;
-    if (_c.y - 0.003 > arena.edgeHeight + o.lipHeight) return;
+    if (o && o.lipHeight <= 0) return;
+    const bottom = _c.y - 0.003;
+    const rimTop = arena.wallTopAt(ang);
+    if (bottom > rimTop) return;
     const c = this._contact();
     c.type = 'wall'; c.A = null; c.B = t; c.layerB = { part: 'tip' };
     c.point.set((_c.x / cr) * arena.radius, _c.y, (_c.z / cr) * arena.radius);
     c.depth = reach - arena.radius;
-    c.n.set(-_c.x / cr, -0.05, -_c.z / cr).normalize();
+    // A step lower than the body radius acts as a ramp: the normal from the
+    // step edge to the rounded body points up and inward, so a top crossing
+    // fast enough (1/2 v^2 > g h) rides over it; a full wall pushes straight back.
+    const rb = 0.006;
+    const hStep = rimTop - bottom;
+    const sinT = hStep >= rb ? -0.05 : clamp((rb - hStep) / rb, 0, 0.9);
+    const cosT = Math.sqrt(1 - sinT * sinT);
+    c.n.set((-_c.x / cr) * cosT, sinT, (-_c.z / cr) * cosT);
     c.mu = 0.2; c.e = 0.3;
     this.contacts.push(c);
   }

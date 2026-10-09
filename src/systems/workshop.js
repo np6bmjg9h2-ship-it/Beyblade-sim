@@ -13,8 +13,15 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { PART_INDEX } from '../data/parts.js';
 import { LAUNCHER_INDEX, CABLE_INDEX } from '../data/launchers.js';
 import { addItem } from './loot.js';
+import { activeLocks } from './tournament.js';
 
 const fail = (reason) => ({ ok: false, reason });
+
+// Tournament rules (e.g. Iron Endurance: no repairs; loadout lock).
+function repairBlocked(profile, uid) {
+  const lk = activeLocks(profile);
+  return !lk.repairs && lk.items.has(uid) ? `${lk.name}: repairs to your tournament loadout are not allowed until you finish or are knocked out.` : null;
+}
 
 function econ(profile) { return computeSkillEffects(profile.player.skills).economy; }
 
@@ -64,6 +71,8 @@ export function repairCost(profile, item, target = 1) {
 export function repair(profile, uid) {
   const it = profile.inventory[uid];
   if (!it) return fail('Item not found');
+  const blocked = repairBlocked(profile, uid);
+  if (blocked) return fail(blocked);
   const cost = repairCost(profile, it, 1);
   if (cost.credits === 0) return fail('Already in full condition');
   if (!canAfford(profile, cost)) return fail('Not enough resources: ' + costText(cost));
@@ -82,6 +91,8 @@ export function repair(profile, uid) {
 export function basicService(profile, uid) {
   const it = profile.inventory[uid];
   if (!it) return fail('Item not found');
+  const blocked = repairBlocked(profile, uid);
+  if (blocked) return fail(blocked);
   const target = 0.5 * it.maxDurability;
   if (it.durability >= target) return fail('Basic Service only restores parts below 50% condition');
   it.durability = target;
@@ -104,6 +115,8 @@ export function restoreCost(profile, it) {
 export function restore(profile, uid) {
   const it = profile.inventory[uid];
   if (!it) return fail('Item not found');
+  const blocked = repairBlocked(profile, uid);
+  if (blocked) return fail(blocked);
   if (!(it.fatigue > 0) && it.durability >= it.maxDurability) return fail('Nothing to restore');
   const cost = restoreCost(profile, it);
   if (!canAfford(profile, cost)) return fail('Not enough resources: ' + costText(cost));
@@ -139,6 +152,7 @@ export function dismantle(profile, uid) {
   if (!it) return fail('Item not found');
   if (it.locked) return fail('Item is locked');
   if (isEquipped(profile, uid)) return fail('Item is equipped in a loadout');
+  if (activeLocks(profile).registered.has(uid)) return fail('Item is registered for your current tournament');
   const y = dismantleYield(it);
   for (const [k, v] of Object.entries(y)) {
     if (k === 'research') profile.currency.research += v;
@@ -315,6 +329,8 @@ export function equip(profile, loadoutIndex, slot, uid) {
   const L = profile.loadouts[loadoutIndex];
   if (!L) return fail('No loadout');
   if (uid && !profile.inventory[uid]) return fail('Item not found');
+  const lk = activeLocks(profile);
+  if (lk.lockedLoadout === L.id) return fail(`${lk.name}: this loadout is locked for the tournament.`);
   const prev = slot === 'launcher' ? L.launcher : slot === 'cable' ? L.cable : L.parts[slot];
   if (slot === 'launcher') L.launcher = uid; else if (slot === 'cable') L.cable = uid; else L.parts[slot] = uid;
   pushUndo(profile, { type: 'equip', loadoutIndex, slot, prev, label: `Equip ${slot}` });
