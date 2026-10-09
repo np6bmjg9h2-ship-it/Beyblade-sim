@@ -801,7 +801,7 @@ export class Simulation {
       target.burstNotches += (stress - 0.3) * 0.75;
       const after = Math.floor(target.burstNotches);
       if (after > before) {
-        this.events.push({ type: 'lockClick', top: target, notches: target.burstNotches, max: burst.notches, time: this.time });
+        this.events.push({ type: 'lockClick', top: target, notches: target.burstNotches, max: burst.notches, count: after - before, time: this.time });
       }
     }
     target.lastStress = stress;

@@ -89,7 +89,7 @@ export function diffRow(label, a, b, fmt = (x) => x.toFixed(2), higherBetter = t
   const d = b - a;
   const good = higherBetter ? d > 1e-9 : d < -1e-9;
   const bad = higherBetter ? d < -1e-9 : d > 1e-9;
-  return h('div', { class: 'stat-row' }, h('span', { class: 'stat-label' }, label), h('span', { class: 'stat-value' }, fmt(a)), h('span', { class: 'stat-arrow' }, '→'),
+  return h('div', { class: 'stat-row diff' }, h('span', { class: 'stat-label' }, label), h('span', { class: 'stat-value' }, fmt(a)), h('span', { class: 'stat-arrow' }, '→'),
     h('span', { class: 'stat-value ' + (good ? 'good' : bad ? 'bad' : '') }, fmt(b)));
 }
 

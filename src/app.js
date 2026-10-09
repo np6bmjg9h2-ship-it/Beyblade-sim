@@ -14,6 +14,7 @@ import { ARCHETYPES, participantFromDef } from './data/opponents.js';
 import { ARENA_INDEX } from './data/arenas.js';
 import { Rng } from './core/rng.js';
 import { TitleScreen } from './ui/screens/title.js';
+import { processMatch } from './systems/progression.js';
 
 export class App {
   constructor(root) {
@@ -103,6 +104,16 @@ export class App {
       this.ui.toast('Save failed: ' + e.message, 'bad', 5000);
       return false;
     }
+  }
+
+  // Apply a finished match to the active profile and autosave (safe point).
+  async processMatch(result, session, battle) {
+    if (!this.profile || session.noRewards) return null;
+    const rw = processMatch(this.profile, result, session, battle);
+    await this.save('silent');
+    if (rw?.items?.length) this.audio.ui('loot');
+    if (rw?.levelUps) this.audio.ui('levelup');
+    return rw;
   }
 
   flashSaved() {

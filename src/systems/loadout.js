@@ -21,6 +21,8 @@ export function validateLoadout(profile, L) {
   const errors = [];
   if (!launcher) errors.push('No launcher equipped.');
   if (!cable) errors.push('No launch cable equipped.');
+  if (launcher && launcher.durability <= 0) errors.push('Launcher is broken — repair it in the Workshop.');
+  if (cable && cable.durability <= 0) errors.push('Launch cable is broken — repair it in the Workshop.');
   const gear = launcher ? resolveLaunchGear(launcher, cable) : null;
   const v = validateBuild(parts, { spin: L.spin, launcher: gear ? { spinMech: gear.spinMech } : null });
   return { ok: v.ok && errors.length === 0, errors: [...v.errors, ...errors], warnings: v.warnings, validation: v, parts, launcher, cable };

@@ -11,6 +11,7 @@ import { Vec3, clamp, DEG } from '../core/math.js';
 import { LAUNCHER_INDEX, CABLE_INDEX, TECHNIQUE_INDEX } from '../data/launchers.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { TUNING_INDEX } from '../data/tuning.js';
+import { UPGRADE_INDEX } from '../data/upgrades.js';
 
 export const PERFECT_CENTER = 0.92;
 export const BASE_MISFIRE = 1.12;
@@ -39,6 +40,7 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
     }
     for (const t of seen.values()) addLaunch(TRAIT_INDEX[t.id].launch(t.mag ?? 1));
     for (const tu of it.tuning || []) addLaunch(TUNING_INDEX[tu]?.launch);
+    for (const u of it.upgrades || []) addLaunch(UPGRADE_INDEX[u]?.launch);
   }
   addLaunch(extra.launchMods);
   // per-component wear

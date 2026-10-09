@@ -10,6 +10,7 @@ import { LAUNCHER_INDEX, CABLE_INDEX } from '../data/launchers.js';
 import { TRAITS, TRAIT_INDEX } from '../data/traits.js';
 import { RARITIES, RARITY_INDEX, rarityRank } from '../data/rarity.js';
 import { SETS } from '../data/sets.js';
+import { UPGRADE_INDEX } from '../data/upgrades.js';
 
 export const MASTERY = [
   { id: 'unfamiliar', name: 'Unfamiliar', xp: 0 },
@@ -167,6 +168,7 @@ export function itemWearMultiplier(item) {
     const d = TRAIT_INDEX[t.id];
     if (d?.kind === 'item' && d.item) m *= 1 + (d.item(t.mag).wear || 0);
   }
+  for (const u of item.upgrades || []) m *= 1 + (UPGRADE_INDEX[u]?.wear || 0);
   return Math.max(0.3, m);
 }
 

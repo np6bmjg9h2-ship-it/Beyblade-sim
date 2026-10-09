@@ -105,8 +105,8 @@ scenarios.gamepad = async () => {
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'main menu');
     await h.shot('g01_menu');
-    // Settings via controller: right then A
-    await h.padButton(15);
+    // Settings via controller: d-pad to the Settings tile, then A
+    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'settings') break; await h.padButton(15); }
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'SettingsScreen', 10000, 'settings');
     await h.padButton(5); await h.padButton(5); await h.padButton(5); // RB x3 -> Controls tab
@@ -120,7 +120,7 @@ scenarios.gamepad = async () => {
     await h.shot('g02_settings');
     await h.padButton(1); // back
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu again');
-    await h.padButton(14); // left back to quick battle
+    for (let i = 0; i < 6; i++) { if ((await h.eval(() => window.__app.ui.focused?.dataset.id)) === 'quick') break; await h.padButton(14); }
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 10000, 'quick battle');
     for (let i = 0; i < 5; i++) await h.padButton(13);
@@ -140,6 +140,11 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
     await h.padButton(9);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 5000, 'unpause');
+    // controller disconnect mid-battle auto-pauses
+    await h.eval(() => { const ev = new Event('gamepaddisconnected'); ev.gamepad = { index: 0, id: 'test pad' }; window.dispatchEvent(ev); });
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'auto pause on disconnect');
+    await h.padButton(0); // Resume (focused)
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 5000, 'resume after reconnect');
     for (let round = 0; round < 6; round++) {
       await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 120000, 'round over');
       const done = await h.eval(() => !!window.__app.ui.current.battle.result);
@@ -157,6 +162,51 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'main menu end');
     // controller disconnect handling during a battle is covered by onControllerLost
     return { launchQuality: q.label, errors: h.errors };
+  } finally { await h.close(); }
+};
+
+scenarios.workshop = async () => {
+  const h = await launch();
+  try {
+    await h.open();
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots');
+    await h.padButton(13); await h.padButton(13); await h.padButton(0); // slot 3
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 10000, 'name');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.osk-key')].find((k) => k.textContent.includes('Done'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu');
+    // seed some loot so every tab has content
+    await h.eval(() => { const a = window.__app; a.profile.currency.credits = 5000; Object.assign(a.profile.materials, { scrap: 80, polymer: 30, alloy: 30, coreShard: 10 }); });
+    await h.focusId('workshop'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'workshop');
+    // equip a different ring through the picker using only the controller
+    await h.focusId('slot-ring'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ItemPicker', 10000, 'picker');
+    const before = await h.eval(() => window.__app.profile.loadouts[0].parts.ring);
+    await h.padButton(13); await h.padButton(13); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'picked');
+    const after = await h.eval(() => window.__app.profile.loadouts[0].parts.ring);
+    if (before === after) throw new Error('ring did not change');
+    // inventory: favourite with X, lock with Y
+    await h.padButton(5);
+    await h.eval(() => window.__app.ui.focus(document.querySelector('.item-row')));
+    await h.padButton(2); await h.padButton(3);
+    const flags = await h.eval(() => { const uid = window.__app.ui.focused.dataset.id; const it = window.__app.profile.inventory[uid]; return [it.favourite, it.locked]; });
+    if (!flags[0] || !flags[1]) throw new Error('favourite/lock failed ' + flags);
+    // damage an item, repair via Repair tab
+    await h.eval(() => { const it = Object.values(window.__app.profile.inventory)[0]; it.durability = 20; });
+    await h.padButton(5);
+    await h.waitFor(() => window.__app.ui.current.tab === 'repair', 5000, 'repair tab');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.repair-row .btn')][0]));
+    await h.padButton(0);
+    const dur = await h.eval(() => Object.values(window.__app.profile.inventory)[0].durability);
+    if (dur <= 20) throw new Error('repair did not apply');
+    for (let i = 0; i < 3; i++) { await h.padButton(5); await h.shot('ws_tab' + i); }
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'back to menu');
+    return { errors: h.errors };
   } finally { await h.close(); }
 };
 

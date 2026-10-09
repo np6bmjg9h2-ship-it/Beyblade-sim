@@ -10,6 +10,7 @@
 import { PART_INDEX, ARCHITECTURES, SLOTS } from '../data/parts.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { TUNING_INDEX } from '../data/tuning.js';
+import { UPGRADE_INDEX } from '../data/upgrades.js';
 import { DEG } from '../core/math.js';
 import { GRAVITY } from '../physics/topBody.js';
 
@@ -45,6 +46,10 @@ export function resolvePart(entry) {
     for (const tu of entry.tuning || []) {
       const td = TUNING_INDEX[tu];
       if (td && td.apply) { td.apply(def); notes.push(td.name); }
+    }
+    for (const u of entry.upgrades || []) {
+      const ud = UPGRADE_INDEX[u];
+      if (ud && ud.apply) { ud.apply(def); notes.push(ud.name); }
     }
   }
   const c = isItem ? conditionOf(entry) : 1;
@@ -135,7 +140,8 @@ export function validateBuild(build, opts = {}) {
   }
   for (const k of SLOTS) {
     const p = P[k];
-    if (p && p._condition < 0.2) warnings.push(`${p.name} is in Critical condition — its physical properties are degraded.`);
+    if (p && p._item && p._item.durability <= 0) errors.push(`${p.name} is broken — repair it in the Workshop (Basic Service is free).`);
+    else if (p && p._condition < 0.2) warnings.push(`${p.name} is in Critical condition — its physical properties are degraded.`);
   }
   if (P.core.ecc + (P.disc.ecc || 0) > 0.3) warnings.push('Strong mass imbalance: expect vibration and an erratic path.');
   return { ok: errors.length === 0, errors, warnings, parts: P, mass };

@@ -402,9 +402,10 @@ export class Battle extends Emitter {
         case 'wall': case 'wallGrind': this.onWall(e); break;
         case 'lockClick': {
           const f = this.fighterOf(e.top);
-          f.stats.lockClicksTaken++;
-          this.fighters[1 - f.index].stats.lockClicksDealt++;
-          if (this.rules.durability) this.addWear(f, 'lock', WEAR.clickLock, 'lock slipped a notch');
+          const n = e.count || 1;
+          f.stats.lockClicksTaken += n;
+          this.fighters[1 - f.index].stats.lockClicksDealt += n;
+          if (this.rules.durability) this.addWear(f, 'lock', WEAR.clickLock * n, 'lock slipped a notch');
           this.emit('lockClick', { fighter: f, notches: e.notches, max: e.max });
           break;
         }
@@ -615,7 +616,8 @@ export class Battle extends Emitter {
       }
       case 'burst': {
         const n = L.spec.burst.notches;
-        return `${loser.name}'s lock assembly slipped all ${n} notches under counter-rotational strikes and shattered (${loser.stats.lockClicksTaken} notch slips this match).`;
+        const last = [...this.roundNotable].sort((a, b) => b.time - a.time)[0];
+        return `${loser.name}'s lock assembly slipped all ${n} notches under counter-rotational strikes and shattered${last ? ` — the final strike was ${last.impulse.toFixed(3)} N·s` : ''}.`;
       }
       case 'decision': {
         const [ma, mb] = res.margins;
