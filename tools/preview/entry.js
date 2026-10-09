@@ -13,6 +13,47 @@ import { BEASTS } from '../../src/data/beasts.js';
 import { ARENA_INDEX } from '../../src/data/arenas.js';
 import { buildArena } from '../../src/render/arenaMesh.js';
 import { Effects } from '../../src/render/effects.js';
+import { sampleProfile } from '../../src/physics/profile.js';
+
+// Envelope audit of a part model (mm, model space, ink hulls excluded): how
+// far geometry strays outside the space the physics gives the part.
+function audit(part, model, ctx) {
+  const P = ctx.parts, v = new THREE.Vector3(), tmp = { radius: 0, face: 0 };
+  const a = { id: part.id, yMin: Infinity, yMax: -Infinity, rMax: 0 };
+  const T = P.ring.thickness, lockH = ctx.geo.lockH;
+  const mm = (x) => Math.round(x * 1e4) / 10;
+  let ringExcess = -Infinity, ringHoleMin = Infinity, coreLowR = 0, coreHighR = 0, bossR = 0, tipBottomR = 0, lockR = 0;
+  model.group.updateMatrixWorld(true);
+  model.group.traverse((o) => {
+    if (!o.isMesh || o.userData.isInk) return;
+    const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      const r = Math.hypot(v.x, v.z), y = v.y;
+      a.yMin = Math.min(a.yMin, y); a.yMax = Math.max(a.yMax, y); a.rMax = Math.max(a.rMax, r);
+      if (part.slot === 'ring') {
+        // profile radius, max over ±0.5° (blade faces are near-vertical steps)
+        const psi = Math.atan2(-v.z, v.x);
+        let pr = 0;
+        for (const d of [-0.0087, 0, 0.0087]) { sampleProfile(ctx.layer, psi + d, 1, tmp); pr = Math.max(pr, tmp.radius); }
+        ringExcess = Math.max(ringExcess, r - pr);
+        if (y > 0.0002 && y < T * 0.001 - 0.0002) ringHoleMin = Math.min(ringHoleMin, r);
+      }
+      if (part.slot === 'core') { if (y < T * 0.65 * 0.001) coreLowR = Math.max(coreLowR, r); else coreHighR = Math.max(coreHighR, r); }
+      if (part.slot === 'lock') { if (y > lockH * 0.75 * 0.001 + 0.0001) bossR = Math.max(bossR, r); else lockR = Math.max(lockR, r); }
+      if (part.slot === 'tip' && y < 0.00015) tipBottomR = Math.max(tipBottomR, r);
+    }
+  });
+  const out = { id: part.id, yMinMm: mm(a.yMin), yMaxMm: mm(a.yMax), rMaxMm: mm(a.rMax) };
+  if (part.slot === 'ring') Object.assign(out, { outsideProfileMm: mm(ringExcess), limit: '<= 0.3', holeMinMm: mm(ringHoleMin), holeLimit: `>= ${P.core.radius + 0.3} (core radius + 0.3)`, heightLimit: `y in [0, ${T + 1.5}]` });
+  if (part.slot === 'core') Object.assign(out, { rBelowRingTopMm: mm(coreLowR), limit: `<= ${P.ring.rIn - 0.3}`, rAboveRingTopMm: mm(coreHighR), aboveLimit: `<= ${P.ring.rIn + 3.5}`, heightLimit: `y in [0, ${part.height + 0.8}]` });
+  if (part.slot === 'lock') Object.assign(out, { bossRMm: mm(bossR), bossLimit: `<= ${P.disc.rIn - 0.3}`, bodyRMm: mm(lockR), bodyLimit: `<= ${part.radius + 1.2}`, heightLimit: `y in [0, ${Math.round(lockH * 100) / 100}]` });
+  if (part.slot === 'tip') Object.assign(out, { contactRadiusAtFloorMm: mm(tipBottomR), contactNote: part.flatRadius > 0.2 ? `flat face radius ${part.flatRadius}` : `point/ball (r ${part.ballRadius})`, bodyLimit: `rMax <= ${part.bodyRadius + 0.3}`, heightLimit: `y in [0, ${ctx.geo.tipLen + 0.3}]` });
+  if (part.slot === 'disc') Object.assign(out, { limit: `rMax <= ${part.rOut + 0.2}, y in [0, ${part.thickness}]` });
+  if (part.slot === 'aux') Object.assign(out, { mount: ctx.mount?.kind });
+  return out;
+}
+window.__audit = [];
 
 // triangles / visible meshes (ink hulls excluded) of an object
 function stats(obj) {
@@ -94,6 +135,7 @@ if (C.mode === 'slot') {
     const asm = assembleTop(hostBuild(part), { force: true });
     const ctx = partContext(part.slot, asm, { color: C.color || part.color, beast: C.beast, quality: C.quality });
     const model = PART_BUILDERS[part.slot](part, ctx);
+    window.__audit.push(audit(part, model, ctx));
     const obj = new THREE.Group();
     obj.add(model.group);
     const box = new THREE.Box3().setFromObject(model.group);

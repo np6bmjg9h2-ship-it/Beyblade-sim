@@ -4,6 +4,7 @@
 //   node tools/preview/shoot.js tops [--explode 0.8] [--quality low] [--no-ink]
 //   node tools/preview/shoot.js arena vortex [--views broadcast|close|overhead]
 //        [--fx impact,shockwave,launch,burst,trail,...] [--fxTime 0.06]
+// --audit prints a geometry envelope check per part (slot mode).
 // Options: --size <px per cell> --cols <n> --yaw <deg> --color <hex> --beast <id>
 
 import fs from 'node:fs';
@@ -46,6 +47,7 @@ try {
   await h.page.setViewportSize({ width: done.W, height: done.H });
   await h.page.screenshot({ path: out, clip: { x: 0, y: 0, width: done.W, height: done.H } });
   console.log(`${out} (${done.count} items)`);
+  if (argv.includes('--audit')) for (const a of await h.eval(() => window.__audit)) console.log('AUDIT ' + JSON.stringify(a));
   if (h.errors.length) { console.log('ERRORS:\n' + h.errors.join('\n')); process.exitCode = 1; }
 } catch (e) {
   console.log('FAILED: ' + e.message + (h.errors.length ? '\n' + h.errors.join('\n') : ''));
