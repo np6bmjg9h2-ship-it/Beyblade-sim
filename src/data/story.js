@@ -87,7 +87,7 @@ export const CHAPTERS = [
           L('hollis', 'Listen to me, {player}. A spirit doesn\'t make a top spin faster. It gives you choices — abilities, timing, a meter you fill by battling well. Use them wisely.'),
         ],
         reward: { flags: ['ch1_orrery'] },
-        tutorial: 'Bit-Beasts fill a Spirit meter from collisions and perfect launches. Spend it on abilities (RT / LT, or Q / E). Open Bit-Beasts in the main menu to read bond, lore and abilities.' },
+        tutorial: 'Bit-Beasts fill a Spirit meter from collisions and perfect launches. Spend it on abilities (RT / LT on a controller, F / G on the keyboard). Open Bit-Beasts in the main menu to read bond, lore and abilities.' },
       { id: 'ch1_gift', type: 'scene', location: 'Hollis Workshop',
         lines: [
           L('hollis', 'If you\'re going to battle, you need parts that suit how you battle. I\'ve got three things in the back. Pick one.'),
@@ -172,7 +172,7 @@ export const CHAPTERS = [
       { id: 'ch2_training', type: 'training', title: 'Counter timing', coach: 'hollis', arena: 'standard',
         opponent: { archetype: 'striker', difficulty: 0.55 },
         objectives: [
-          { type: 'counter', text: 'Land a successful Counter (X / F) as the attacker hits you' },
+          { type: 'counter', text: 'Land a successful Counter (X on a controller, L on the keyboard) as the attacker hits you' },
           { type: 'survive', seconds: 20, text: 'Keep spinning for 20 seconds' },
         ],
         tips: ['Counter Stance opens a short window: if you are struck inside it, the attacker takes the recoil.', 'Press it just before the attacker reaches you — too early and the window closes.'],
