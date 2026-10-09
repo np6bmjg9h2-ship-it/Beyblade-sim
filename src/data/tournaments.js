@@ -207,4 +207,20 @@ export const STORY_TOURNAMENTS = [
     prizes: storyPrize(3000, 1500, 400) },
 ];
 
-export const TOURNAMENT_INDEX = Object.fromEntries([...TOURNAMENTS, ...STORY_TOURNAMENTS].map((t) => [t.id, t]));
+// League divisions: an eight-battler round-robin season. Top two are
+// promoted, bottom two relegated (see systems/modes.js).
+const leaguePrize = (c, x, r) => ({ 1: place(c, x, r, { loot: [{ tier: 1, minRarity: 'rare' }] }), 2: place(Math.round(c * 0.65), Math.round(x * 0.7), Math.round(r * 0.6), { loot: [{ tier: 1 }] }), 4: place(Math.round(c * 0.4), Math.round(x * 0.5), Math.round(r * 0.3)), 8: place(Math.round(c * 0.15), Math.round(x * 0.3), 4) });
+const leagueDef = (n, tier, name, rivals, fillers, arenas, prizes) => ({
+  id: `league_d${n}`, name, tier, format: 'roundrobin', size: 8, hidden: true, league: true, color: CIRCUIT_TIERS[tier - 1].color,
+  desc: 'A league season: everyone meets once. Top two are promoted, bottom two relegated.', matchFormat: { default: 'bo3' }, arenas,
+  rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals, fillers, prizes,
+});
+export const LEAGUE_DIVISIONS = [
+  leagueDef(5, 1, 'Rookie Division', ['sora', 'juno'], ['striker', 'wall', 'drifter', 'all', 'breaker'], ['standard', 'vortex'], leaguePrize(400, 260, 40)),
+  leagueDef(4, 2, 'Amateur Division', ['daichi', 'rook', 'sora'], ['upper', 'all', 'counter', 'drifter'], ['standard', 'vortex', 'edgebreaker'], leaguePrize(700, 420, 70)),
+  leagueDef(3, 3, 'Pro Division', ['mirelle', 'theo', 'kaela'], ['champion', 'breaker', 'upper', 'wall'], ['crystal', 'magma', 'vortex', 'edgebreaker'], leaguePrize(1100, 620, 110)),
+  leagueDef(2, 4, 'Master Division', ['nyx', 'kaela', 'theo', 'mirelle', 'juno'], ['champion', 'counter'], ['skyfall', 'crystal', 'magma'], leaguePrize(1700, 900, 170)),
+  leagueDef(1, 5, 'Elite Division', ['aurelia', 'valen', 'nyx', 'mirelle', 'theo', 'kaela'], ['champion'], ['zero', 'skyfall', 'crystal'], leaguePrize(2600, 1300, 260)),
+];
+
+export const TOURNAMENT_INDEX = Object.fromEntries([...TOURNAMENTS, ...STORY_TOURNAMENTS, ...LEAGUE_DIVISIONS].map((t) => [t.id, t]));

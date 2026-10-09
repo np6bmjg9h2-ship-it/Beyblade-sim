@@ -52,6 +52,8 @@ export function newProfile(seed = Date.now()) {
     story: { chapter: 1, node: null, flags: {}, choices: {}, completed: [], seen: [] },
     tournaments: { history: [], active: null, ranking: { points: 0 }, records: {}, league: null },
     rivals: {},
+    survival: { best: 0, runs: 0, active: null },
+    league: { division: 5, season: 1, active: null, history: [] },
     habits: { matches: 0, style: { attack: 0, defense: 0, stamina: 0, balance: 0, burst: 0, upper: 0 }, recentStyles: [], aggression: 0.5, edge: 0.2, dashRate: 0, counterRate: 0, abilityRate: 0, leftSpin: 0, perfectRate: 0 },
     arenasUnlocked: ['standard'],
     stats: { battles: 0, wins: 0, losses: 0, draws: 0, rounds: 0, roundsWon: 0, finishes: { spin: 0, out: 0, burst: 0, decision: 0 }, losses_by: { spin: 0, out: 0, burst: 0, decision: 0 }, highestImpact: 0, longestSpin: 0, totalBattleTime: 0, perfectLaunches: 0, launches: 0, abilityUses: 0, streak: 0, bestStreak: 0, arenaUse: {}, beastUse: {}, buildUse: {}, tournamentsWon: 0, finals: 0, earnings: 0, survivalBest: 0, challengesDone: {} },

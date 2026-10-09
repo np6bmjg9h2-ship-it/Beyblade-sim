@@ -241,10 +241,10 @@ function rivalDetail(P, id) {
 
 export class TournamentHubScreen {
   static screenName = 'TournamentHubScreen';
-  constructor() { this.dirty = false; this.view = 'bracket'; }
+  constructor({ slot = 'tournament' } = {}) { this.dirty = false; this.view = 'bracket'; this.slot = slot; }
 
   get P() { return this.app.profile; }
-  get t() { return this.P.tournaments.active; }
+  get t() { return this.slot === 'league' ? this.P.league?.active || null : this.P.tournaments.active; }
 
   onEnter() {
     this.off = this.app.tournaments.on('result', () => { if (this.ui.current === this) this.ui.refresh(this); else this.dirty = true; });
@@ -300,7 +300,7 @@ export class TournamentHubScreen {
       right = this.nextMatchCard(t, m);
     }
     return h('div', { class: 'std-screen tour-hub' },
-      h('div', { class: 'screen-head' }, h('h1', {}, def.name),
+      h('div', { class: 'screen-head' }, h('h1', {}, t.name || def.name),
         h('div', { class: 'row gap small' }, h('span', { class: 'chip', style: { color: tier.color, borderColor: tier.color } }, tier.name), h('span', { class: 'chip' }, FORMAT_NAMES[def.format]), h('span', { class: 'chip' }, `Record ${rec.w}-${rec.l}${rec.d ? `-${rec.d}` : ''}`))),
       h('div', { class: 'ws-cols hub-cols' }, left, h('div', { class: 'panel scroll hub-right' }, right)));
   }
@@ -359,14 +359,14 @@ export class TournamentHubScreen {
     const matchId = m.id;
     const tid = t.id;
     const record = (res) => {
-      const cur = this.P.tournaments.active;
+      const cur = this.t;
       if (!cur || cur.id !== tid) return;
       // tournament sides are relative to the bracket slot; the battle has the player first
       const flip = (arr) => (side === 0 ? arr : [arr[1], arr[0]]);
       applyResult(cur, matchId, { winnerSide: res.winnerSide == null ? null : side === 0 ? res.winnerSide : 1 - res.winnerSide, score: flip(res.score), points: flip(res.points), how: res.how, forfeit: res.forfeit });
     };
     const session = {
-      mode: 'tournament', title: `${def.name} · ${m.roundName}`, arenaId: matchArena(t, m), format: matchFormat(t, m),
+      mode: 'tournament', title: `${t.name || def.name} · ${m.roundName}`, arenaId: matchArena(t, m), format: matchFormat(t, m),
       participants: [me, opp], difficulty: e.difficulty, opponentKey: 'tour-' + (e.rivalId || e.name), rivalId: e.rivalId || null,
       isFinal: !!m.isFinal, rewardScale: 0.6, rules: { loot: false, durability: def.rules?.durability !== false },
       allowRematch: false, allowRestart: false, continueLabel: 'Back to tournament',
@@ -376,7 +376,7 @@ export class TournamentHubScreen {
         const won = result.winner === 0;
         record({ winnerSide: result.winner, score: result.score.map((s) => s.rounds), points: result.score.map((s) => s.points), how: result.rounds[result.rounds.length - 1]?.how });
         if (e.rivalId && rewards) rewards.notes.unshift(`${e.name}: “${postMatchLine(P, e.rivalId, won, mixSeed(t, m))}”`);
-        if (rewards) rewards.notes.unshift(won ? `Advances in the ${def.name}.` : playerEliminated(this.P.tournaments.active || t) ? `Eliminated from the ${def.name}.` : `Result recorded in the ${def.name}.`);
+        if (rewards) rewards.notes.unshift(won ? `Win recorded in the ${t.name}.` : playerEliminated(this.t || t) ? `Eliminated from the ${t.name}.` : `Result recorded in the ${t.name}.`);
         await app.save('silent');
         app.tournaments.kick();
         return false;

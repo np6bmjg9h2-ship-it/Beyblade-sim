@@ -19,6 +19,7 @@ import { rivalPlan, rivalParticipant, rivalItems, fillerName, buildRole, ROLE_NA
 import { rollLoot, addItem } from './loot.js';
 import { addPlayerXp } from './profile.js';
 import { itemName } from './items.js';
+import { applyLeagueResult } from './modes.js';
 
 export const PLAYER = 0;
 const FILLER_BEASTS = ['zephyrax', 'ferrowulf', 'kerauno', 'geodrome', 'caelumanta', 'magmarion', 'pyrrhex', 'abyssion', 'noctivane'];
@@ -660,9 +661,14 @@ export function finishTournament(profile, t) {
     SR[t.storyNode] = { place, withdrawn: !!t.withdrawn, at: Date.now(), tournament: t.id };
     summary.storyNode = t.storyNode;
   }
+  if (t.league) {
+    summary.leagueMove = applyLeagueResult(profile, t, place);
+    summary.notes.unshift(summary.leagueMove === 'promoted' ? 'Promoted to the next division!' : summary.leagueMove === 'relegated' ? 'Relegated to the division below.' : 'You stay in this division next season.');
+  }
   t.rewarded = true;
   t.summary = summary;
-  profile.tournaments.active = null;
+  if (profile.tournaments.active === t || profile.tournaments.active?.id === t.id) profile.tournaments.active = null;
+  if (profile.league?.active === t || profile.league?.active?.id === t.id) profile.league.active = null;
   return summary;
 }
 

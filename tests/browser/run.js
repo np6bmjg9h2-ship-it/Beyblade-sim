@@ -525,7 +525,9 @@ scenarios.lab = async () => {
   const h = await launch();
   try {
     await newGame(h);
-    await openTile(h, 'lab', 'PracticeLabScreen');
+    await openTile(h, 'modes', 'ModesScreen');
+    await h.focusId('mode-lab'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PracticeLabScreen', 10000, 'lab');
     await h.focusId('lab-range'); await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'range battle');
     await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'range setup');
@@ -562,6 +564,97 @@ scenarios.lab = async () => {
     await h.shot('l02_buildlab');
     const r = await h.eval(() => { const x = window.__app.ui.current.results; return { n: x.h2h.n, w: x.h2h.wins[0] + x.h2h.wins[1] + x.h2h.draws, a: x.spin[0].samples.length, b: x.spin[1].samples.length }; });
     if (r.w !== r.n || r.a < 5 || r.b < 5) throw new Error('comparison incomplete ' + JSON.stringify(r));
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
+// Play one match as the player, forcing each round's finish (`how`).
+async function playForced(h, how = 'out', maxRounds = 5) {
+  for (let round = 0; round < maxRounds; round++) {
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => { const b = window.__app.ui.current.battle; return (b.phase === 'battle' && b.fighters.every((f) => f.launch.launched)) || ['finishing', 'roundOver', 'matchOver'].includes(b.phase); }, 15000, 'battle running');
+    await h.eval((w) => window.__app.ui.current.battle.debugFinish(1, w), how);
+    await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+    const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+    await h.padButton(0);
+    if (done) break;
+  }
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+}
+
+scenarios.modes = async () => {
+  const h = await launch();
+  const cur = () => h.eval(() => window.__app.ui.current?.constructor.screenName);
+  try {
+    await newGame(h);
+    await openTile(h, 'modes', 'ModesScreen');
+    await h.shot('m01_modes');
+    // Custom battle: AI vs AI exhibition
+    await h.focusId('mode-custom'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'CustomBattleScreen', 5000, 'custom');
+    await h.focusId('cb-side1'); await h.padButton(15);
+    await h.eval(() => { window.__testRoundTime = 15; window.__testSpeed = 3; });
+    await h.focusId('cb-start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'exhibition');
+    if ((await h.eval(() => window.__app.ui.current.battle.fighters.some((f) => f.human)))) throw new Error('spectate battle has a human fighter');
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 20000, 'exhibition running');
+    await h.shot('m02_exhibition');
+    await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+    for (let i = 0; i < 6 && (await cur()) === 'BattleScreen'; i++) {
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase) || window.__app.ui.current?.constructor.screenName !== 'BattleScreen', 60000, 'exhibition round');
+      if ((await cur()) !== 'BattleScreen') break;
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 20000, 'next exhibition round');
+      await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'exhibition results');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.results .btn')].find((b) => b.textContent === 'Continue')));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'CustomBattleScreen', 10000, 'back to custom');
+    await h.padButton(1);
+    // Challenge: Lock Breaker (needs a Shatter finish)
+    await h.focusId('mode-challenges'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ChallengesScreen', 5000, 'challenges');
+    await h.focusId('ch-lock_breaker'); await h.padButton(0);
+    await h.focusId('ch-start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'challenge battle');
+    await playForced(h, 'burst');
+    const done = await h.eval(() => !!window.__app.profile.stats.challengesDone?.lock_breaker);
+    if (!done) throw new Error('challenge not recorded');
+    await h.shot('m03_challenge_results');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ChallengesScreen', 10000, 'back to challenges');
+    await h.padButton(1);
+    // Survival: one stage, then cash out
+    await h.focusId('mode-survival'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'SurvivalScreen', 5000, 'survival');
+    await h.focusId('sv-start'); await h.padButton(0);
+    await h.focusId('sv-fight'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'survival battle');
+    await playForced(h, 'out', 3);
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'SurvivalScreen', 10000, 'back to survival');
+    const wins = await h.eval(() => window.__app.profile.survival.active?.wins);
+    if (wins !== 1) throw new Error('survival stage not recorded: ' + wins);
+    await h.shot('m04_survival');
+    await h.focusId('sv-cash'); await h.padButton(0);
+    const best = await h.eval(() => [window.__app.profile.survival.best, window.__app.profile.survival.active]);
+    if (best[0] !== 1 || best[1]) throw new Error('cash out failed ' + JSON.stringify(best));
+    await h.padButton(1);
+    // League: start a season
+    await h.focusId('mode-league'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'LeagueScreen', 5000, 'league');
+    await h.focusId('lg-start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'league hub');
+    await h.waitFor(() => window.__app.profile.league.active?.stages[0].matches.some((m) => m.simulated), 60000, 'league AI matches simulated');
+    await h.shot('m05_league_hub');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'LeagueScreen', 5000, 'league screen');
+    await h.shot('m06_league');
     return { errors: h.errors };
   } finally { await h.close(); }
 };

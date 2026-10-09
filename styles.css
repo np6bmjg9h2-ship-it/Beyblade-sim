@@ -434,3 +434,6 @@ table.standings .st-pts { font-weight: 800; }
 .hud-lab:empty { display: none; }
 .lab-row { display: flex; flex-direction: column; gap: 1px; font-size: 13px; background: rgba(8,14,28,.72); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; opacity: .75; }
 .lab-row.latest { opacity: 1; border-color: rgba(255,216,77,.45); }
+.modes-grid { max-width: 1100px; }
+table.standings tr.promo td:first-child { box-shadow: inset 3px 0 0 var(--good); }
+table.standings tr.releg td:first-child { box-shadow: inset 3px 0 0 var(--bad); }

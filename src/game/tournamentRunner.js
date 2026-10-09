@@ -20,6 +20,9 @@ export class TournamentRunner extends Emitter {
   }
 
   get active() { return this.app.profile?.tournaments?.active || null; }
+  // every tournament-engine event in progress (circuit/story slot and league season)
+  get all() { const P = this.app.profile; return [P?.tournaments?.active, P?.league?.active].filter(Boolean); }
+  find(id) { return this.all.find((t) => t.id === id) || null; }
   get pending() { return this.inflight.size; }
   get mode() { return this.sim.mode; }
 
@@ -30,8 +33,10 @@ export class TournamentRunner extends Emitter {
   }
 
   kick() {
-    const t = this.active;
-    if (!t || t.status !== 'active') return;
+    for (const t of this.all) if (t.status === 'active') this.kickOne(t);
+  }
+
+  kickOne(t) {
     for (const m of aiMatches(t)) {
       const key = `${t.id}:${m.id}`;
       if (this.inflight.has(key)) continue;
@@ -40,8 +45,8 @@ export class TournamentRunner extends Emitter {
       try { job = aiMatchJob(t, m, this.app.profile); } catch (e) { console.error(e); this.inflight.delete(key); continue; }
       this.sim.run(key, job).then((res) => {
         this.inflight.delete(key);
-        const cur = this.active;
-        if (!cur || cur.id !== t.id) return;
+        const cur = this.find(t.id);
+        if (!cur) return;
         const mm = matchById(cur, m.id);
         if (!mm || mm.status === 'done') return;
         applyResult(cur, m.id, { ...res, simulated: true });
