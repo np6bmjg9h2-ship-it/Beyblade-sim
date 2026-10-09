@@ -27,7 +27,8 @@ const DESIGNS = {
   // standard: faceted 12-sided shell, three sawtooth click teeth
   lock_click3: { kind: 'click', facets: 12, trim: '#38435a', sig: '#ff3f74', label: 'CLICK-III', strip: 'label' },
   // heavy: gunmetal 10-sided shell, steel weight band, five C-clamp jaws
-  lock_ironclasp: { kind: 'clamp', facets: 10, trim: '#232831', sig: '#ffb21e', mainFinish: 'metal', shade: -0.2, label: 'IRON-V', strip: 'hazard', print: 'light' },
+  // (soft spec: a flat gunmetal face must not flash white as a whole)
+  lock_ironclasp: { kind: 'clamp', facets: 10, trim: '#232831', sig: '#ffb21e', mainFinish: 'metal', mainSpec: { spec: 0.45, specEdge: 0.975 }, shade: -0.2, label: 'IRON-V', strip: 'hazard', print: 'light' },
   // light: open skeleton hoop on spokes, two cantilever snap hooks
   lock_snap: { kind: 'snap', trim: '#22335c', sig: '#1ec8ff', label: 'SNAP', strip: 'label' },
   // windowed shell: each tooth rides a visible coil spring
@@ -45,9 +46,16 @@ const facetsFor = (n, base) => n * Math.max(2, Math.round(base / n));
 // Design for an unknown lock, from its numbers alone.
 function autoDesign(part) {
   const n = Math.max(1, Math.round(part.notches || 3));
-  const kind = part.tipSocket === 'wide' ? 'bell' : part.auxPort ? 'flange' : 'click';
-  // whole facets per tooth sector: a tooth facet plus at least one plain one
-  const facets = facetsFor(n, kind === 'bell' ? 6 : 12);
+  // construction from the numbers: socket/port first, then springy (fast
+  // recovery), heavy (many notches or dense), light (few notches, light)
+  const dense = (part.mass || 4) / Math.max(1, (part.radius || 10) * (part.height || 6)) > 0.085;
+  const kind = part.tipSocket === 'wide' ? 'bell'
+    : part.auxPort ? 'flange'
+    : (part.recovery ?? 0) >= 0.8 && n <= 5 ? 'spring'
+    : n >= 5 || dense ? 'clamp'
+    : n <= 2 && (part.mass ?? 4) <= 3.5 ? 'snap'
+    : 'click';
+  const facets = facetsFor(n, kind === 'bell' ? 6 : kind === 'clamp' ? 10 : 12);
   const label = (part.name || 'LOCK').split(/\s+/).map((w) => w[0]).join('').toUpperCase() + '-' + n;
   const dark = hslOf(part.color || '#cfd5de').l < 0.45;
   return { kind, facets, label, strip: 'label', print: kind === 'flange' ? 'main' : dark ? 'light' : 'dark', printTop: dark ? 'light' : 'dark' };
@@ -196,8 +204,10 @@ class Helix extends THREE.Curve {
     return out.set((this.x0 + (this.x1 - this.x0) * t) * MM, this.rc * Math.sin(a) * MM, this.rc * Math.cos(a) * MM);
   }
 }
-function spring(x0, x1, y, a, rc, rw, turns, q) {
-  const g = new THREE.TubeGeometry(new Helix(x0, x1, rc, turns), segs(q, Math.round(turns * 12), Math.round(turns * 8), Math.round(turns * 5)), rw * MM, q === 'high' ? 5 : 4, false);
+// `k` thins the tube sampling when there are many springs (triangle budget).
+function spring(x0, x1, y, a, rc, rw, turns, q, k = 1) {
+  const per = Math.max(5, Math.round(segs(q, 12, 8, 5) * k));
+  const g = new THREE.TubeGeometry(new Helix(x0, x1, rc, turns), Math.round(turns * per), rw * MM, q === 'high' ? 5 : 4, false);
   g.translate(0, y * MM, 0);
   return at(g, a);
 }
@@ -321,7 +331,7 @@ export function buildLock(part, ctx) {
 
   const g = partGroup('lock');
   const mats = {
-    main: () => toonMaterial(C.main, { finish: d.mainFinish || 'plastic', ...rarityGlow(ctx.rarity) }),
+    main: () => toonMaterial(C.main, { finish: d.mainFinish || 'plastic', ...d.mainSpec, ...rarityGlow(ctx.rarity) }),
     trim: () => toonMaterial(C.trim, { finish: 'plastic' }),
     steel: () => toonMaterial(C.steel, { finish: 'metal' }),
     metal: () => toonMaterial('#c4ccd8', { finish: 'chrome' }),
@@ -381,6 +391,7 @@ function decals(g, K, L, d, C, deco) {
 // Side band record for the decal strip: one per tooth sector, covering the
 // wall between teeth. Faceted walls: whole facets only (rv = vertex radius).
 function sectorBands(deco, L, { r, y0, y1, facets = 0, gap = 0.5 }) {
+  if (y1 - y0 < 0.35) return; // too short for a readable strip (squat locks)
   for (const t of L.teeth) {
     if (facets) {
       const st = TAU / facets, per = Math.round(facets / L.n);
@@ -396,10 +407,20 @@ function sectorBands(deco, L, { r, y0, y1, facets = 0, gap = 0.5 }) {
 
 // Standard tip socket: a chrome socket ring at the bottom (where the tip's
 // flange seats) under a trim collar, with a V panel line between them.
+// The ring's underside has a shallow chamfered bore the tip's top keys into,
+// with a bayonet key per notch.
 function socketCollar(K, L) {
   const r = L.rc, y = L.yc, g0 = y * 0.42;
-  K.metal.push(lathe([[0, 0], [r - 0.22, 0], [r + 0.05, 0.22], [r + 0.05, g0], [0, g0]], { n: L.seg }));
+  const rs = clamp(L.tipR - 0.6, 2.5, r - 1.2), ds = Math.min(0.32, g0 - 0.08);
+  K.metal.push(lathe([[0, ds], [rs, ds], [rs, 0.12], [rs + 0.12, 0], [r - 0.22, 0], [r + 0.05, 0.22], [r + 0.05, g0], [0, g0]], { n: L.seg }));
   K.trim.push(lathe([[0, g0 - 0.05], [r - 0.3, g0 - 0.05], [r, g0 + 0.25], [r, y], [0, y]], { n: L.seg }));
+  bayonetKeys(K, L, rs, 0.02, ds + 0.01);
+}
+
+// Bayonet keys on a socket bore wall (radius rs), one per notch.
+function bayonetKeys(K, L, rs, y0, y1) {
+  if (!L.micro) return;
+  for (const t of L.teeth) K.steel.push(at(prism([[rs - 0.55, -0.4], [rs + 0.05, -0.45], [rs + 0.05, 0.45], [rs - 0.55, 0.4]], y0, y1, 0.04), t + Math.PI / L.n));
 }
 
 // Metal boss through the disc hole: faceted key with a centre recess, on a
@@ -462,7 +483,8 @@ const KINDS = {
     K.steel.push(lathe([[R - 1.4, yc + 0.28], [R - 0.5, yc + 0.28], [R - 0.3, yc + 0.48], [R - 0.3, y1 - 0.28], [R - 0.5, y1 - 0.1], [R - 1.4, y1 - 0.1], [R - 1.4, yc + 0.28]], { facets: F, a0: -Math.PI / F }));
     const rv = R + 0.1, ra = rv * Math.cos(Math.PI / F);
     K.main.push(facetShell(rv, y1, yS, F, 0.35, 0.35));
-    const ro = ra + 1.1, yb = yc + 0.2;
+    // jaw face; its rivets stand 0.3 proud, inside the R + 1.2 tooth limit
+    const ro = Math.min(ra + 1.1, R + 0.85), yb = yc + 0.2;
     const sec = [[ra - 2.4, top - 0.07], [ro, top - 0.07], [ro, yb], [ra - 1.1, yb], [ra - 1.1, yb + 0.5], [ra + 0.15, yb + 0.5], [ra + 0.15, yS], [ra - 2.4, yS]];
     for (const t of L.teeth) {
       K.accent.push(at(section(sec, 3.0, 0.1), t));
@@ -485,7 +507,7 @@ const KINDS = {
     for (const t of L.teeth) {
       K.main.push(lathe([[ri, y0], [R - 0.3, y0], [R, y0 + 0.3], [R, yT - 0.3], [R - 0.3, yT], [ri, yT], [ri, y0]], { n: Math.max(6, Math.round(L.seg / L.n)), a0: t + gap / 2, span: TAU / L.n - gap, caps: true }));
     }
-    const spokes = L.n * 2;
+    const spokes = Math.max(4, L.n * 2);
     for (let i = 0; i < spokes; i++) {
       const a = (i + 0.5) * (TAU / spokes);
       K.main.push(at(prism([[rh - 0.3, -0.6], [ri + 0.35, -0.55], [ri + 0.35, 0.55], [rh - 0.3, 0.6]], y0 + 0.2, yT - 0.08, 0.1), a));
@@ -515,7 +537,7 @@ const KINDS = {
     const ym = (w0 + 0.05 + yT) / 2 - 0.1, rc = Math.min(0.85, (yT - w0) / 2 - 0.2), th = rc * 1.25;
     for (const t of L.teeth) {
       K.accent.push(at(prism([[R - 1.25, -1.15], [R + 0.82, -0.9], [R + 0.82, 0.9], [R - 1.25, 1.15]], ym - th / 2, ym + th / 2, 0.12), t));
-      K.detail.push(spring(rw - 0.05, R - 1.32, ym, t, rc, 0.16, 4, L.q));
+      K.detail.push(spring(rw - 0.05, R - 1.32, ym, t, rc, 0.16, 4, L.q, Math.min(1, 3 / L.n)));
     }
     topScrews(K, L, R - 1.4, yT);
     sectorBands(deco, L, { r: R, y0: w0 + 0.5, y1: yT - 0.62, gap: gap / 2 + 0.05 });
@@ -528,19 +550,27 @@ const KINDS = {
   flange(K, L, d, deco) {
     const { R, H, yc, yT, top } = L;
     socketCollar(K, L);
-    const fy = 0.5 * H, f0 = fy - 0.6, f1 = fy + 0.5, rd = R - 2.3, F = facetsFor(L.n, 12);
+    // fy = the aux band's mount height (assembly: zLock0 + lockH / 2)
+    const fy = 0.5 * H, gh = 0.32, f0 = fy - 0.8, f1 = Math.min(fy + 0.7, yT - 0.4), rd = R - 2.3, F = facetsFor(L.n, 12);
     K.trim.push(lathe([[0, yc - 0.1], [rd - 0.3, yc - 0.1], [rd, yc + 0.2], [rd, fy + 0.3], [0, fy + 0.3]], { facets: F, a0: -Math.PI / F }));
-    // groove core (trim) between the two flange plates
-    K.trim.push(lathe([[rd - 0.2, fy - 0.3], [R - 0.62, fy - 0.3], [R - 0.62, fy + 0.3], [rd - 0.2, fy + 0.3], [rd - 0.2, fy - 0.3]], { n: L.seg }));
-    K.main.push(lathe([[rd - 0.4, f0], [R - 0.3, f0], [R, f0 + 0.3], [R, fy - 0.24], [rd - 0.4, fy - 0.24], [rd - 0.4, f0]], { n: L.seg }));
-    K.main.push(lathe([[rd - 0.4, fy + 0.24], [R, fy + 0.24], [R, f1 - 0.25], [R - 0.25, f1], [rd - 0.4, f1], [rd - 0.4, fy + 0.24]], { n: L.seg }));
+    // deep groove core (dark trim) between the two flange plates
+    const rg = R - 0.85;
+    K.trim.push(lathe([[rd - 0.2, fy - gh - 0.02], [rg, fy - gh - 0.02], [rg, fy + gh + 0.02], [rd - 0.2, fy + gh + 0.02], [rd - 0.2, fy - gh - 0.02]], { n: L.seg }));
+    K.main.push(lathe([[rd - 0.4, f0], [R - 0.3, f0], [R, f0 + 0.3], [R, fy - gh - 0.08], [R - 0.08, fy - gh], [rd - 0.4, fy - gh], [rd - 0.4, f0]], { n: L.seg }));
+    K.main.push(lathe([[rd - 0.4, fy + gh], [R - 0.08, fy + gh], [R, fy + gh + 0.08], [R, f1 - 0.25], [R - 0.25, f1], [rd - 0.4, f1], [rd - 0.4, fy + gh]], { n: L.seg }));
     const ru = R - 2.1;
     K.trim.push(lathe([[0, f1 - 0.05], [ru, f1 - 0.05], [ru, yT - 0.35], [ru - 0.35, yT], [0, yT]], { facets: F, a0: -Math.PI / F }));
-    // O-ring in the groove
-    const ring = new THREE.TorusGeometry((R - 0.3) * MM, 0.27 * MM, L.q === 'low' ? 4 : 6, segs(L.q, 48, 36, 24));
+    // chrome O-ring in the groove: thinner than the groove, so dark channel
+    // shows above and below it
+    const ring = new THREE.TorusGeometry((R - 0.32) * MM, 0.2 * MM, L.q === 'low' ? 4 : 6, segs(L.q, 48, 36, 24));
     ring.rotateX(Math.PI / 2);
     ring.translate(0, fy * MM, 0);
     K.metal.push(ring);
+    // band-mount lugs: steel keys bridging the groove between the teeth
+    if (L.micro) {
+      const lug = [[rg - 0.1, -0.42], [R + 0.05, -0.36], [R + 0.05, 0.36], [rg - 0.1, 0.42]];
+      for (const t of L.teeth) for (const s of [-1, 1]) K.steel.push(at(prism(lug, fy - gh - 0.01, fy + gh + 0.01, 0.06), t + s * (TAU / L.n) * 0.25));
+    }
     // claw posts with a ramped outer top
     const claw = [[ru - 0.5, f1 - 0.05], [R - 0.3, f1 - 0.05], [R - 0.3, f1 + 0.3], [R - 1.3, top - 0.05], [ru - 0.5, top - 0.05]];
     for (const t of L.teeth) K.accent.push(at(section(claw, 2.3, 0.1), t));
@@ -556,9 +586,10 @@ const KINDS = {
     const rb = R + 0.2, ri = clamp(L.tipR + 0.3, 4.5, rb - 1.6), yb = 0.36 * H, rt = R - 1.75;
     K.trim.push(lathe([[ri, 0.05], [rb - 0.2, 0.05], [rb, 0.5], [rb - 0.45, 0.95], [rb - 1.05, 1.35], [rt + 0.15, yb - 0.3], [rt, yb], [0, yb], [0, 0.9], [ri, 0.9], [ri, 0.05]], { n: L.seg }));
     K.metal.push(lathe([[ri + 0.1, 0], [rb + 0.12, 0], [rb + 0.32, 0.2], [rb + 0.32, 0.46], [ri + 0.1, 0.46], [ri + 0.1, 0]], { n: L.seg }));
+    bayonetKeys(K, L, ri, 0.06, 0.92);
     if (L.micro) {
       const fin = [[rb - 0.5, 0.55], [rb + 0.12, 0.55], [rb - 0.1, 0.95], [rb - 0.7, 1.35], [rt + 0.5, yb - 0.3], [rt + 0.3, yb - 0.12], [rt - 0.2, yb - 0.12], [rb - 1.5, 1.35], [rb - 0.9, 0.95]];
-      const nf = L.n * 4;
+      const nf = L.n * clamp(Math.round(16 / L.n), 1, 4); // whole fins per tooth sector, ~16 total
       for (let i = 0; i < nf; i++) K.trim.push(at(section(fin, 0.5, 0.06), (i + 0.5) * (TAU / nf)));
     }
     const rv = R - 0.1, ra = rv * Math.cos(Math.PI / F);

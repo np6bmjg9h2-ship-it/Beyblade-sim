@@ -28,7 +28,8 @@ const DEG = Math.PI / 180;
 // blend of LatheGeometry. The profile must run counter-clockwise in (r, y)
 // (out along the bottom, up the outside, in across the top) for outward
 // normals. Non-indexed with planar top-down UVs over radius uvR mm; strips
-// for which plain(k) is true map to the canvas corner (a plain fill).
+// for which plain(k) is truthy map to a plain canvas corner: true -> the
+// body-colour corner, or an explicit [u, v].
 // smooth: normals averaged along the profile (domes). flat: one normal per
 // facet around the axis (polygonal bezels, hex heads).
 function lathe(pts, n, { smooth = false, flat = false, phi0 = 0, uvR = 10, plain = null } = {}) {
@@ -48,7 +49,8 @@ function lathe(pts, n, { smooth = false, flat = false, phi0 = 0, uvR = 10, plain
     const c = Math.cos(phi), s = Math.sin(phi);
     pos.push(r * c * MM, y * MM, r * s * MM);
     nor.push(nrm[0] * Math.cos(nphi), nrm[1], nrm[0] * Math.sin(nphi));
-    if (plain && plain(k)) uv.push(0.995, 0.995);
+    const pk = plain && plain(k);
+    if (pk) uv.push(...(Array.isArray(pk) ? pk : [0.995, 0.995]));
     else uv.push(0.5 + (r * c) / (2 * uvR), 0.5 - (r * s) / (2 * uvR));
   };
   for (let k = 0; k < pts.length - 1; k++) {
@@ -123,6 +125,25 @@ function placed(geo, r, a, y = 0) {
   return geo;
 }
 
+// Envelope safety net: extrude bevels push acute tab corners out further than
+// the bevel size, so pull any stray vertex back inside the ring hole (below
+// the ring top yT) or the clamp radius (above it), and under the height cap.
+function clampEnvelope(group, yT, rLow, rHigh, yMax) {
+  const seen = new Set();
+  group.traverse((o) => {
+    if (!o.isMesh || o.userData.isInk || seen.has(o.geometry)) return;
+    seen.add(o.geometry);
+    const p = o.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i), y = Math.min(Math.max(p.getY(i), 0), yMax * MM);
+      const lim = (y < yT * MM ? rLow : rHigh) * MM, r = Math.hypot(x, z);
+      const k = r > lim ? lim / r : 1;
+      p.setXYZ(i, x * k, y, z * k);
+    }
+    p.needsUpdate = true;
+  });
+}
+
 function merged(list) {
   const geos = list.filter(Boolean).map((g) => (g.index ? g.toNonIndexed() : g));
   if (!geos.length) return null;
@@ -151,7 +172,7 @@ function chipCanvas(beast, accent) {
   return cachedCanvas(`chip|${beast ? beast.id : 'none'}|${prim}|${sec}`, 256, (g, S) => {
     const c = S / 2;
     const grd = g.createRadialGradient(c, c, S * 0.04, c, c, S * 0.5);
-    grd.addColorStop(0, mix(prim, '#0c1236', 0.74));
+    grd.addColorStop(0, mix(prim, '#0c1236', 0.8));
     grd.addColorStop(0.72, mix(prim, '#080b22', 0.9));
     grd.addColorStop(1, '#04050e');
     g.fillStyle = grd;
@@ -172,7 +193,7 @@ function chipCanvas(beast, accent) {
 }
 
 // Clear lens: faint tint everywhere plus anime glints (alpha carries them).
-function lensCanvas(tint, alpha = 0.22) {
+function lensCanvas(tint, alpha = 0.1) {
   return cachedCanvas(`lens|${tint}|${alpha}`, 128, (g, S) => {
     const c = S / 2;
     g.fillStyle = tint;
@@ -191,7 +212,10 @@ function lensCanvas(tint, alpha = 0.22) {
 }
 
 // Hub cap print, in mm units centred on the axis (x -> +X, y -> +Z).
-function hubCanvas(key, L, body, paint) {
+// Corner patches of the hub canvas: body colour (top right, the default
+// fill) and the darker under-moulding (bottom left; v is flipped).
+const UV_LOWER = [0.03, 0.03];
+function hubCanvas(key, L, body, lower, paint) {
   return cachedCanvas(`hub|${key}`, L.q === 'low' ? 256 : 512, (g, S) => {
     g.fillStyle = body;
     g.fillRect(0, 0, S, S);
@@ -200,9 +224,11 @@ function hubCanvas(key, L, body, paint) {
     g.scale(S / (2 * L.rCap), S / (2 * L.rCap));
     paint(g, L);
     g.restore();
-    // plain corner for the unprinted strips
+    // plain corners for the unprinted strips (outside the printed cap disc)
     g.fillStyle = body;
-    g.fillRect(S - 6, S - 6, 6, 6);
+    g.fillRect(S * 0.92, 0, S * 0.08, S * 0.08);
+    g.fillStyle = lower;
+    g.fillRect(0, S * 0.92, S * 0.08, S * 0.08);
   });
 }
 
@@ -532,7 +558,7 @@ function layout(part, ctx, d) {
   const bezelTop = Math.min(yMax - 0.12, capTop + 0.28);
   const chipY = capTop - 0.22;
   const rCap = lowR - (d.capInset ?? 0.9);
-  const rc = Math.min(R * (d.chip ?? 0.47), rCap - (d.bezel.w + 1.2));
+  const rc = Math.min(R * (d.chip ?? 0.5), rCap - (d.bezel.w + 1.2));
   const rb = rc + d.bezel.w;
   const bevel = 0.12;
   const rCol = Math.min(lowR + (d.collar ?? 0.45), over ? rOver - 1.5 : rHole - 1.0);
@@ -568,7 +594,10 @@ export function buildCore(part, ctx) {
   // ---- hub: lathed body, printed cap
   const colours = { accent, line: inkFor(body, 0.55), dark: tone(body, -0.42, 0.05) };
   const rar = ctx.rarity;
-  const canvas = hubCanvas(`${part.id}|${body}|${accent}|${rar ? rar.color : ''}|${L.rCap.toFixed(2)}|${L.rb.toFixed(2)}|${L.dir}|${q === 'low'}`, L, body, (g2, LL) => {
+  // the part below the tab plate is a darker under-moulding (two-tone hub)
+  const hsl = new THREE.Color(body).getHSL({});
+  const lowerCol = tone(body, -Math.min(0.2, hsl.l * 0.3), 0.04);
+  const canvas = hubCanvas(`${part.id}|${body}|${accent}|${rar ? rar.color : ''}|${L.rCap.toFixed(2)}|${L.rb.toFixed(2)}|${L.dir}|${q === 'low'}`, L, body, lowerCol, (g2, LL) => {
     d.paint(g2, LL, colours);
     if (rar && rar.rank >= 2) P.circle(g2, LL.rCap - 0.12, 0.14, rar.color);
   });
@@ -580,9 +609,11 @@ export function buildCore(part, ctx) {
   const hp = [[0, 0], [L.lowR - 1.3, 0], [L.lowR - 0.7, 0.6], [L.lowR - 0.7, 0.95], [L.lowR, 1.25]];
   if (L.ty0 - 1.25 > 1.0) hp.push([L.lowR, gy - 0.14], [L.lowR - 0.2, gy], [L.lowR, gy + 0.14]);
   hp.push([L.lowR, L.ty0 + 0.2], [L.rCap, L.ty0 + 0.2], [L.rCap, L.capTop - c], [L.rCap - c, L.capTop], [L.rc - 0.05, L.capTop], [L.rc - 0.05, L.chipY], [0, L.chipY]);
-  // only the cap chamfer and cap top carry the print; other strips are plain
+  // only the cap chamfer and cap top carry the print; the cap wall and chip
+  // recess are plain body colour, everything under the cap the lower tone
   const capFrom = hp.length - 5;
-  g.add(inked(lathe(hp, n, { uvR: L.rCap, plain: (k) => k < capFrom || k >= hp.length - 3 }), hubMat, inkW));
+  const plain = (k) => (k < capFrom - 1 ? UV_LOWER : k < capFrom || k >= hp.length - 3);
+  g.add(inked(lathe(hp, n, { uvR: L.rCap, plain }), hubMat, inkW));
 
   // ---- tab ring
   const tabMat = toonMaterial(tabCol, { finish: d.tabFinish || 'gloss' });
@@ -620,7 +651,8 @@ export function buildCore(part, ctx) {
 
   // ---- bit chip (emissive emblem), raised 0.06 mm off the recess floor
   const chipTex = canvasTexture(chipCanvas(ctx.beast, accent));
-  const chipMat = toonMaterial('#ffffff', { finish: 'matte', map: chipTex, emissive: '#ffffff', emissiveMap: chipTex, emissiveIntensity: 0.55, rim: 0 });
+  // mostly self-lit (a backlit print) so the key light can't wash it out
+  const chipMat = toonMaterial('#4a4a4a', { finish: 'matte', map: chipTex, emissive: '#ffffff', emissiveMap: chipTex, emissiveIntensity: 0.85, rim: 0 });
   const chipGeo = new THREE.CircleGeometry((L.rc - 0.1) * MM, n);
   chipGeo.rotateX(-Math.PI / 2);
   chipGeo.translate(0, (L.chipY + 0.06) * MM, 0);
@@ -682,5 +714,7 @@ export function buildCore(part, ctx) {
     glows.push(gemMat);
   }
 
+  const ring = ctx.parts?.ring;
+  if (ring) clampEnvelope(g, L.yT, ring.rIn - 0.33, ring.rIn + 3.47, part.height + 0.78);
   return { group: g, height: L.yMax * MM, glows };
 }
