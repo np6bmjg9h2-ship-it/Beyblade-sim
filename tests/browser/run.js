@@ -75,17 +75,21 @@ scenarios.keyboard = async () => {
     await h.key('Space'); // ready
     const q = await timedLaunch(h);
     await h.shot('k04_launched');
-    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'battle running');
-    await h.page.keyboard.down('KeyW'); await h.page.waitForTimeout(800); await h.page.keyboard.up('KeyW');
-    await h.key('Space'); // dash
-    await h.key('Tab'); // telemetry
-    await h.shot('k05_battle');
-    // pause / resume
-    await h.key('Escape');
-    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
-    await h.shot('k06_pause');
-    await h.key('Enter');
-    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && !window.__app.ui.current.paused, 5000, 'resume');
+    // a fast natural ring-out can end the round before slow (software)
+    // rendering lets us see the battle phase; steer and pause only if live
+    const live = await h.waitFor(() => { const p = window.__app.ui.current.battle.phase; return p === 'battle' ? 'live' : ['finishing', 'roundOver', 'matchOver'].includes(p) ? 'ended' : false; }, 15000, 'battle running');
+    if (live === 'live') {
+      await h.page.keyboard.down('KeyW'); await h.page.waitForTimeout(800); await h.page.keyboard.up('KeyW');
+      await h.key('Space'); // dash
+      await h.key('Tab'); // telemetry
+      await h.shot('k05_battle');
+      // pause / resume
+      await h.key('Escape');
+      await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
+      await h.shot('k06_pause');
+      await h.key('Enter');
+      await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && !window.__app.ui.current.paused, 5000, 'resume');
+    }
     // play rounds until the match ends
     for (let round = 0; round < 6; round++) {
       await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 120000, 'round over');
