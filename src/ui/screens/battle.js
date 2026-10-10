@@ -414,7 +414,8 @@ export class BattleScreen {
     const charge = L.meter.charge;
     const scale = (v) => `${(v / (z.misfire + 0.05)) * 100}%`;
     el.innerHTML = '';
-    el.append(
+    // Element.append would print null as text: drop empty slots
+    el.append(...[
       h('div', { class: 'launch-head' }, b.phase === 'setup' ? 'LAUNCH SETUP' : 'CHARGE — RELEASE ON IGNITE'),
       h('div', { class: 'launch-grid' },
         h('div', {}, h('div', { class: 'muted' }, 'Technique'), h('b', {}, T.name), h('div', { class: 'small' }, T.desc)),
@@ -431,7 +432,7 @@ export class BattleScreen {
       h('div', { class: 'launch-help' },
         b.phase === 'setup'
           ? [hint(g('aim_x'), 'move'), hint(g('lean_x'), 'lean'), hint(g('technique'), 'technique'), hint(g('switch_config'), 'spin'), hint(g('charge'), 'ready')]
-          : [hint(g('charge'), 'hold to charge'), hint(this.app.input.releaseOnChargeUp() ? g('charge') : g('release'), this.app.input.releaseOnChargeUp() ? 'let go to release' : 'release'), h('span', { class: 'small' }, 'Release in the gold window, right at IGNITE.')]));
+          : [hint(g('charge'), 'hold to charge'), hint(this.app.input.releaseOnChargeUp() ? g('charge') : g('release'), this.app.input.releaseOnChargeUp() ? 'let go to release' : 'release'), h('span', { class: 'small' }, 'Release in the gold window, right at IGNITE.')])].filter(Boolean));
   }
 
   updateTelemetry() {

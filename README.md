@@ -112,6 +112,20 @@ steering precision). They steer by velocity control, back off when contacts
 cost them more spin than they take, and adaptive rivals change builds and
 tactics based on your recorded habits, and adjust between rounds.
 
+**Look** (`src/render/`). Cel-shaded toon materials with hard light bands,
+a specular band and rim light (`toon.js`), ink outlines drawn as inverted
+hulls on their own layer (Settings → Graphics → Ink outlines), and a single
+key light. Every one of the 49 parts is its own hand-designed procedural
+model (`src/render/parts/`): a top is assembled by stacking the part models
+at the heights the physics uses, and every part stays inside the space the
+physics gives it (ring silhouettes are the collision profile). Parts click
+together at the start of a battle, fly apart on a Shatter, and can be
+inspected one by one in the Workshop's Inspect 3D view. Stadiums, effects
+(star hit flashes, speed-line sparks) and the interface (Bangers and Chakra
+Petch display fonts, OFL, embedded) share the same anime style.
+`node tools/preview/shoot.js` renders part grids, assembled or exploded tops
+and stadiums headlessly, with an envelope audit (`--audit`).
+
 **Replays.** Battles are deterministic given their seed and inputs. Each
 match records your per-tick controls, launch setups and releases and when
 each top spawned; playback re-simulates the match and checks that it ends
@@ -123,7 +137,7 @@ the same way.
 npm test               # 54 unit tests (physics, loot, progression, beasts,
                        # tournaments, AI, story, modes, replays)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (10 scenarios)
+                       # a keyboard and a virtual gamepad (11 scenarios)
 npm run balance -- 8 all   # simulated round robin of reference builds on
                            # every stadium (worker threads)
 ```
@@ -152,9 +166,10 @@ story, modes), `src/data` (all game content), `src/render` (Three.js),
   says so instead of showing a wrong result).
 - Chapter 1 of the story is the most complete; chapters 2–6 are shorter
   (5–7 scenes each) and reuse the same battle and bracket systems.
-- Visuals are procedural geometry (no hand-made models or textures), and
-  music and sound effects are synthesised at runtime; they are functional
-  rather than lavish.
+- All 3D models and textures are generated in code (no imported model
+  files), and music and sound effects are synthesised at runtime.
+- Ink outlines and the detailed part models cost draw calls: on software
+  rendering or weak GPUs turn off Ink outlines or lower Quality.
 - Single-player only: no online or local versus play.
 - Software-rendered browsers (no GPU) run slowly; lowering Render
   resolution, Quality and turning off Shadows in Settings helps. The physics

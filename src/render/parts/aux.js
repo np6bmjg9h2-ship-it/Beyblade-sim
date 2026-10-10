@@ -5,12 +5,14 @@
 //                  free: it is the model's spinner)
 //   aux_wedge    : low raked skirt: navy tray under four gold wedge blades
 //                  with chrome scoop lips, accent lift chevrons, hazard print
-//   aux_gyro     : chrome flywheel on accent spokes from a hub collar, with
-//                  tungsten clamp blocks and brass bolts, printed rim strip
-//   aux_damper   : lavender rubber cushion pads on the ring top by each
-//                  blade, dark rubber grip ribs and a cogged lip gasket
-//   aux_ballast  : chunky gunmetal weight blocks clipped on a steel band at
-//                  the lock base, hazard-striped face plates, hex bolts
+//   aux_gyro     : chrome flywheel (heavy rim, inner hoop, web bridges with
+//                  lightening windows) on accent spokes from a hub collar,
+//                  tungsten clamp blocks with brass bolts, printed rim strip
+//   aux_damper   : lavender elastomer inserts pressed into each blade top
+//                  behind its striking face (ribbed cushion fingers in a dark
+//                  rubber socket with pinned end tabs) and a cogged lip gasket
+//   aux_ballast  : chunky gunmetal ingot pairs clipped on a steel band at the
+//                  lock base by accent straps, hazard-striped face plates
 // Unknown ids get a parametric model chosen by their mount and sized from
 // their numbers alone.
 //
@@ -18,7 +20,9 @@
 //   layer : y in [0, layer.thickness], never outside profileOutline(layer)
 //           (+0.3 mm), inner radius about layer.radius - 3 mm
 //   band  : y in [-1.5, 1.5] around the band centre, nothing inside the
-//           lock radius + 0.2 mm, outer radius ringRadius[1] (+0.2 mm)
+//           lock radius + 0.2 mm, outer radius ringRadius[1] (+0.2 mm);
+//           the low ballast reaches ringRadius[1] + 1.3 mm because most of
+//           its physical range [9, 12] lies inside the lock (radius ~10.5)
 //   insert: inside the ring's profile, y in [0, ring thickness + 1 mm]
 //
 // Geometry is built as triangle soups in millimetres, one soup per material
@@ -27,13 +31,11 @@
 // turned surfaces.
 
 import * as THREE from 'three';
-import { MM, TAU, partGroup, toonMaterial, inked, tone, segs, canvasTexture, rarityGlow } from './common.js';
-import { mix } from '../toon.js';
+import { MM, TAU, partGroup, toonMaterial, inked, segs, canvasTexture, rarityGlow } from './common.js';
 import { sampleProfile } from '../../physics/profile.js';
 
 const UV_R = 30; // mm: planar top-down UVs span [-UV_R, UV_R]
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
-const lerp = (a, b, t) => a + (b - a) * t;
 const linspace = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
 const ring = (n, phase = 0) => linspace(0, TAU, n).slice(0, n).map((a) => a + phase);
 
@@ -331,20 +333,6 @@ function printStrip(text, fg, bg, accent) {
   });
 }
 
-// Graduated ring (dial ticks) with accent marks.
-function tickStrip(fg, accent) {
-  return stripCanvas(`ticks|${fg}|${accent}`, 512, 32, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = fg;
-    for (let i = 0; i < 32; i++) {
-      const x = (i + 0.5) * (w / 32), big = i % 4 === 0;
-      g.fillRect(x - (big ? 3 : 1.5), big ? 2 : 10, big ? 6 : 3, big ? h - 4 : h - 20);
-    }
-    g.fillStyle = accent;
-    g.fillRect(0, h / 2 - 2, w, 4);
-  });
-}
-
 // Diagonal hazard stripes.
 function hazardStrip(a, b) {
   return stripCanvas(`hazard|${a}|${b}`, 128, 64, (g, w, h) => {
@@ -398,9 +386,9 @@ function designFor(part, ctx) {
     case 'aux_gyro':
       return { kind: 'gyro', rim: c || '#c0c6d0', block: '#3a4152', hub: '#232a3a', spoke: accentOr(ctx, c || '#c0c6d0', '#36c6ff'), bolt: '#ffc94a', nBlocks: 6, print: 'GYRO·STABLE' };
     case 'aux_damper':
-      return { kind: 'damper', pad: c || '#b8a6ff', rib: shade(c || '#b8a6ff', -0.24, 0.05), pin: '#eef3fb' };
+      return damperDesign(c || '#b8a6ff');
     case 'aux_ballast':
-      return { kind: 'ballast', block: c || '#7c838d', band: '#262c37', plate: '#ffc531', stripe: '#1c1d26', bolt: '#eef3fb', n: 4 };
+      return { kind: 'ballast', block: c || '#7c838d', band: '#262c37', plate: '#ffc531', stripe: '#1c1d26', bolt: '#eef3fb', strap: accentOr(ctx, c || '#7c838d', '#ff4d1a'), n: 4 };
     default: {
       const m = ctx.mount?.kind;
       const mass = part.mass || 4;
@@ -410,12 +398,17 @@ function designFor(part, ctx) {
         return { kind: 'skirt', blade: c || '#ffcf70', tray: '#1f2742', lip: '#eef3fb', chevron: accentOr(ctx, c || '#ffcf70', '#ff4a3d'), hazard: [c || '#ffcf70', '#1f2742'] };
       }
       if (m === 'band') {
-        if (ctx.mount.lowMount) return { kind: 'ballast', block: c || '#7c838d', band: '#262c37', plate: '#ffc531', stripe: '#1c1d26', bolt: '#eef3fb', n: clamp(Math.round(mass / 1.5), 3, 6) };
+        if (ctx.mount.lowMount) return { kind: 'ballast', block: c || '#7c838d', band: '#262c37', plate: '#ffc531', stripe: '#1c1d26', bolt: '#eef3fb', strap: accentOr(ctx, c || '#7c838d', '#ff4d1a'), n: clamp(Math.round(mass / 1.5), 3, 6) };
         return { kind: 'gyro', rim: c || '#c0c6d0', block: '#3a4152', hub: '#232a3a', spoke: accentOr(ctx, c || '#c0c6d0', '#36c6ff'), bolt: '#ffc94a', nBlocks: clamp(Math.round(mass * 1.2), 3, 8), print: 'GYRO' };
       }
-      return { kind: 'damper', pad: c || '#b8a6ff', rib: shade(c || '#b8a6ff', -0.24, 0.05), pin: '#eef3fb' };
+      return damperDesign(c || '#b8a6ff');
     }
   }
+}
+// soft cushion colour on a near-black rubber of the same hue
+function damperDesign(pad) {
+  const { h } = hsl(pad);
+  return { kind: 'damper', pad, rib: fromHsl(h, 0.3, 0.17), pin: '#eef3fb' };
 }
 
 export function buildAux(part, ctx) {
@@ -587,11 +580,11 @@ function buildGyro(part, ctx, D, g) {
   const RL = ctx.parts?.lock?.radius ?? 10;
   const [r0, r1] = part.ringRadius || [16, 21];
   const rMin = RL + 0.25, rR = Math.max(r0 + 1.2, r1 - 1.9);
-  const nL = segs(q, 64, 48, 36);
+  const nL = segs(q, 56, 44, 32);
   const spokes = clamp(ctx.parts?.lock?.notches || 3, 3, 5);
 
   const hub = new Soup().color(D.hub);
-  sweep(hub, () => [[rMin, -1.05], [rMin + 1.35, -1.05], [rMin + 1.7, -0.7], [rMin + 1.7, 0.7], [rMin + 1.35, 1.05], [rMin, 1.05]], ring(segs(q, 48, 36, 28)), true);
+  sweep(hub, () => [[rMin, -1.05], [rMin + 1.35, -1.05], [rMin + 1.7, -0.7], [rMin + 1.7, 0.7], [rMin + 1.35, 1.05], [rMin, 1.05]], ring(segs(q, 40, 32, 24)), true);
   hub.color(paint(D.spoke, 0.52));
   for (let k = 0; k < spokes; k++) {
     placed(hub, (k / spokes) * TAU, (t) => {
@@ -600,12 +593,20 @@ function buildGyro(part, ctx, D, g) {
     });
   }
 
+  // flywheel: heavy rim and a slim inner hoop joined by web bridges under
+  // the weight blocks, with lightening windows between them
   const wheel = new Soup();
-  sweep(wheel, () => [[r0, -0.42], [rR, -0.42], [rR, -1.1], [r1 - 0.42, -1.1], [r1, -0.68], [r1, 0.68], [r1 - 0.42, 1.1], [rR, 1.1], [rR, 0.42], [r0, 0.42]], ring(nL), true);
+  const nW = D.nBlocks, span = Math.min(3.4, ((TAU * rR) / nW) * 0.4);
+  sweep(wheel, () => [[rR + 0.25, -1.1], [r1 - 0.42, -1.1], [r1, -0.68], [r1, 0.68], [r1 - 0.42, 1.1], [rR + 0.25, 1.1], [rR, 0.85], [rR, -0.85]], ring(nL), true);
+  sweep(wheel, () => box(r0, r0 + 1.05, -0.62, 0.62, 0.22, 0.22), ring(segs(q, 40, 32, 24)), true);
+  const rW = (r0 + rR) / 2, bridge = Math.min(4.2, ((TAU * rW) / nW) * 0.42) / rW;
+  for (let k = 0; k < nW; k++) {
+    const c = ((k + 0.5) / nW) * TAU;
+    arcSweep(wheel, c - bridge / 2, c + bridge / 2, rW, 0.3, 1, (psi, e) => box(r0 + 0.85, rR + 0.2, -0.42, 0.42, 0.12, 0.12, e));
+  }
 
   const blocks = new Soup();
   const bolts = new Soup();
-  const nW = D.nBlocks, span = Math.min(3.4, ((TAU * rR) / nW) * 0.4);
   for (let k = 0; k < nW; k++) {
     const c = ((k + 0.5) / nW) * TAU, half = span / 2 / rR;
     arcSweep(blocks, c - half, c + half, rR, 0.32, low ? 2 : 3, (psi, e) => box(rR - 1.15, r1 + 0.12, -1.3, 1.3, 0.34, 0.34, e));
@@ -627,8 +628,9 @@ function buildGyro(part, ctx, D, g) {
 // ------------------------------------------------------------------ ballast weights
 
 // Dark steel clip band round the lock base carrying chunky low-slung weight
-// blocks (raked outer faces, bigger at the bottom), each with a hazard
-// striped face plate and two hex bolts.
+// blocks (raked outer faces, bigger at the bottom). Each block is a pair of
+// ingots tied by an accent clip strap over the top and a hazard-striped face
+// plate across the front, with a hex bolt in each ingot.
 function buildBallast(part, ctx, D, g) {
   const q = ctx.quality, low = q === 'low';
   const RL = ctx.parts?.lock?.radius ?? 10;
@@ -642,32 +644,41 @@ function buildBallast(part, ctx, D, g) {
   const blocks = new Soup();
   const plates = new Soup();
   const bolts = new Soup();
-  const span = (TAU / n) * 0.62, ri = rMin + 0.45;
+  const straps = new Soup();
+  const span = (TAU / n) * 0.62, ri = rMin + 0.45, rm = (ri + ro) / 2, cut = 0.5 / rm;
   // outer face undercut towards the bottom: the blocks tuck in under the
   // disc, clear of the tilt cone from the tip to the disc rim
   const face = (y) => ro - 0.36 * (1.25 - y);
+  const ingot = (psi, e) => {
+    const yT = 1.25 - e;
+    return [[ri + e, -1.5], [face(-1.5) - 0.4 - e, -1.5], [face(-1.1) - e, -1.1], [face(yT - 0.4) - e, yT - 0.4], [face(yT - 0.4) - 0.4 - e, yT], [ri + 0.3 + e, yT], [ri + e, yT - 0.3]];
+  };
   for (let k = 0; k < n; k++) {
     const c = ((k + 0.5) / n) * TAU, a = c - span / 2, b = c + span / 2;
-    arcSweep(blocks, a, b, (ri + ro) / 2, 0.45, low ? 4 : 8, (psi, e) => {
-      const yT = 1.25 - e;
-      return [[ri + e, -1.5], [face(-1.5) - 0.4 - e, -1.5], [face(-1.1) - e, -1.1], [face(yT - 0.4) - e, yT - 0.4], [face(yT - 0.4) - 0.4 - e, yT], [ri + 0.3 + e, yT], [ri + e, yT - 0.3]];
-    });
-    // face plate, proud of the raked face
+    arcSweep(blocks, a, c - cut / 2, rm, 0.4, low ? 2 : 4, ingot);
+    arcSweep(blocks, c + cut / 2, b, rm, 0.4, low ? 2 : 4, ingot);
+    // face plate across both ingots, proud of the raked face
     const pa = a + 0.95 / ro, pb = b - 0.95 / ro;
     arcSweep(plates, pa, pb, ro, 0.15, low ? 4 : 8, (psi, e) => [[face(-0.85) - 0.6, -0.85 + e], [face(-0.85) + 0.12 - e, -0.85 + e], [face(0.45) + 0.12 - e, 0.45 - e], [face(0.45) - 0.6, 0.45 - e]]);
-    if (!low) for (const s of [-1, 1]) hexBolt(bolts, (ri + ro) / 2 - 0.35, c + s * span * 0.27, 1.25, 0.42, 0.2, 6);
+    // clip strap: from the band over the ingot gap to the plate's top edge
+    placed(straps, c, (t) => prism(t, trap(rMin + 0.2, face(1.0) + 0.05, 0.8, 0.8), 0.95, 1.48, 0.16));
+    if (!low) for (const s of [-1, 1]) hexBolt(bolts, rm - 0.2, c + s * (span / 4 + cut / 4), 1.25, 0.42, 0.2, 6);
   }
 
   const glow = rarityGlow(ctx.rarity);
-  const blockMat = toonMaterial(D.block, { finish: 'metal', ...glow });
+  const blockMat = toonMaterial(shade(D.block, -0.1), { finish: 'metal', rimColor: '#e6ecf5', ...glow });
   const plateMat = toonMaterial('#ffffff', { finish: 'gloss', map: canvasTexture(hazardStrip(D.plate, D.stripe)), rimColor: '#fff2b0', ink: '#1a1405' });
   plateMat.map.wrapS = THREE.RepeatWrapping;
   plateMat.map.wrapT = THREE.RepeatWrapping;
   const rep = Math.round((TAU * ro) / 3.2);
+  // u from psi in [0, TAU): blocks are centred off psi = 0, so no plate
+  // straddles the seam
+  const uOf = (x, z) => (((Math.atan2(-z, x) + TAU) % TAU) / TAU) * rep;
   const meshes = makeMeshes(g, {
     band: { soup: band, mat: toonMaterial(D.band, { finish: 'metal' }) },
     blocks: { soup: blocks, mat: blockMat },
-    plates: { soup: plates, mat: plateMat, ink: { px: 1.5 }, finish: { uvFn: (x, y, z) => [(Math.atan2(-z, x) / TAU) * rep, (y + 0.85) / 2.6] } },
+    plates: { soup: plates, mat: plateMat, ink: { px: 1.5 }, finish: { uvFn: (x, y, z) => [uOf(x, z), (y + 0.85) / 2.6] } },
+    straps: { soup: straps, mat: toonMaterial(paint(D.strap, 0.42, 0.12), { finish: 'plastic', rimColor: '#ffd0b8' }), ink: { px: 1.5 } },
     bolts: { soup: bolts, mat: toonMaterial(D.bolt, { finish: 'chrome' }), ink: { px: 1 } },
   });
   return { height: 3 * MM, glows: glow.emissive ? [blockMat] : undefined, meshes };
@@ -675,9 +686,11 @@ function buildBallast(part, ctx, D, g) {
 
 // ------------------------------------------------------------------ impact damper
 
-// Rubber cushion pads on the ring top over each blade (near its striking
-// face), with dark grip ribs and chrome retaining pins, plus a cogged rubber
-// gasket seated in the ring's inner lip.
+// One elastomer insert per blade, pressed into the blade top just behind its
+// striking face: a dark rubber socket (bezel) flush with the ring top, with
+// end tabs carrying chrome retaining pins, and the coloured cushion split
+// into ribbed fingers that run out along the blade and follow its outline.
+// A dark gasket ring with coloured cogs seals the ring's inner lip.
 function buildDamper(part, ctx, D, g) {
   const q = ctx.quality, low = q === 'low';
   const RP = ctx.parts?.ring || { thickness: 6, rIn: 11, rOut: 24, rBase: 22, blades: 0 };
@@ -686,47 +699,64 @@ function buildDamper(part, ctx, D, g) {
   const N = R > Rb + 1e-6 ? L.blades | 0 : 0, w = L.bladeWidth ?? 0.55, hand = N ? L.hand || 0 : 0, P = TAU / Math.max(1, N);
   const coreR = ctx.parts?.core?.radius ?? 0;
   const hole = Math.max(RP.rIn, coreR + 0.35);
+  const tmp = { radius: 0, face: 0 };
+  // profile radius, min over +-0.6 deg so steep blade faces never push out
+  const Rp = (psi) => { let r = Infinity; for (const d of [-0.0105, 0, 0.0105]) { sampleProfile(L, psi + d, 1, tmp); r = Math.min(r, tmp.radius / MM); } return r; };
 
-  // pad centres: over each blade, shifted towards its striking face
-  let centres;
-  if (N) centres = Array.from({ length: N }, (_, k) => (hand > 0 ? (k + w * 0.62) * P : hand < 0 ? (k + 1 - w * 0.62) * P : (k + w / 2) * P));
-  else centres = ring(6, Math.PI / 6);
-  const nP = centres.length;
-  const rP1 = Rb - 1.35, rP0 = Math.max(hole + 4.0, rP1 - 5.2);
-  const rm = (rP0 + rP1) / 2;
-  const arc = Math.min(5.2, ((TAU * rm) / nP) * 0.5); // pad length along the arc (mm)
-  const y0 = T - 0.25, yT = T + 0.82;
+  // radial extent: inner edge clear of the core's flange (ring rIn + 3.5),
+  // outer edge following the blade 1.8 mm inside the outline (clear of the
+  // ring's shell lip and strike plates), at most `reach` long
+  const rP0 = Math.min(Math.max(hole + 4.2, RP.rIn + 3.9), Rb - 4.8), reach = 8.2;
+  const rOut = (psi) => Math.min(Rp(psi) - 1.8, rP0 + reach);
+  const rm = rP0 + 2.6;
+  const pads = []; // [a, b] psi spans of the cushions (socket tabs extend past them)
+  if (N && hand) {
+    // sawtooth blades: start just behind the leading face, run back along the ramp
+    const dir = hand < 0 ? 1 : -1, g0 = 1.9 / rm, span = Math.min(7.2 / rm, w * P * 0.62);
+    for (let k = 0; k < N; k++) {
+      const f = hand < 0 ? (k + 1 - w) * P : (k + w) * P;
+      const a = f + dir * g0, b = f + dir * (g0 + span);
+      pads.push([Math.min(a, b), Math.max(a, b)]);
+    }
+  } else if (N) {
+    const span = Math.min(6.8 / rm, w * P * 0.6);
+    for (let k = 0; k < N; k++) { const c = (k + w / 2) * P; pads.push([c - span / 2, c + span / 2]); }
+  } else {
+    const span = 5.6 / rm;
+    for (const c of ring(6, Math.PI / 6)) pads.push([c - span / 2, c + span / 2]);
+  }
+  const nLobe = (pads[0][1] - pads[0][0]) * rm > 5.4 && pads.length <= 5 ? 3 : 2;
+  const gap = 0.42 / rm, tab = 1.15 / rm, lip = 0.42; // finger gap, pin tab, socket rim (mm)
+  const yS0 = T - 0.3, yS1 = T + 0.3, yC0 = T - 0.2, yC1 = T + 0.95;
 
-  const pads = new Soup();
+  const cushion = new Soup();
   const dark = new Soup();
   const pins = new Soup();
-  for (const c of centres) {
-    const half = arc / 2 / rm;
-    arcSweep(pads, c - half, c + half, rm, 0.42, low ? 3 : 6, (psi, e) => box(rP0, rP1, y0, yT, 0.38, 0, e));
-    if (!low) {
-      // two grip ribs across the pad and a pin at each end
-      for (const s of [-0.22, 0.22]) {
-        placed(dark, c + (s * arc) / rm, (t) => prism(t, trap(rP0 + 0.7, rP1 - 0.7, 0.24, 0.24), yT - 0.1, yT + 0.14, 0.08));
-      }
-      for (const s of [-1, 1]) {
-        const a = c + (s * (arc / 2 - 0.85)) / rm;
-        turned(pins, domeProf(0.32, 0.22), 8, Math.cos(a) * rm, yT - 0.04, -Math.sin(a) * rm);
-      }
+  for (const [a, b] of pads) {
+    // socket: footprint grown by the rim, with a pin tab at each end
+    arcSweep(dark, a - tab - lip / rm, b + tab + lip / rm, rm, 0.3, low ? 4 : 8, (psi, e) => box(rP0 - lip, rOut(psi) + lip, yS0, yS1, 0.16, 0, e));
+    // cushion fingers
+    const wl = (b - a - gap * (nLobe - 1)) / nLobe;
+    for (let i = 0; i < nLobe; i++) {
+      const la = a + i * (wl + gap);
+      arcSweep(cushion, la, la + wl, rm, 0.34, low ? 1 : 2, (psi, e) => box(rP0, rOut(psi), yC0, yC1, 0.42, 0, e));
+    }
+    if (!low) for (const c of [a - tab / 2 - lip / (2 * rm), b + tab / 2 + lip / (2 * rm)]) {
+      const r = (rP0 + rOut(c)) / 2;
+      turned(pins, domeProf(0.36, 0.3), 6, Math.cos(c) * r, yS1 - 0.04, -Math.sin(c) * r);
     }
   }
-  // cogged gasket in the inner lip recess
-  const gi = hole + 0.25, go = hole + 1.75;
-  sweep(dark, () => [[gi, T - 0.7], [go - 0.2, T - 0.7], [go, T - 0.5], [go, T + 0.05], [go - 0.25, T + 0.3], [gi + 0.25, T + 0.3], [gi, T + 0.05]], ring(segs(q, 56, 44, 32)), true);
-  if (!low) {
-    const nc = 8;
-    for (let k = 0; k < nc; k++) placed(dark, ((k + 0.5) / nc) * TAU, (t) => prism(t, trap(go - 0.3, go + 0.45, 0.42, 0.32), T - 0.5, T + 0.18, 0.12));
-  }
+  // gasket in the inner lip, coloured cogs round its outer edge
+  const gi = hole + 0.25, go = hole + 1.6;
+  sweep(dark, () => [[gi, T - 0.7], [go - 0.2, T - 0.7], [go, T - 0.5], [go, T + 0.05], [go - 0.25, T + 0.3], [gi + 0.25, T + 0.3], [gi, T + 0.05]], ring(segs(q, 48, 40, 32)), true);
+  const nc = low ? 6 : 10;
+  for (let k = 0; k < nc; k++) placed(cushion, ((k + 0.5) / nc) * TAU, (t) => prism(t, trap(go - 0.5, go + 0.5, 0.5, 0.36), T - 0.5, T + 0.45, 0.16));
 
   const glow = rarityGlow(ctx.rarity);
-  const padMat = toonMaterial(paint(D.pad, 0.62, 0.04), { finish: 'rubber', rimColor: '#f2ecff', ...glow });
+  const padMat = toonMaterial(paint(D.pad, 0.68, 0.02), { finish: 'rubber', rimColor: '#f6f2ff', ...glow });
   const meshes = makeMeshes(g, {
-    pads: { soup: pads, mat: padMat },
-    dark: { soup: dark, mat: toonMaterial(D.rib, { finish: 'rubber', rimColor: '#c9bdf7' }), ink: { px: 1.5 } },
+    cushion: { soup: cushion, mat: padMat, ink: { color: shade(D.pad, -0.62, -0.2) } },
+    socket: { soup: dark, mat: toonMaterial(D.rib, { finish: 'rubber', rimColor: shade(D.pad, -0.1) }), ink: { px: 1.5 } },
     pins: { soup: pins, mat: toonMaterial(D.pin, { finish: 'chrome' }), ink: { px: 1 } },
   });
   return { height: (T + 1) * MM, glows: glow.emissive ? [padMat] : undefined, meshes };

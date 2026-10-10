@@ -9,7 +9,7 @@ import { TopVisual } from './topMesh.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
-import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree } from './toon.js';
+import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree, toonMaterial, inked } from './toon.js';
 import { createLights, TONE } from './lighting.js';
 import { InspectStage } from './inspect.js';
 
@@ -111,7 +111,7 @@ export class GameRenderer {
 
   clearFighters() {
     for (const v of this.visuals) { this.scene.remove(v.root); v.dispose(); }
-    for (const l of this.launchers) { this.scene.remove(l.group); this.scene.remove(l.arrowGroup); this.scene.remove(l.zone); }
+    for (const l of this.launchers) { for (const o of [l.group, l.arrowGroup, l.zone]) { this.scene.remove(o); disposeTree(o); } }
     this.visuals = [];
     this.launchers = [];
     this.effects.clearTransient();
@@ -130,24 +130,37 @@ export class GameRenderer {
     }
   }
 
+  // Launcher ghost: a cel-shaded ripcord launcher with a glowing ring
+  // in the battler's colour.
   makeLauncher(color) {
     const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: '#2a3140', metalness: 0.4, roughness: 0.4 });
-    const accent = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
-    const housing = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 8, 32), mat);
+    const body = toonMaterial('#2b3150', { finish: 'gloss' });
+    const trim = toonMaterial('#e8edf7', { finish: 'metal' });
+    const accent = new THREE.MeshBasicMaterial({ color });
+    const housing = inked(new THREE.TorusGeometry(0.03, 0.005, 10, 40), body, { px: 2 });
     housing.rotation.x = Math.PI / 2;
     group.add(housing);
-    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0015, 6, 32), accent);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0016, 6, 40), accent);
     glow.rotation.x = Math.PI / 2;
     glow.position.y = 0.005;
+    glow.userData.noInk = true;
     group.add(glow);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.07), mat);
-    handle.position.set(0, 0.012, 0.05);
+    const handle = inked(new THREE.BoxGeometry(0.012, 0.01, 0.062), body, { px: 2 });
+    handle.position.set(0, 0.012, 0.056);
     group.add(handle);
+    const grip = inked(new THREE.CylinderGeometry(0.006, 0.006, 0.028, 12), trim, { px: 1.5 });
+    grip.rotation.z = Math.PI / 2;
+    grip.position.set(0, 0.012, 0.09);
+    group.add(grip);
+    for (const s of [-1, 1]) {
+      const fin = inked(new THREE.BoxGeometry(0.004, 0.012, 0.018), trim, { px: 1.5 });
+      fin.position.set(s * 0.027, 0.006, 0.02);
+      group.add(fin);
+    }
     // aim arrow
     const arrowGeo = new THREE.ConeGeometry(0.006, 0.02, 8);
     arrowGeo.rotateX(Math.PI / 2);
-    const arrow = new THREE.Mesh(arrowGeo, accent);
+    const arrow = inked(arrowGeo, toonMaterial(color, { finish: 'gloss', emissive: color, emissiveIntensity: 0.4 }), { px: 1.5 });
     const arrowGroup = new THREE.Group();
     arrow.position.z = 0.055;
     arrowGroup.add(arrow);
@@ -181,7 +194,7 @@ export class GameRenderer {
       lv.arrowGroup.rotation.set(0, -L.aim.dir + Math.PI / 2, 0);
       lv.arrowGroup.scale.setScalar(0.6 + lean * 3);
       const charge = L.meter?.charge || 0;
-      lv.glow.material.emissiveIntensity = 0.4 + charge * 2;
+      lv.glow.scale.setScalar(1 + charge * 0.12);
       // preview top hangs under the launcher
       vis.root.visible = true;
       vis.root.position.set(L.aim.x, fy + 0.03, L.aim.z);

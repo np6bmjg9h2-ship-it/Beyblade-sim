@@ -17,6 +17,54 @@ function dotTexture() {
   return new THREE.CanvasTexture(c);
 }
 
+// Four-point anime sparkle: thin bright cross with a hot core.
+function sparkleTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.translate(32, 32);
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 4; i++) {
+    ctx.rotate(Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, -31); ctx.lineTo(4, -4); ctx.lineTo(-4, -4); ctx.closePath(); ctx.fill();
+  }
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
+  g.addColorStop(0, '#ffffffff'); g.addColorStop(1, '#ffffff00');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+  return new THREE.CanvasTexture(c);
+}
+
+// Flat two-tone cel puff (lit top, shaded bottom, hard edge).
+function puffTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(32, 32, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#b9c0d0';
+  ctx.beginPath(); ctx.arc(36, 38, 22, 0, Math.PI * 2); ctx.fill();
+  return new THREE.CanvasTexture(c);
+}
+
+// Impact hit flash: jagged star burst, white core, coloured by vertex tint.
+function hitFlashTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.translate(64, 64);
+  const star = (n, r0, r1, fill) => {
+    ctx.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      const a = (i / (n * 2)) * Math.PI * 2, r = i % 2 ? r0 : r1 * (0.75 + 0.25 * ((i * 7) % 5) / 4);
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  };
+  star(10, 20, 62, '#ffffff99');
+  star(8, 14, 44, '#ffffffff');
+  return new THREE.CanvasTexture(c);
+}
+
 class ParticlePool {
   constructor(scene, count, opts) {
     this.count = count;
@@ -64,6 +112,58 @@ class ParticlePool {
   }
 }
 
+// Velocity-stretched spark streaks (anime speed sparks), drawn as line
+// segments whose tail trails the head by the particle's velocity.
+class StreakPool {
+  constructor(scene, count) {
+    this.count = count;
+    this.pos = new Float32Array(count * 3);
+    this.vel = new Float32Array(count * 3);
+    this.life = new Float32Array(count);
+    this.maxLife = new Float32Array(count);
+    this.base = new Float32Array(count * 3);
+    this.vtx = new Float32Array(count * 6);
+    this.col = new Float32Array(count * 6);
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.vtx, 3));
+    this.geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    this.lines = new THREE.LineSegments(this.geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.lines.frustumCulled = false;
+    this.lines.userData.noInk = true;
+    scene.add(this.lines);
+    this.cursor = 0;
+    for (let i = 0; i < count * 2; i++) this.vtx[i * 3 + 1] = -100;
+  }
+  emit(x, y, z, vx, vy, vz, life, r, g, b) {
+    const i = this.cursor;
+    this.cursor = (this.cursor + 1) % this.count;
+    this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
+    this.vel[i * 3] = vx; this.vel[i * 3 + 1] = vy; this.vel[i * 3 + 2] = vz;
+    this.life[i] = life; this.maxLife[i] = life;
+    this.base[i * 3] = r; this.base[i * 3 + 1] = g; this.base[i * 3 + 2] = b;
+  }
+  update(dt) {
+    const damp = Math.exp(-3 * dt);
+    for (let i = 0; i < this.count; i++) {
+      const k = i * 3, v = i * 6;
+      if (this.life[i] <= 0) { this.vtx[v + 1] = this.vtx[v + 4] = -100; continue; }
+      this.life[i] -= dt;
+      this.vel[k + 1] -= 3 * dt;
+      this.vel[k] *= damp; this.vel[k + 1] *= damp; this.vel[k + 2] *= damp;
+      this.pos[k] += this.vel[k] * dt; this.pos[k + 1] += this.vel[k + 1] * dt; this.pos[k + 2] += this.vel[k + 2] * dt;
+      const tail = 0.025;
+      this.vtx[v] = this.pos[k]; this.vtx[v + 1] = this.pos[k + 1]; this.vtx[v + 2] = this.pos[k + 2];
+      this.vtx[v + 3] = this.pos[k] - this.vel[k] * tail; this.vtx[v + 4] = this.pos[k + 1] - this.vel[k + 1] * tail; this.vtx[v + 5] = this.pos[k + 2] - this.vel[k + 2] * tail;
+      const f = Math.max(0, this.life[i] / this.maxLife[i]);
+      this.col[v] = this.base[k] * f; this.col[v + 1] = this.base[k + 1] * f; this.col[v + 2] = this.base[k + 2] * f;
+      this.col[v + 3] = this.col[v + 4] = this.col[v + 5] = 0; // fade to the tail
+      if (this.life[i] <= 0) this.vtx[v + 1] = this.vtx[v + 4] = -100;
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.color.needsUpdate = true;
+  }
+}
+
 class Trail {
   constructor(scene, color, n) {
     this.n = n;
@@ -99,9 +199,20 @@ export class Effects {
     this.scene = scene;
     this.setQuality(quality);
     const tex = dotTexture();
-    this.sparks = new ParticlePool(scene, this.q.sparks, { size: 0.006, map: tex, additive: true, gravity: -4, drag: 2.5 });
-    this.dust = new ParticlePool(scene, this.q.dust, { size: 0.012, map: tex, additive: false, gravity: 0.05, drag: 3 });
+    this.textures = [tex, sparkleTexture(), puffTexture(), hitFlashTexture()];
+    this.sparks = new ParticlePool(scene, this.q.sparks, { size: 0.008, map: this.textures[1], additive: true, gravity: -4, drag: 2.5 });
+    this.dust = new ParticlePool(scene, this.q.dust, { size: 0.014, map: this.textures[2], additive: false, gravity: 0.05, drag: 3 });
     this.glow = new ParticlePool(scene, this.q.glow, { size: 0.018, map: tex, additive: true, gravity: 0.25, drag: 1.2 });
+    this.streaks = new StreakPool(scene, this.q.streaks);
+    // star-shaped hit flashes (camera-facing, a few frames long)
+    this.flashes = [];
+    for (let i = 0; i < 6; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.textures[3], transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, opacity: 0 }));
+      sp.visible = false;
+      scene.add(sp);
+      this.flashes.push({ sp, t: 0, dur: 0.14, size: 0.05 });
+    }
+    this.flashCursor = 0;
     this.rings = [];
     for (let i = 0; i < 10; i++) {
       const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -130,9 +241,9 @@ export class Effects {
   setQuality(q) {
     this.quality = q;
     const table = {
-      low: { sparks: 160, dust: 80, glow: 120, trail: 0, mult: 0.35 },
-      medium: { sparks: 400, dust: 160, glow: 300, trail: 24, mult: 0.7 },
-      high: { sparks: 900, dust: 320, glow: 600, trail: 40, mult: 1 },
+      low: { sparks: 160, dust: 80, glow: 120, streaks: 48, trail: 0, mult: 0.35 },
+      medium: { sparks: 400, dust: 160, glow: 300, streaks: 120, trail: 24, mult: 0.7 },
+      high: { sparks: 900, dust: 320, glow: 600, streaks: 240, trail: 40, mult: 1 },
     };
     this.q = table[q] || table.high;
   }
@@ -148,7 +259,27 @@ export class Effects {
       const a = Math.random() * Math.PI * 2;
       this.sparks.emit(x, y, z, Math.cos(a) * sp, 0.2 + Math.random() * sp * 0.6, Math.sin(a) * sp, 0.25 + Math.random() * 0.35, c.r, c.g, c.b);
     }
+    // speed-line streaks flying out of the contact
+    const ns = Math.min(28, Math.floor((4 + impulse * 300) * this.q.mult));
+    for (let i = 0; i < ns; i++) {
+      const c = this.color(i % 3 === 0 ? '#ffffff' : i % 2 ? colorA : colorB);
+      const sp = 0.8 + Math.random() * (1 + impulse * 40);
+      const a = Math.random() * Math.PI * 2;
+      this.streaks.emit(x, y, z, Math.cos(a) * sp, 0.1 + Math.random() * sp * 0.4, Math.sin(a) * sp, 0.12 + Math.random() * 0.16, c.r, c.g, c.b);
+    }
+    if (impulse > 0.015) this.hitFlash(point, Math.min(0.09, 0.025 + impulse * 0.6), impulse > 0.06 ? '#ffffff' : colorA);
     if (impulse > 0.03) this.ring(point, 0.005, 0.03 + impulse * 0.6, 0.35, impulse > 0.06 ? '#ffffff' : colorA);
+  }
+
+  // Star-burst flash at a point (pooled sprite).
+  hitFlash(point, size, color) {
+    const f = this.flashes[this.flashCursor];
+    this.flashCursor = (this.flashCursor + 1) % this.flashes.length;
+    f.t = f.dur; f.size = size;
+    f.sp.position.set(point[0], point[1] + 0.004, point[2]);
+    f.sp.material.color.set(color);
+    f.sp.material.rotation = Math.random() * Math.PI;
+    f.sp.visible = true;
   }
 
   grind(point, intensity, color = '#ffcc66') {
@@ -157,7 +288,7 @@ export class Effects {
     const [x, y, z] = point;
     for (let i = 0; i < 2; i++) {
       const a = Math.random() * Math.PI * 2;
-      this.sparks.emit(x, y, z, Math.cos(a) * 0.5, 0.3, Math.sin(a) * 0.5, 0.15, c.r, c.g, c.b);
+      this.streaks.emit(x, y, z, Math.cos(a) * 0.9, 0.35, Math.sin(a) * 0.9, 0.12, c.r, c.g, c.b);
     }
   }
 
@@ -248,6 +379,7 @@ export class Effects {
     }
     this.debris.push(...parts);
     visual.root.visible = false;
+    this.hitFlash([root.position.x, root.position.y, root.position.z], 0.12, '#ffffff');
     this.ring([root.position.x, root.position.y, root.position.z], 0.01, 0.12, 0.6, '#ffffff');
     const c = this.color('#ffffff');
     for (let i = 0; i < 80 * this.q.mult; i++) {
@@ -279,12 +411,23 @@ export class Effects {
     for (const m of this.manifest) { this.scene.remove(m.sp); m.sp.material.map.dispose(); m.sp.material.dispose(); }
     this.manifest = [];
     for (const s of this.scratches) s.visible = false;
+    for (const f of this.flashes) { f.t = 0; f.sp.visible = false; }
+    this.streaks.life.fill(0);
   }
 
   update(dt) {
     this.sparks.update(dt);
     this.dust.update(dt);
     this.glow.update(dt);
+    this.streaks.update(dt);
+    for (const f of this.flashes) {
+      if (f.t <= 0) { f.sp.visible = false; continue; }
+      f.t -= dt;
+      const k = 1 - Math.max(0, f.t) / f.dur;
+      const s = f.size * (0.6 + 0.8 * k);
+      f.sp.scale.set(s, s, 1);
+      f.sp.material.opacity = k < 0.35 ? 1 : Math.max(0, 1 - (k - 0.35) / 0.65);
+    }
     for (const r of this.rings) {
       if (r.t <= 0) { r.mesh.visible = false; continue; }
       r.t -= dt;

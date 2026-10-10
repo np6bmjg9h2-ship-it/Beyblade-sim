@@ -61,7 +61,13 @@ function autoDesign(part) {
     : 'ten';
   const words = (part.name || 'DISC').replace(/disc/i, '').trim().split(/\s+/).filter(Boolean);
   const label = (words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] || 'DISC').slice(0, 6)).toUpperCase();
-  return { kind, label, facets: clamp(Math.round(mass / 2), 6, 12), cutouts: md > 0.7 ? 5 : 6, blocks: mass >= 30 ? 8 : 6 };
+  return {
+    kind, label,
+    facets: clamp(2 * Math.round(mass / 4), 6, 12), // even, so studs alternate
+    cutouts: md > 0.7 ? 5 : 6, blocks: mass >= 30 ? 8 : 6,
+    alt: kind === 'counter' ? '#dca23e' : undefined, // brass counterweight
+    shade: kind === 'titan' ? -0.04 : undefined,
+  };
 }
 
 // ------------------------------------------------------------ colours
@@ -81,11 +87,12 @@ function pickAccent(acc, main, sig) {
 }
 
 // Catalogue colours are pale and wash out under the key light, so the metal
-// is pushed a little deeper; dark trim is a deep shade of the same hue.
+// is pushed deeper (but kept clear of the dark trim, which is a deep shade
+// of the same hue).
 function palette(part, ctx, d) {
   const base = part.color || '#b8bec8';
   const m = hslOf(base);
-  const main = hslHex(m.h, clamp(m.s * 1.2 + 0.03, 0, 0.6), clamp(m.l + (d.shade ?? -0.1), 0.2, 0.8));
+  const main = hslHex(m.h, clamp(m.s * 1.2 + 0.03, 0, 0.6), clamp(m.l + (d.shade ?? -0.17), 0.36, 0.8));
   const dark = d.dark || hslHex(m.h, clamp(m.s * 0.8 + 0.14, 0.14, 0.4), m.l < 0.5 ? 0.11 : 0.15);
   const sig = d.sig || hslHex((m.h + 0.5) % 1, 0.85, 0.55);
   const accent = pickAccent(ctx.accent || sig, base, sig);
@@ -187,6 +194,15 @@ function facePlate(pts, r0, r1, bevel = 0.05) {
   g.translate(0, 0, bevel * MM);
   g.rotateY(PI / 2); // depth -> +X (radial), t -> -Z
   g.translate(r0 * MM, 0, 0);
+  return g;
+}
+
+// Shape in the radial (r, y) plane, mm, extruded tangentially to width w
+// (centred on +X): gussets and ribs. The bevel grows the shape by `bevel`.
+function rib(pts, w, bevel = 0.06) {
+  const s = new THREE.Shape(pts.map(([r, y]) => new THREE.Vector2(r * MM, y * MM)));
+  const g = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.02, w - 2 * bevel) * MM, bevelEnabled: bevel > 0, bevelThickness: bevel * MM, bevelSize: bevel * MM, bevelSegments: 1, curveSegments: 1 });
+  g.translate(0, 0, -(w / 2 - bevel) * MM);
   return g;
 }
 
@@ -304,7 +320,16 @@ const KINDS = {
     K.dark.push(lathe([[R - gd - 0.05, g0 + 0.05], [R - 0.3, g0 + 0.05], [R - 0.3, g1 - 0.05], [R - gd - 0.05, g1 - 0.05]], fac));
     const hw = clamp(0.2 * R * Math.sin(st / 2), 0.6, 1.4);
     for (let j = 0; j < F; j += 2) K.accent.push(at(box((R - gd + 0.1) * kf, (R - 0.1) * kf, hw, g0 + 0.1, g1 - 0.1), j * st));
-    if (L.micro) for (let j = 0; j < F; j++) K.chrome.push(screw(rr0 + 0.75, j * st + st / 2, T - dr));
+    // underside: a dark faceted inlay ring round the hub, then a short radial
+    // rib under every facet vertex out to the relief step (a gear-like rosette)
+    const yR = 0.35, rI0 = rb + 1.0, rI1 = lerp(rb, rU1, 0.55);
+    K.dark.push(lathe([[rI0, yR + 0.02], [rI1, yR + 0.02], [rI1, 0.16], [rI1 - 0.15, 0.08], [rI0 + 0.15, 0.08], [rI0, 0.16]], fac));
+    for (let j = 0; j < F; j++) K.main.push(at(rib([[rI1 + 0.5, yR + 0.1], [rU1 + 0.2, yR + 0.1], [rU1 + 0.2, 0.12], [rI1 + 1.1, 0.12]], 0.9), j * st + st / 2));
+    if (L.micro) {
+      for (let j = 0; j < F; j++) K.chrome.push(screw(rr0 + 0.75, j * st + st / 2, T - dr));
+      // rivets on the dark band of the facets without a stud
+      for (let j = 1; j < F; j += 2) K.chrome.push(rivet((R - 0.3) * kf, j * st, (g0 + g1) / 2, 0.3, 0.2));
+    }
     deco.push({ rA: rr0 + 1.45, rB: rr1 * kf - 0.15, y: T - dr, on: 'main', texts: [{ s: d.label, a: -PI / 2 }, { s: L.massTxt, a: PI / 2 }], marks: [0, PI] });
   },
 
@@ -321,7 +346,7 @@ const KINDS = {
     const rc = (rH + rRi) / 2, wr = (rRi - rH) * 0.6, sw = Math.max(2.2, 0.18 * rc);
     const h = Math.max(0.08, (sp - (wr + sw) / rc) / 2);
     const holes = [circle(rH - 0.3, 24)];
-    for (let k = 0; k < NC; k++) holes.push(kidney(rc, wr, k * sp, h, L.micro ? 8 : 5, L.micro ? 5 : 3));
+    for (let k = 0; k < NC; k++) holes.push(kidney(rc, wr, k * sp, h, L.micro ? 6 : 4, L.micro ? 5 : 3));
     K.dark.push(plate(circle(rRi + 0.35, 40), holes, 0.34 * T, 0.66 * T, 0.15));
     for (let k = 0; k < NC; k++) K.accent.push(at(box(R - 0.6, R + 0.08, 0.75, yb0 + 0.22, yb1 - 0.22), k * sp + sp / 2));
     if (L.micro) for (let k = 0; k < 2 * NC; k++) K.chrome.push(screw(rRi + 0.95, (k + 0.5) * sp / 2, yt));
@@ -411,7 +436,7 @@ const KINDS = {
   orbit(K, L, d, deco) {
     const { r0, R, T, S, n } = L;
     const rH = r0 + 0.2 * S, rRi = R - clamp(0.33 * S, 3.5, 6), yt = T - 0.22, c = clamp(0.12 * T, 0.35, 0.6);
-    const NS = d.ports || 4, sp = TAU / NS, wn = 3.6 / R, rN = R - 0.42 * (R - rRi), yc0 = 0.34 * T, yc1 = 0.64 * T;
+    const NS = d.ports || 4, sp = TAU / NS, wn = clamp(0.32 * S, 4.5, 7) / R, rN = R - 0.42 * (R - rRi), yc0 = 0.34 * T, yc1 = 0.64 * T;
     K.main.push(hub(L, rH, 0, T));
     K.main.push(lathe([[rRi + 0.4, 0], [rN - 0.3, 0], [rN, 0.3], [rN, yt - 0.3], [rN - 0.3, yt], [rRi + 0.4, yt], [rRi, yt - 0.4], [rRi, 0.4]], { n }));
     const seg = sp - wn;
@@ -419,14 +444,18 @@ const KINDS = {
       const a0 = (k + 0.5) * sp + wn / 2, o = { n: arcN(L, seg), a0, span: seg, caps: true };
       K.main.push(lathe([[rN - 0.3, 0], [R - c, 0], [R, c], [R, yc0], [R - 0.9, yc0], [R - 0.9, yc1], [R, yc1], [R, yt - c], [R - c, yt], [rN - 0.3, yt]], o));
       K.dark.push(lathe([[R - 0.95, yc0 + 0.05], [R - 0.35, yc0 + 0.05], [R - 0.35, yc1 - 0.05], [R - 0.95, yc1 - 0.05]], o));
-      const an = (k + 0.5) * sp;
-      K.accent.push(at(box(rN - 0.1, R - 0.45, 0.3 * wn * R, 0.2 * T, 0.8 * T, 0.08), an));
-      if (L.micro) K.chrome.push(rivet(R - 0.45, an, 0.5 * T, 0.32, 0.2));
+      // skirt port: a full-height notch in the outer rim, lined with a dark
+      // mount plate, holding an accent T-latch (stem + wider clip head)
+      const an = (k + 0.5) * sp, hn = (wn * rN) / 2, hs = 0.24 * hn;
+      K.dark.push(at(box(rN - 0.25, rN + 0.4, hn + 0.1, 0.15, yt - 0.12), an));
+      K.accent.push(at(box(rN + 0.3, R - 0.7, hs, 0.18 * T, yt - 0.3, 0.08), an));
+      K.accent.push(at(box(R - 0.85, R - 0.12, 2.1 * hs, 0.3 * T, 0.78 * T, 0.08), an));
+      if (L.micro) K.chrome.push(rivet(R - 0.12, an, 0.54 * T, 0.32, 0.12));
     }
     const rc = (rH + rRi) / 2, rh1 = clamp(0.13 * S, 1, 2);
     const holes = [circle(rH - 0.3, 24)];
-    for (let k = 0; k < NS; k++) { holes.push(circle(rh1, 14, ...pol(rc, (k + 0.5) * sp))); holes.push(circle(rh1 * 0.5, 10, ...pol(rc, k * sp))); }
-    K.main.push(plate(circle(rRi + 0.3, 40), holes, 0.27 * T, 0.71 * T, 0.15));
+    for (let k = 0; k < NS; k++) { holes.push(circle(rh1, 12, ...pol(rc, (k + 0.5) * sp))); holes.push(circle(rh1 * 0.5, 8, ...pol(rc, k * sp))); }
+    K.main.push(plate(circle(rRi + 0.3, 36), holes, 0.27 * T, 0.71 * T, 0.15));
     if (L.micro) for (let k = 0; k < NS; k++) K.chrome.push(puck((rRi + rN - 0.3) / 2, k * sp, yt - 0.25, yt + 0.16, Math.min(0.9, (rN - rRi) / 2 - 0.45)));
     deco.push({ rA: rRi + 0.45, rB: rN - 0.4, y: yt, on: 'main', texts: [{ s: d.label, a: sp / 2 + PI }, { s: L.massTxt, a: sp / 2 }], marks: [] });
   },
@@ -446,7 +475,16 @@ const KINDS = {
     K.main.push(lathe([[rH - 0.3, 0.12 * T], [rRb + 0.3, 0.12 * T], [rRb + 0.3, yf], [rH - 0.3, yf]], { n }));
     const rD0 = rH + 0.8, rD1 = rRb - 0.6;
     K.dark.push(lathe([[rD0, yf], [rD1, yf], [rD1, yf + 0.12], [rD1 - 0.08, yf + 0.2], [rD0 + 0.08, yf + 0.2], [rD0, yf + 0.12]], { n }));
-    if (L.micro) for (let k = 0; k < 6; k++) K.chrome.push(puck((rD0 + rD1) / 2, (k + 0.5) * (TAU / 6), yf + 0.05, yf + 0.3, 0.7));
+    // underside: a dark dodecagonal inlay under the face; the six slugs go
+    // right through the disc and show on both faces (dense core)
+    const yu = 0.12 * T, st = TAU / 12, fac = { facets: 12, a0: -st / 2 };
+    K.dark.push(lathe([[rH + 0.5, yu + 0.02], [rRb - 0.5, yu + 0.02], [rRb - 0.5, 0.18], [rRb - 0.65, 0.06], [rH + 0.65, 0.06], [rH + 0.5, 0.18]], fac));
+    if (L.micro) {
+      for (let k = 0; k < 6; k++) {
+        const a = (k + 0.5) * (TAU / 6), rs = (rD0 + rD1) / 2;
+        K.chrome.push(puck(rs, a, yf + 0.05, yf + 0.3, 0.7), puck(rs, a, 0.0, 0.12, 0.7));
+      }
+    }
     deco.push({ rA: rD0 + 0.25, rB: rD1 - 0.25, y: yf + 0.2, on: 'dark', texts: [{ s: d.label, a: 0 }, { s: L.massTxt, a: PI }], marks: [] });
   },
 
@@ -457,18 +495,24 @@ const KINDS = {
     const { r0, R, T, S, n } = L;
     const rH = r0 + 0.25 * S, rBo = R - 1.5, s1 = r0 + 0.5 * S, s2 = Math.min(r0 + 0.72 * S, rBo - 1.2);
     K.dark.push(hub(L, rH, 0, T));
-    K.dark.push(lathe([[rH - 0.3, 0.32 * T], [s1, 0.32 * T], [s1, 0.16 * T], [s2, 0.16 * T], [s2, 0], [rBo - 0.4, 0], [rBo, 0.4], [rBo, T - 0.25], [rH - 0.3, T - 0.25]], { n }));
+    K.dark.push(lathe([[rH - 0.3, 0.32 * T], [s1, 0.32 * T], [s1, 0.16 * T], [s2, 0.16 * T], [s2, 0], [rBo - 0.4, 0], [rBo, 0.4], [rBo, T - 0.55], [rH - 0.3, T - 0.55]], { n }));
     const NB = d.blocks || 6, sp = TAU / NB, span = sp - 2.2 / R, y1 = 0.28 * T;
+    // top terrace: a raised armour collar (2 x blocks facets) round the bore,
+    // so the top steps up towards the centre like the underside steps down
+    const rT = rH + clamp(0.17 * S, 1.6, 2.8), stT = TAU / (2 * NB);
+    K.main.push(lathe([[rH - 0.3, T - 0.7], [rT, T - 0.7], [rT, T - 0.18], [rT - 0.16, T - 0.02], [rH - 0.3, T - 0.02]], { facets: 2 * NB, a0: -stT / 2 }));
     const prof = [[rBo - 0.2, 0], [R - 1.3, 0], [R - 0.9, 0.4], [R - 0.9, y1], [R - 0.2, y1 + 0.6], [R - 0.2, T - 0.75], [R - 0.75, T - 0.2], [rBo - 0.2, T - 0.2]];
     const ch = clamp((T - 0.75 - y1 - 0.6 - 0.6) / 1.7, 0.4, 1), cy = y1 + 0.85;
     const chev = [[-1.6, 0], [0, 1.0], [1.6, 0], [1.6, 0.7], [0, 1.7], [-1.6, 0.7]].map(([t, y]) => [t * ch, cy + y * ch]);
     for (let k = 0; k < NB; k++) {
       const a = k * sp;
       K.main.push(lathe(prof, { n: arcN(L, span), a0: a - span / 2, span, caps: true }));
+      // diagonal gusset bracing the stepped underside under each block
+      K.main.push(at(rib([[rH + 0.3, 0.33 * T], [rH + 0.3, 0.25 * T], [s2 - 0.3, 0.1], [s2 + 0.6, 0.1], [s2 + 0.6, 0.17 * T], [s1, 0.33 * T]], 1.4), a));
       K.accent.push(at(facePlate(chev, R - 0.45, R - 0.06), a));
       if (L.micro) for (const s of [-1, 1]) K.chrome.push(rivet(R - 0.2, a + s * 0.3 * span, 0.66 * T, 0.36, 0.22));
     }
-    deco.push({ rA: rH + 0.5, rB: rBo - 0.9, y: T - 0.25, on: 'dark', texts: [{ s: d.label, a: -PI / 2 + sp / 2 }, { s: L.massTxt, a: PI / 2 + sp / 2 }], marks: [sp / 2, sp / 2 + PI] });
+    deco.push({ rA: rT + 0.4, rB: rBo - 0.9, y: T - 0.55, on: 'dark', texts: [{ s: d.label, a: -PI / 2 + sp / 2 }, { s: L.massTxt, a: PI / 2 + sp / 2 }], marks: [sp / 2, sp / 2 + PI] });
   },
 };
 

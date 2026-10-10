@@ -10,7 +10,7 @@
 // so the silhouette is exactly what collides; slope shows as an inward taper.
 
 import * as THREE from 'three';
-import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasTexture, rarityGlow, makeCanvas } from './common.js';
+import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasTexture, makeCanvas } from './common.js';
 import { mix } from '../toon.js';
 import { sampleProfile } from '../../physics/profile.js';
 
@@ -104,8 +104,9 @@ function finish(soup, warp, crease = 0.6) {
 
 // Sweep a cross-section around the spin axis. sect(psi) returns a CCW polygon
 // [[r, y], ...] in mm (r outward, y up) with a fixed point count. psis must
-// ascend; closed = a full turn (no end caps).
-function sweep(soup, sect, psis, closed = false) {
+// ascend; closed = a full turn (no end caps); open = the section is a
+// polyline (its closing edge would be a face hidden inside another piece).
+function sweep(soup, sect, psis, closed = false, open = false) {
   const S = psis.length, rings = [], secs = [];
   for (const psi of psis) {
     const s = sect(psi), c = Math.cos(psi), sn = Math.sin(psi);
@@ -115,7 +116,7 @@ function sweep(soup, sect, psis, closed = false) {
   const P = rings[0].length;
   for (let i = 0; i < (closed ? S : S - 1); i++) {
     const A = rings[i], B = rings[(i + 1) % S];
-    for (let j = 0; j < P; j++) {
+    for (let j = 0; j < (open ? P - 1 : P); j++) {
       const j2 = (j + 1) % P;
       soup.tri(A[j], B[j2], A[j2]);
       soup.tri(A[j], B[j], B[j2]);
@@ -234,10 +235,15 @@ function makeEnv(part, ctx, design, res = 1) {
   E.yP0 = (pc.y0 ?? 0.2) * T; // plate height band (fractions of T)
   E.yP1 = pc.y1 != null ? pc.y1 * T : T + 0.35;
   const sh = pc.mode === 'face' ? pc.shift / Rmax : 0;
-  const dirs = [...new Set(E.faces.map((f) => f.dir))];
   E.shiftPsi = sh;
-  // frame outline: blades shortened at the plated faces so the plate has body
-  E.Rf = sh ? (psi) => { let r = Rp(psi); for (const d of dirs) r = Math.min(r, Rp(psi - d * sh)); return r; } : Rp;
+  // frame outline: blades shortened under the face plates only, so the metal
+  // face stands proud; everywhere else the frame is the profile itself
+  const inSpan = (psi, a, b) => { let d = mod(psi - a); if (d > TAU - 1e-7) d = 0; return d <= b - a + 1e-9; };
+  E.Rf = sh ? (psi) => {
+    let r = Rp(psi);
+    for (const pl of E.plates) if (pl.face && inSpan(psi, pl.a, pl.b)) r = Math.min(r, Rp(psi - pl.face.dir * sh));
+    return r;
+  } : Rp;
   E.plates = [];
   if (pc.mode === 'face') {
     const lipP = pc.lip / Rmax, lenP = pc.len / Rmax;
@@ -257,12 +263,7 @@ function makeEnv(part, ctx, design, res = 1) {
     E.plates.push({ a: 0, b: TAU, full: true, inner: (psi) => Rp(psi) - pc.d });
   }
   E.pocket = (psi) => {
-    for (const pl of E.plates) {
-      if (pl.full) return pl.inner(psi);
-      let d = mod(psi - pl.a);
-      if (d > TAU - 1e-7) d = 0;
-      if (d <= pl.b - pl.a + 1e-9) return pl.inner(psi);
-    }
+    for (const pl of E.plates) if (pl.full || inSpan(psi, pl.a, pl.b)) return pl.inner(psi);
     return null;
   };
   E.shellInset = design.shellInset ?? 0.55;
@@ -273,6 +274,10 @@ function makeEnv(part, ctx, design, res = 1) {
   const n0 = Math.round(segs(q, 100, 76, 48) * res), eps = 2e-4;
   let ps = linspace(0, TAU, n0).slice(0, n0);
   for (const pl of E.plates) if (!pl.full) ps.push(mod(pl.a - eps), mod(pl.a), mod(pl.b), mod(pl.b + eps));
+  // the profile's own breakpoints (ramp foot, crest start/end, face foot,
+  // see physics/profile.js), so coarse outlines still reach every blade tip
+  const keyLam = hand ? [0, 0.7 * w, w - 0.035, w] : [0, 0.12, w - 0.12, w];
+  for (let k = 0; k < N; k++) for (const lam of keyLam) ps.push(mod((hand < 0 ? k + 1 - lam : k + lam) * P));
   ps = [...new Set(ps.map((x) => Math.round(mod(x) * 1e7) / 1e7))].sort((x, y) => x - y);
   const step = (E.low ? 0.9 : 0.45) / res, maxSub = E.low ? 3 : Math.max(2, Math.round(6 * res));
   const out = [];
@@ -295,12 +300,32 @@ function makeEnv(part, ctx, design, res = 1) {
     const d = E.taperIn(y) * smooth(hole + 3, hole + 6, r);
     p[i] = (x * (r - d)) / r; p[i + 2] = (z * (r - d)) / r;
   } : null;
+  // The warp is linear in y on each side of mid-height, so outer walls need
+  // a vertex AT mid-height: the rake then folds there as a crisp edge and the
+  // wall still reaches the profile where the physics strikes. Inserted on
+  // every outer segment crossing T/2 (same indices at every psi, so section
+  // point counts stay fixed).
+  E.pivot = (sec) => {
+    if (!(tk > 0)) return sec;
+    const out = [], ym = T / 2;
+    for (let i = 0; i < sec.length; i++) {
+      const A = sec[i], B = sec[(i + 1) % sec.length];
+      out.push(A);
+      if ((A[1] - ym) * (B[1] - ym) < 0 && Math.min(A[0], B[0]) > hole + 3) {
+        const t = (ym - A[1]) / (B[1] - A[1]);
+        out.push([lerp(A[0], B[0], t), ym]);
+      }
+    }
+    return out;
+  };
+  // walls fold hard at the rake pivot instead of smoothing into a bulge
+  E.crease = tk > 0 ? 0.3 : 0.6;
 
   // colours
   const main = ctx.accent || part.color || '#4fc3ff';
   const own = part.color && rgbDist(part.color, main) > 0.3 ? part.color : null;
   const C = { main, own };
-  C.fill = paint(main, 0.5); // top faces catch key + spot + sky: paint richer
+  C.fill = paint(main, design.fillL ?? 0.5); // top faces catch key + spot + sky: paint richer
   C.deep = shade(C.fill, -0.2, 0.04);
   C.wall = shade(C.fill, -0.09);
   C.light = mix(main, '#ffffff', 0.55);
@@ -324,25 +349,36 @@ function buildBody(E) {
   const { T, hole, Rcol, yS, yP0, yP1 } = E;
   const cb = 0.6, ct = 0.7, pcB = 0.35, pcT = 0.5;
   // outer frame follows the profile; the round collar around the hole is a
-  // coarser lathe in the same mesh (its faces at Rcol are internal)
+  // coarser lathe in the same mesh. Faces hidden inside the stack (frame
+  // inner wall against the collar, shell underside on the frame) are left
+  // out: open sections.
   sweep(E.frame = new Soup(), (psi) => {
     const O = E.Rf(psi), K = E.pocket(psi) ?? O;
-    return [[Rcol, 0], [O - cb, 0], [O, cb], ...chain(O, K, cb, yS, yP0, yP1), [Rcol, yS]];
-  }, E.psis, true);
-  const nc = segs(E.q, 72, 56, 40);
-  sweep(E.frame, () => [[hole, 0], [Rcol, 0], [Rcol, T - 0.35], [hole + 0.45, T - 0.35], [hole, T - 0.8]], linspace(0, TAU, nc).slice(0, nc), true);
+    return E.pivot([[Rcol, 0], [O - cb, 0], [O, cb], ...chain(O, K, cb, yS, yP0, yP1), [Rcol, yS]]);
+  }, E.psis, true, true);
+  // collar with key slots for the core's tabs (3, or 4 for a quad core): the
+  // hole only ever grows, so the core always fits
+  const nc = segs(E.q, 72, 56, 40), nk = E.ctx.parts?.core?.arch === 'quad' ? 4 : 3;
+  const kw = 1.7 / hole, keyed = (psi) => Math.abs(wrapPi(psi * nk) / nk) < kw;
+  let cps = linspace(0, TAU, nc).slice(0, nc);
+  for (let i = 0; i < nk; i++) for (const d of [-kw, kw]) { const c = (i * TAU) / nk + d; cps.push(mod(c - 1e-4), mod(c + 1e-4)); }
+  cps = [...new Set(cps.map((x) => Math.round(mod(x) * 1e7) / 1e7))].sort((x, y) => x - y);
+  sweep(E.frame, (psi) => {
+    const h = hole + (keyed(psi) ? 0.9 : 0);
+    return [[h, 0], [Rcol, 0], [Rcol, T - 0.35], [h + 0.45, T - 0.35], [h, T - 0.8]];
+  }, cps, true);
   sweep(E.soups.shell, (psi) => {
     const O = E.Os(psi), K = Math.min(O, E.pocket(psi) ?? Infinity);
     const ch = chain(O, K, yS, T, yP0, yP1);
     const [X] = ch.pop();
     // the extra top ring keeps cap triangles short, so the ink hull of the
     // tiny strips at plate steps cannot flip into long dark lines
-    return [[Rcol, yS], [O, yS], ...ch, [X, T - ct], [X - ct, T], [X - ct - 0.9, T], [Rcol, T]];
-  }, E.psis, true);
+    return [[O, yS], ...ch, [X, T - ct], [X - ct, T], [X - ct - 0.9, T], [Rcol, T], [Rcol, T - 0.6]];
+  }, E.psis, true, true);
   const plateSect = (psi) => {
     const o = E.Rp(psi), k = E.pocket(psi), room = Math.max(0, o - k);
     const cB = Math.min(pcB, room * 0.4), cT = Math.min(pcT, room * 0.5);
-    return [[k, yP0], [o - cB, yP0], [o, yP0 + cB], [o, yP1 - cT], [o - cT, yP1], [k, yP1]];
+    return E.pivot([[k, yP0], [o - cB, yP0], [o, yP0 + cB], [o, yP1 - cT], [o - cT, yP1], [k, yP1]]);
   };
   for (const pl of E.plates) {
     if (pl.full) sweep(E.soups.metal, plateSect, E.psis, true);
@@ -507,14 +543,23 @@ export function buildRing(part, ctx) {
   }
   const { C } = E;
   const size = SHEET[E.q] || 512;
-  const key = [part.id, part.rOut, part.rBase, part.blades, part.thickness, C.main, C.sec, C.rarity, size].join('|');
+  // everything the print depends on (core size moves the hub, item numbers
+  // move the blades)
+  const key = [part.id, E.Rmax, E.Rb, E.N, E.w, E.hand, E.T, E.hole, E.low, C.main, C.sec, C.rarity, size].join('|');
   const sheet = decalCanvas(key, size, (g, H) => paintSheet(E, design, H));
+  // epic and above: the rarity trim lines glow (emissive map), the rest of
+  // the print keeps its colours
+  const glowTrim = ctx.rarity?.rank >= 3 ? {
+    emissive: C.rarity,
+    emissiveIntensity: 0.9 + 0.2 * (ctx.rarity.rank - 3),
+    emissiveMap: canvasTexture(decalCanvas(key + '|glow', size >> 1, (g, H) => { g.fillStyle = '#000000'; g.fillRect(0, 0, H.s, H.s); rarityLines(E, H, '#ffffff'); })),
+  } : {};
 
   const group = partGroup('ring');
   const glows = [];
   const add = (soup, mat, inkOpts, name) => {
     if (!soup || soup.empty) return null;
-    const m = inked(finish(soup, E.warp, inkOpts.crease ?? 0.6), mat, inkOpts);
+    const m = inked(finish(soup, E.warp, inkOpts.crease ?? E.crease), mat, inkOpts);
     m.name = name;
     group.add(m);
     return m;
@@ -522,11 +567,11 @@ export function buildRing(part, ctx) {
   // flat tops: a near-mirror spec edge, so a whole flat face only flashes at
   // a true reflection angle instead of whitening the print in overhead views
   add(E.frame, toonMaterial(C.frame, { finish: 'plastic', specEdge: 0.985, rimColor: tone(C.frame, 0.25) }), { px: 2, maxMm: 0.7 }, 'frame');
-  const shellMat = toonMaterial('#ffffff', { finish: design.finish || 'gloss', spec: 0.5, specEdge: 0.985, map: canvasTexture(sheet), ink: C.line, rimColor: C.light, ...rarityGlow(ctx.rarity) });
-  if (ctx.rarity?.rank >= 3) glows.push(shellMat);
+  const shellMat = toonMaterial('#ffffff', { finish: design.finish || 'gloss', spec: 0.5, specEdge: 0.985, map: canvasTexture(sheet), ink: C.line, rimColor: C.light, ...glowTrim });
+  if (glowTrim.emissive) glows.push(shellMat);
   add(E.soups.shell, shellMat, { px: 2, maxMm: 0.7 }, 'shell');
   add(E.soups.metal, toonMaterial(C.metal, { finish: design.metalFinish || 'metal', ink: inkFor(C.metal, 0.8) }), { px: 1.5, maxMm: 0.45 }, 'metal');
-  add(E.soups.trim, toonMaterial(C.sec, { finish: design.trimFinish || 'gloss', specEdge: design.trimSpecEdge ?? (design.trimFlat ? undefined : 0.975), flatShading: !!design.trimFlat, ink: inkFor(C.sec, 0.8) }), { px: 1.5, maxMm: 0.5, crease: design.trimFlat ? 0.01 : 0.6 }, 'trim');
+  add(E.soups.trim, toonMaterial(C.sec, { finish: design.trimFinish || 'gloss', specEdge: design.trimSpecEdge ?? (design.trimFlat ? undefined : 0.975), flatShading: !!design.trimFlat, ink: inkFor(C.sec, 0.8) }), { px: 1.5, maxMm: 0.5, crease: design.trimFlat ? 0.01 : undefined }, 'trim');
   add(E.soups.clear, toonMaterial(C.clear, { finish: design.clearFinish || 'clear', opacity: design.clearOpacity ?? 0.42, flatShading: !!design.clearFlat, ink: inkFor(C.clear, 0.6) }), { px: 1, maxMm: 0.35 }, 'clear');
   if (!E.soups.glow.empty) {
     const gm = toonMaterial(C.glow, { finish: 'gloss', emissive: C.glow, emissiveIntensity: 0.85, ink: inkFor(C.glow, 0.85) });
@@ -553,7 +598,15 @@ function paintSheet(E, design, H) {
   H.ring(E.Rcol + 1.05, 0.22, C.line);
   for (const fn of E.paints) fn(H);
   design.paint?.(E, H);
-  if (C.rarity) H.ring(E.Rcol + 1.55, 0.45, C.rarity);
+  if (C.rarity) rarityLines(E, H, C.rarity);
+}
+
+// Rarity trim: a line tracing the outline just inside the rim (what the
+// battle camera sees) and a thin ring round the hub.
+function rarityLines(E, H, col) {
+  H.band((p) => E.Ks(p) - 1.35, (p) => E.Ks(p) - 0.85, 0, TAU);
+  H.fill(col);
+  H.ring(E.Rcol + 1.55, 0.45, col);
 }
 
 // Leading face, tail and the psi direction face -> tail of a blade
@@ -792,6 +845,7 @@ const DESIGNS = {
   // Five slim translucent ghost edges, a clear inner veil and printed
   // left-spin arrows.
   ring_phantomedge: {
+    fillL: 0.64, // pale, ghostly paint
     sec: (m) => pick(m, '#f3f0ff', '#2b2350'),
     clear: (m) => mix(m, '#f4f0ff', 0.5),
     clearOpacity: 0.55,
@@ -841,27 +895,39 @@ const DESIGNS = {
     },
   },
 
-  // Six charcoal saw teeth on the blade edges and a printed cyclone spiral.
+  // A gunmetal circular-saw disc set into the top: a raised steel band with
+  // six hooked teeth riding out onto the blades, rivets between them, and a
+  // printed cyclone spiral turning with the spin inside it.
   ring_cyclonesaw: {
-    sec: (m) => pick(m, '#5b6372', '#f2f4f8'),
+    sec: (m) => pick(m, '#5b6372', '#e3e8f0'),
     trimFinish: 'metal',
+    trimSpecEdge: 0.985,
     acc: () => '#ffb02e',
     build(E) {
+      const ro = E.Rb - 1.5, ri = ro - (E.low ? 2.4 : 2.1), yt = E.T + 0.55;
+      E.saw = [ri, ro];
+      annulusTop(E, E.soups.trim, ri, ro, E.T - 0.03, yt, 0.25, segs(E.q, 64, 48, 32));
       for (const bl of E.blades) {
-        const fp = fang(E, E.soups.trim, bl, { w0: 3.9, w1: 0.15, pw: 1.0, h0: 1.4, h1: 0.2, ext: 0.05, peak: 0.55 });
+        const fp = fang(E, E.soups.trim, bl, { w0: 4.6, w1: 0.6, pw: 0.8, h0: 1.45, h1: 0.55, ext: 0.12, peak: 0.5, start: 0.15 });
         E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+        // rivet on the band in each gullet
+        const { t, s } = span(E, bl);
+        rivet(E, (ri + ro) / 2, t + s * 0.5 * E.P * (1 - E.w), 0.5, 0.35, E.soups.metal, yt - 0.04);
       }
     },
     paint(E, H) {
-      const turn = 1.1 * -(E.mv || -1);
-      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1, E.Rb - 0.6, (i * TAU) / 6, turn, 0.6, 2.8, shade(E.C.fill, -0.3, 0.05));
-      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1.6, E.Rb - 2.5, (i * TAU) / 6 + 0.25, turn, 0.2, 0.55, E.C.acc);
+      const turn = -(E.mv || -1), [ri, ro] = E.saw;
+      // gullet shadow under the band and its teeth
+      H.band(ri - 0.35, ro + 0.35, 0, TAU); H.fill(E.C.line);
+      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 0.9, ri - 0.2, (i * TAU) / 6, turn, 0.5, 2.6, shade(E.C.fill, -0.3, 0.05));
+      for (let i = 0; i < 6; i++) spiralArm(H, E.Rcol + 1.5, ri - 0.5, (i * TAU) / 6 + 0.3, turn, 0.2, 0.6, E.C.acc);
       H.ring(E.Rcol + 1.3, 0.5, E.C.acc);
     },
   },
 
-  // Symmetric comet arcs in royal blue between double-sided strike plates;
-  // shooting-star sparkles printed in the gaps.
+  // Symmetric comet arcs in royal blue between double-sided strike plates,
+  // each trailing printed tails both ways; a dark star band round the hub and
+  // shooting-star streaks in the gaps.
   ring_cometarc: {
     plate: { len: 4.5 },
     sec: (m) => pick(m, '#2f5bff', '#ffffff'),
@@ -870,19 +936,40 @@ const DESIGNS = {
       for (const bl of E.blades) {
         const pl = (E.plateCfg.len + 0.4) / E.Rmax, a = bl.a + pl, b = bl.b - pl;
         const fp = feature(E, E.soups.trim, a, b, (u, p) => E.Ks(p) - 0.9 - (0.6 + 3.2 * Math.sin(Math.PI * u)), () => 99, (u) => E.T + 0.3 + 1.1 * Math.sin(Math.PI * u), { kind: 'ridge', peak: 0.72 });
-        E.paints.push((H) => H.foot(fp, E.C.line, 0.3));
+        // tails thin out towards both ends of the arc
+        const v = (p) => Math.abs((2 * (p - a)) / (b - a) - 1);
+        E.paints.push((H) => {
+          streak(H, a, b, fp.ri, v, -0.2, 2.6, E.C.deep);
+          H.foot(fp, E.C.line, 0.3);
+          streak(H, a, b, fp.ri, v, 1.0, 0.8, E.C.sec);
+          streak(H, a, b, fp.ri, v, 2.2, 0.4, E.C.light);
+        });
       }
-      for (const g of E.gaps) topScrew(E, E.Rcol + 3.0, g);
+      for (const g of E.gaps) topScrew(E, E.Rcol + 2.0, g, 0.8);
+    },
+    // star band under the screws (printed before the screw recesses)
+    paintBase(E, H) {
+      const r0 = E.Rcol + 0.8, r1 = E.Rcol + 3.2;
+      H.band(r0, r1, 0, TAU); H.fill(E.C.deep);
+      H.ring(r1 + 0.25, 0.3, E.C.sec);
+      for (let i = 0; i < 18; i++) {
+        const p = (i * TAU) / 18;
+        if (E.gaps.some((g) => Math.abs(wrapPi(p - g)) < 0.2)) continue; // screws sit there
+        sparkle(H, (r0 + r1) / 2, p, i % 2 ? 0.5 : 0.9, E.C.acc);
+      }
     },
     paint(E, H) {
       for (const g of E.gaps) {
-        const r = E.Rb - 3.6;
-        for (const d of [-1, 1]) { H.band(r - 0.35, r + 0.35, g + d * 0.07, g + d * 0.5); H.fill(E.C.deep); }
-        sparkle(H, r, g, 2.0, E.C.acc);
-        sparkle(H, r - 2.6, g + 0.32, 0.8, E.C.light);
-        sparkle(H, r - 2.6, g - 0.32, 0.8, E.C.light);
+        const r = E.Rb - 3.4;
+        // shooting star: head at the gap centre, streaks fanning back both ways
+        for (const d of [-1, 1]) {
+          H.band(r - 0.4, r + 0.4, g + d * 0.09, g + d * 0.55); H.fill(E.C.deep);
+          H.band(r - 1.3, r - 0.95, g + d * 0.12, g + d * 0.4); H.fill(E.C.sec);
+        }
+        sparkle(H, r, g, 2.1, E.C.acc);
+        sparkle(H, r - 2.5, g + 0.3, 0.75, E.C.light);
+        sparkle(H, r - 2.5, g - 0.3, 0.75, E.C.light);
       }
-      H.ring(E.Rcol + 1.6, 0.25, E.C.line);
     },
   },
 
@@ -1007,7 +1094,9 @@ function parametric(part) {
     paint(E, H) {
       H.band(E.Rcol + 0.9, E.Rcol + 2.4, 0, TAU); H.fill(E.C.deep);
       H.ring(E.Rcol + 2.6, 0.2, E.C.line);
-      if (E.mv) for (const g of E.gaps) H.chevron(E.Rb - 3, g, 1.4, E.mv, E.C.light, 0.55);
+      // spin arrows either side of each gap screw
+      const d = Math.min(0.24, ((1 - E.w) * E.P) / 3.2);
+      if (E.mv) for (const g of E.gaps) for (const o of [-d, d]) H.chevron(E.Rb - 3, g + o, 1.3, E.mv, E.C.sec, 0.55);
     },
   };
 }
