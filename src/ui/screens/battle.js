@@ -18,7 +18,7 @@ import { beastImg, fmtTime, fmtRpm } from '../widgets.js';
 import { ResultsScreen, BattleScreenRef } from './results.js';
 import { SettingsScreen } from './settings.js';
 
-const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping', numerical: 'Numerical' };
+const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping', clamp: 'Safety limits', numerical: 'Numerical' };
 
 export class BattleScreen {
   static screenName = 'BattleScreen';

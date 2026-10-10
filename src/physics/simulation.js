@@ -16,7 +16,7 @@ export const DEFAULT_SUBSTEPS = 16;
 
 export const LEDGER_KEYS = [
   'tipFriction', 'floor', 'scrape', 'collision', 'wall', 'drag', 'control', 'ability',
-  'damping', 'numerical',
+  'damping', 'clamp', 'numerical',
 ];
 
 const MAX_LIN_SPEED = 9; // m/s, safety clamp (tunnelling guard)
@@ -381,13 +381,20 @@ export class Simulation {
     t.updateOmegaOnly();
   }
 
+  // Safety limits (tunnelling and blow-up guards). Energy they remove is
+  // booked to 'clamp' so it never hides inside the numerical residual.
   clampState(t) {
     const sp = t.v.length();
-    if (sp > MAX_LIN_SPEED) t.v.scale(MAX_LIN_SPEED / sp);
     const s = t.spinRate;
-    if (Math.abs(s) > MAX_SPIN) {
-      t.L.addScaled(t.a, (Math.sign(s) * MAX_SPIN - s) * t.I3);
-      t.updateOmegaOnly();
+    if (sp > MAX_LIN_SPEED || Math.abs(s) > MAX_SPIN) {
+      const before = t.totalEnergy();
+      if (sp > MAX_LIN_SPEED) t.v.scale(MAX_LIN_SPEED / sp);
+      if (Math.abs(s) > MAX_SPIN) {
+        t.L.addScaled(t.a, (Math.sign(s) * MAX_SPIN - s) * t.I3);
+        t.updateOmegaOnly();
+      }
+      const d = t.totalEnergy() - before;
+      t.ledger.clamp += d; t._subLedger.clamp += d;
     }
     if (sp > t.telemetry.maxSpeed) t.telemetry.maxSpeed = sp;
   }

@@ -6,7 +6,7 @@ import { FINISH_NAMES } from '../../game/battle.js';
 import { SLOT_NAMES } from '../../data/parts.js';
 import { itemCard } from '../widgets.js';
 
-const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping' };
+const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping', clamp: 'Safety limits' };
 const PART_NAMES = { ...SLOT_NAMES, 'launcher.drive': 'Launcher drive', 'launcher.trigger': 'Launcher trigger', 'launcher.grip': 'Launcher grip' };
 
 export class ResultsScreen {

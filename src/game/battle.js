@@ -698,7 +698,7 @@ export class Battle extends Emitter {
     const led = L.ledger || {};
     const spent = Object.entries(led).filter(([k, v]) => v < 0 && k !== 'numerical').map(([k, v]) => [k, -v]).sort((a, b) => b[1] - a[1]);
     const total = spent.reduce((s, [, v]) => s + v, 0) || 1;
-    const NAMES = { tipFriction: 'tip friction', collision: 'collisions', wall: 'wall contacts', drag: 'air drag', control: 'steering', scrape: 'body scraping', damping: 'wobble damping', ability: 'abilities', floor: 'landings' };
+    const NAMES = { tipFriction: 'tip friction', collision: 'collisions', wall: 'wall contacts', drag: 'air drag', control: 'steering', scrape: 'body scraping', damping: 'wobble damping', ability: 'abilities', floor: 'landings', clamp: 'safety limits' };
     const top2 = spent.slice(0, 2).map(([k, v]) => `${NAMES[k] || k} ${Math.round((v / total) * 100)}%`).join(', ');
     switch (how) {
       case 'spin': {

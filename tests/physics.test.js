@@ -234,3 +234,92 @@ test('every arena profile is monotone, finite and has sensible walls', () => {
     assert.ok(a.rimY > a.edgeHeight, `${def.id} wall above floor edge`);
   }
 });
+
+// Frictionless tips and no drag isolate what the collision itself does.
+const FREE_TIP = { endZ: -0.016, ballRadius: 0.0005, flatRadius: 0, mu: 0, patchRadius: 0, compliance: 0.12, restitution: 1 };
+
+// A strikes a resting B; offsetZ moves B off the line of travel.
+function strike(offsetZ, speed = 1) {
+  const A = new TopBody(simpleSpec({ tip: FREE_TIP, linDrag: 0, aero: 0 }), { id: 'A' });
+  const B = new TopBody(simpleSpec({ tip: FREE_TIP, linDrag: 0, aero: 0 }), { id: 'B' });
+  const sim = new Simulation({ arena: flatArena(), tops: [A, B] });
+  A.launch({ tipPos: new Vec3(-0.06, 0, 0), axis: new Vec3(0, 1, 0), spin: -600, velocity: new Vec3(speed, 0, 0) });
+  B.launch({ tipPos: new Vec3(0, 0, offsetZ), axis: new Vec3(0, 1, 0), spin: -600, velocity: new Vec3() });
+  let impulse = 0, maxTiltB = 0;
+  for (let i = 0; i < 60; i++) {
+    sim.tick();
+    for (const e of sim.events) if (e.type === 'impact' || e.type === 'grind') impulse += e.impulse;
+    maxTiltB = Math.max(maxTiltB, B.tilt);
+  }
+  return { A, B, impulse, maxTiltB, deflection: Math.atan2(B.v.z, B.v.x) };
+}
+
+test('head-on and glancing collisions produce different outcomes', () => {
+  const head = strike(0);
+  const left = strike(0.04);
+  const right = strike(-0.04);
+  // head-on: B is driven straight ahead and takes most of A's momentum
+  assert.ok(Math.abs(head.deflection) < 0.1, `head-on deflection ${(head.deflection * 57.3).toFixed(1)}°`);
+  assert.ok(head.B.v.x > head.A.v.x, 'struck top leaves faster than the striker');
+  // glancing: B is pushed sideways, away from the side it was struck on; A keeps most of its speed
+  assert.ok(left.deflection > 0.5 && right.deflection < -0.5, `glancing deflections ${(left.deflection * 57.3).toFixed(0)}° / ${(right.deflection * 57.3).toFixed(0)}°`);
+  assert.ok(left.A.v.x > head.A.v.x * 1.5, 'striker keeps more forward speed on a glancing hit');
+  assert.ok(left.impulse < head.impulse * 0.8, `glancing impulse ${left.impulse.toFixed(4)} < head-on ${head.impulse.toFixed(4)} N·s`);
+  for (const r of [head, left, right]) assert.ok(r.A.ledger.collision + r.B.ledger.collision < 0, 'every collision dissipates energy');
+});
+
+test('harder impacts tilt the struck top further (destabilisation scales with the hit)', () => {
+  const tilts = [0.5, 1, 2, 3].map((s) => strike(0, s).maxTiltB);
+  for (let i = 1; i < tilts.length; i++) assert.ok(tilts[i] > tilts[i - 1], `tilt grows with speed: ${tilts.map((t) => (t * 57.3).toFixed(2)).join(', ')}°`);
+  assert.ok(tilts[3] > 3 * tilts[0], 'a 3 m/s hit tilts far more than a 0.5 m/s hit');
+});
+
+test('wall rebounds lose energy and follow the wall restitution', () => {
+  const rebound = (e) => {
+    const arena = flatArena({ radius: 0.2, wall: { height: 0.05, restitution: e, friction: 0.2, openings: [] } });
+    const top = new TopBody(simpleSpec({ tip: FREE_TIP, linDrag: 0, aero: 0 }), { id: 'W' });
+    const sim = new Simulation({ arena, tops: [top] });
+    top.launch({ tipPos: new Vec3(0.12, 0, 0), axis: new Vec3(0, 1, 0), spin: -600, velocity: new Vec3(1, 0, 0) });
+    let hits = 0;
+    const t = runUntil(sim, () => { hits += sim.events.filter((ev) => ev.type === 'wall').length; return top.v.x < 0 && !sim.events.length; }, 1);
+    return { top, hits, t };
+  };
+  const soft = rebound(0.2), hard = rebound(0.8);
+  for (const r of [soft, hard]) {
+    assert.ok(Number.isFinite(r.t) && r.hits >= 1, 'top hit the wall and came back');
+    assert.ok(-r.top.v.x < 1, 'rebound slower than the approach');
+    assert.ok(r.top.ledger.wall < 0, 'wall contact removes energy');
+  }
+  assert.ok(-hard.top.v.x > 2 * -soft.top.v.x, `bouncier wall rebounds faster (${(-hard.top.v.x).toFixed(3)} vs ${(-soft.top.v.x).toFixed(3)} m/s)`);
+});
+
+test('repeated collisions in a stadium never create energy and stay stable', () => {
+  const arena = new Arena(ARENA_INDEX.standard);
+  const A = new TopBody(specFromParts(BUILDS.attack), { id: 'A' });
+  const B = new TopBody(specFromParts(BUILDS.balance), { id: 'B' });
+  const sim = new Simulation({ arena, tops: [A, B] });
+  A.launch({ tipPos: new Vec3(-0.06, arena.heightAtR(0.06), 0), axis: new Vec3(0, 1, 0), spin: -700, velocity: new Vec3(1.2, 0, 0.05) });
+  B.launch({ tipPos: new Vec3(0.06, arena.heightAtR(0.06), 0.004), axis: new Vec3(0, 1, 0), spin: -650, velocity: new Vec3(-0.8, 0, 0) });
+  let impacts = 0, worstGain = -Infinity;
+  while (sim.time < 10 && A.active && B.active) {
+    const c0 = A.ledger.collision + B.ledger.collision;
+    sim.tick();
+    worstGain = Math.max(worstGain, A.ledger.collision + B.ledger.collision - c0);
+    impacts += sim.events.filter((e) => e.type === 'impact').length;
+  }
+  assert.ok(impacts >= 5, `tops collided repeatedly (${impacts} impacts)`);
+  assert.ok(worstGain <= 1e-9, `no tick's collisions added energy (worst ${worstGain.toExponential(2)} J)`);
+  assert.equal(sim.instabilityRecoveries, 0);
+  assert.ok(A.isFiniteState() && B.isFiniteState());
+});
+
+test('energy removed by the safety limits is booked to the clamp ledger', () => {
+  const { top, sim } = spinUp(simpleSpec(), { spin: -2000 }); // above the 1600 rad/s safety limit
+  const E0 = top.totalEnergy();
+  runUntil(sim, () => false, 0.5);
+  const ledger = LEDGER_KEYS.reduce((s, k) => s + top.ledger[k], 0);
+  assert.ok(top.spinAbs <= 1600 + 1e-6, 'spin clamped');
+  assert.ok(top.ledger.clamp < -1, `clamp removed ${(-top.ledger.clamp).toFixed(2)} J`);
+  assert.ok(Math.abs(top.totalEnergy() - E0 - ledger) < 1e-6, 'ledger still closes');
+  assert.ok(Math.abs(top.ledger.numerical) < 1e-6, 'nothing hidden in the numerical residual');
+});

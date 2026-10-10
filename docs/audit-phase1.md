@@ -44,3 +44,18 @@ No code was changed during the audit.
 3. Input: non-standard gamepad mappings, multi-pad assignment.
 4. Progression: type balance. Accept: every archetype 40–60 % in `npm run balance`.
 5. QA: full browser suite against this baseline.
+
+## Phase 2 results
+
+| Item | Result | Evidence |
+|---|---|---|
+| #1 frame-rate dependence | FIXED | Countdown, charge, IGNITE and spawns run in fixed ticks; 12/12 seeds identical at 30/60/144 fps; unit test `a live AI match ends identically at 30, 60 and 144 fps` |
+| #6 clamp losses | FIXED | New `clamp` ledger key ("Safety limits"); unit test checks the ledger closes with no numerical residual |
+| #10 Windows paths | FIXED | Browser harness, preview and balance tools; browser suite 11/11 on Windows (beasts scenario hardened against a fast natural finish) |
+| Head-on vs glancing | PASS | Glancing hits deflect the struck top ~51-55° to the side opposite the contact, head-on ~2°; glancing impulse lower |
+| Off-centre destabilisation | PASS | Struck-top peak tilt 0.9° / 1.8° / 3.7° / 5.4° at 0.5 / 1 / 2 / 3 m/s |
+| Wall rebounds | PASS | Rebound slower than approach, wall ledger negative, restitution 0.8 rebounds >2x faster than 0.2 |
+| Repeated collisions | PASS | 9 impacts in a stadium; no tick's collisions add energy; no instability recoveries |
+| Simulation cost after changes | measured | 0.28 ms per tick (unchanged) |
+
+Unit tests: 60/60.
