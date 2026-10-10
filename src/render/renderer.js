@@ -12,6 +12,7 @@ import { BEAST_INDEX } from '../data/beasts.js';
 import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree, toonMaterial, inked } from './toon.js';
 import { createLights, TONE } from './lighting.js';
 import { InspectStage } from './inspect.js';
+import { Arena } from '../physics/arena.js';
 
 export class GameRenderer {
   constructor(canvas, settings = {}) {
@@ -100,11 +101,14 @@ export class GameRenderer {
     }
     this.arenaDef = def;
     this.arenaObj = buildArena(def, this.settings.quality);
+    const floor = new Arena(def);
+    this.effects.spirits.floorAt = (x, z) => floor.heightAtR(Math.hypot(x, z));
     this.scene.add(this.arenaObj.group);
     this.scene.background = new THREE.Color(def.theme.sky);
     this.scene.fog = new THREE.Fog(def.theme.fog, 1.4, 4.5);
     this.rimA.color.set(def.theme.accent);
     this.rimB.color.set(def.theme.ring);
+    this.effects.spirits.warmup(this.renderer, this.scene, this.camera);
   }
 
   // ------------------------------------------------------------ battle
@@ -128,6 +132,9 @@ export class GameRenderer {
       this.visuals.push(v);
       this.launchers.push(this.makeLauncher(f.p.color || f.assembly.parts.ring.color));
     }
+    // build and upload both battlers' spirits now, so a summon never stalls mid-battle
+    const beasts = fighters.map((f) => BEAST_INDEX[f.p.beast?.id]).filter(Boolean);
+    if (beasts.length) this.effects.spirits.preload(beasts, this.renderer, this.scene, this.camera);
   }
 
   // Launcher ghost: a cel-shaded ripcord launcher with a glowing ring
@@ -217,6 +224,12 @@ export class GameRenderer {
         const sp = Math.hypot(f.top.v.x, f.top.v.z);
         tr.push(v.root.position, f.top.active ? Math.min(1, sp * 1.5) * spinK : 0);
       }
+      // destabilisation: pulse while the top is past the same CRITICAL line the HUD shows
+      const t = f.top;
+      if (t.active && (t.scraping || t.tilt > 0.38 || t.spinAbs < 1.4 * f.assembly.summary.critSpin)) {
+        v._wobbleT = (v._wobbleT || 0) + dt;
+        if (v._wobbleT > 0.3) { v._wobbleT = 0; this.effects.wobble(v.root.position); }
+      } else v._wobbleT = 0.3;
       // low-spin wobble dust and scraping sparks
       if (f.top.active && f.top.scraping && Math.random() < 0.5) this.effects.grind([v.root.position.x, v.root.position.y - 0.012, v.root.position.z], 0.3, '#ffaa55');
       if (f.ability.channel && Math.random() < 0.8) this.effects.aura(v.root.position, BEAST_INDEX[f.p.beast?.id]?.colors.glow || '#ffffff', 2);
@@ -296,7 +309,7 @@ export class GameRenderer {
       case 'wall': fx.wall(e.point, e.impulse); if (e.impulse > 0.03) this.rig.shake(e.impulse * 0.05); break;
       case 'ability': {
         const v = this.visuals[e.fighter.index];
-        if (e.beast) fx.manifestation(v.root, e.beast, e.slot === 'ultimate' ? 2.2 : 1.4, e.slot === 'ultimate' ? 0.18 : 0.12);
+        if (e.beast) fx.manifestation(v.root, e.beast, e.slot === 'ultimate' ? 2.2 : 1.4, e.slot === 'ultimate' ? 0.2 : 0.13, this.visuals[1 - e.fighter.index]?.root);
         break;
       }
       case 'shockwave': fx.shockwave(e.fighter.top.p, e.range, BEAST_INDEX[e.fighter.p.beast?.id]?.colors.primary || '#ffffff'); break;
@@ -309,6 +322,7 @@ export class GameRenderer {
         const v = this.visuals[e.fighter.index];
         if (e.how === 'burst') { fx.burst(v, e.fighter.top.v); v._burstDone = true; }
         if (e.how === 'toppled' || e.how === 'stopped') fx.dustPuff(e.fighter.top.p, 20);
+        if (e.how === 'out') { fx.knockout(e.fighter.top.p, colorOf(e.fighter)); this.rig.shake(0.012); this.rig.emphasize([e.fighter.top.p.x, e.fighter.top.p.y, e.fighter.top.p.z]); }
         break;
       }
       case 'restore': fx.ring([e.fighter.top.p.x, e.fighter.top.p.y, e.fighter.top.p.z], 0.01, 0.07, 0.6, '#ffe28a'); break;

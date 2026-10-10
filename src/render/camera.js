@@ -98,6 +98,17 @@ export class CameraRig {
       if (active.length) { for (const t of active) this._t.add(t.position); this._t.multiplyScalar(0.35 / active.length); }
       dist = arenaRadius * 2.15; pitch = 0.95;
     }
+    // ring-out threat: pull back and re-centre so the stadium wall stays in frame
+    if (mode === 'tracking' || mode === 'player') {
+      let edge = 0;
+      for (const t of active) edge = Math.max(edge, Math.hypot(t.position.x, t.position.z) / arenaRadius);
+      const k = Math.min(1, Math.max(0, (edge - 0.72) / 0.23));
+      const threat = k * k * (3 - 2 * k);
+      if (threat > 0) {
+        this._t.multiplyScalar(1 - 0.5 * threat);
+        dist += Math.max(0, arenaRadius * 2.15 - dist) * threat;
+      }
+    }
     if (this.emphasis > 0) {
       this._t.lerp(this.emphasisPoint, 0.35 * this.emphasis);
       dist *= 1 - 0.18 * this.emphasis;

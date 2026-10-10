@@ -2,7 +2,7 @@
 // effects setting; nothing here allocates per frame after construction.
 
 import * as THREE from 'three';
-import { emblemCanvas } from './emblems.js';
+import { SpiritSystem } from './spirits.js';
 
 function dotTexture() {
   const c = document.createElement('canvas');
@@ -219,7 +219,7 @@ export class Effects {
       this.rings.push({ mesh: m, t: 0, dur: 1, r0: 0, r1: 0 });
     }
     this.trails = new Map();
-    this.manifest = [];
+    this.spirits = new SpiritSystem(scene, quality);
     this.debris = [];
     this.scratches = [];
     const scrGeo = new THREE.PlaneGeometry(1, 1);
@@ -244,6 +244,7 @@ export class Effects {
     };
     const prev = this.q;
     this.q = table[q] || table.high;
+    this.spirits?.setQuality(q);
     // particle pools are sized by quality; rebuild them when the size changes
     if (prev && prev.sparks === this.q.sparks) return;
     for (const p of [this.sparks, this.dust, this.glow, this.streaks]) p?.dispose();
@@ -351,20 +352,41 @@ export class Effects {
     }
   }
 
-  // Bit-Beast manifestation: emblem billboard rising out of the top + swirl
-  manifestation(target, beast, duration = 1.4, scale = 0.12) {
-    const tex = new THREE.CanvasTexture(emblemCanvas(beast.emblem, beast.colors, 256));
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
-    sp.scale.set(scale, scale, 1);
-    this.scene.add(sp);
-    this.manifest.push({ sp, target, t: 0, dur: duration, scale, color: beast.colors.glow || beast.colors.primary });
+  // Bit-Beast manifestation: a 3D spirit rises out of the top (render/spirits.js).
+  // `height` is the spirit's height in metres; `face` is the opponent's visual.
+  manifestation(target, beast, duration = 1.4, height = 0.13, face = null) {
+    this.spirits.spawn(beast, target, { duration, height, face });
     this.ring([target.position.x, target.position.y - 0.01, target.position.z], 0.01, 0.09, 0.6, beast.colors.primary);
   }
 
   shockwave(p, range, color) {
     this.ring([p.x, p.y, p.z], 0.01, range, 0.45, color);
     this.ring([p.x, p.y + 0.004, p.z], 0.005, range * 0.7, 0.35, '#ffffff');
+  }
+
+  // Ring out: a flash and speed lines bursting outward where the top leaves the stadium.
+  knockout(p, color) {
+    const r = Math.hypot(p.x, p.z) || 1, ox = p.x / r, oz = p.z / r;
+    const pt = [p.x, p.y + 0.005, p.z];
+    this.hitFlash(pt, 0.11, '#ffffff');
+    this.ring(pt, 0.01, 0.14, 0.5, color);
+    const c = this.color(color);
+    const n = Math.floor(36 * this.q.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = (Math.random() - 0.5) * 1.4, sp = 1.2 + Math.random() * 2.2;
+      const dx = ox * Math.cos(a) - oz * Math.sin(a), dz = oz * Math.cos(a) + ox * Math.sin(a);
+      const w = i % 3 === 0;
+      this.streaks.emit(pt[0], pt[1], pt[2], dx * sp, 0.3 + Math.random() * 0.8, dz * sp, 0.18 + Math.random() * 0.2, w ? 1 : c.r, w ? 1 : c.g, w ? 1 : c.b);
+    }
+    for (let i = 0; i < 30 * this.q.mult; i++) {
+      const a = (Math.random() - 0.5) * 2, sp = 0.4 + Math.random();
+      this.sparks.emit(pt[0], pt[1], pt[2], (ox * Math.cos(a) - oz * Math.sin(a)) * sp, Math.random() * 0.9, (oz * Math.cos(a) + ox * Math.sin(a)) * sp, 0.4, 1, 0.9, 0.6);
+    }
+  }
+
+  // Destabilisation warning: a quick hot pulse around a top that is wobbling past safety.
+  wobble(p) {
+    this.ring([p.x, p.y - 0.006, p.z], 0.022, 0.042, 0.25, '#ff6a3d');
   }
 
   burst(visual, velocity) {
@@ -414,8 +436,7 @@ export class Effects {
     this.trails.clear();
     for (const d of this.debris) { this.scene.remove(d.m); }
     this.debris = [];
-    for (const m of this.manifest) { this.scene.remove(m.sp); m.sp.material.map.dispose(); m.sp.material.dispose(); }
-    this.manifest = [];
+    this.spirits.clear();
     for (const s of this.scratches) s.visible = false;
     for (const f of this.flashes) { f.t = 0; f.sp.visible = false; }
     this.streaks.life.fill(0);
@@ -442,19 +463,8 @@ export class Effects {
       r.mesh.scale.set(rad, rad, rad);
       r.mesh.material.opacity = Math.max(0, 1 - f) * 0.9;
     }
-    for (let i = this.manifest.length - 1; i >= 0; i--) {
-      const m = this.manifest[i];
-      m.t += dt;
-      const f = m.t / m.dur;
-      const p = m.target.position;
-      m.sp.position.set(p.x, p.y + 0.03 + f * 0.09, p.z);
-      const fade = f < 0.2 ? f / 0.2 : f > 0.75 ? Math.max(0, (1 - f) / 0.25) : 1;
-      m.sp.material.opacity = fade * 0.95;
-      const s = m.scale * (0.8 + 0.4 * f);
-      m.sp.scale.set(s, s, 1);
-      if (Math.random() < 0.6) this.aura(p, m.color, 2);
-      if (f >= 1) { this.scene.remove(m.sp); m.sp.material.map.dispose(); m.sp.material.dispose(); this.manifest.splice(i, 1); }
-    }
+    this.spirits.update(dt);
+    for (const s of this.spirits.active) if (Math.random() < 0.6) this.aura(s.target.position, s.color, 2);
     for (let i = this.debris.length - 1; i >= 0; i--) {
       const d = this.debris[i];
       d.t -= dt;

@@ -3,7 +3,8 @@
 //   node tools/preview/shoot.js slot core --ids core_helix,core_quad
 //   node tools/preview/shoot.js tops [--explode 0.8] [--quality low] [--no-ink]
 //   node tools/preview/shoot.js arena vortex [--views broadcast|close|overhead]
-//        [--fx impact,shockwave,launch,burst,trail,...] [--fxTime 0.06]
+//        [--fx impact,shockwave,launch,burst,trail,knockout,wobble,...] [--fxTime 0.06]
+//   node tools/preview/shoot.js spirits [--fxTime 0.5] (fraction of the manifestation)
 // --audit prints a geometry envelope check per part (slot mode).
 // Options: --size <px per cell> --cols <n> --yaw <deg> --color <hex> --beast <id>
 

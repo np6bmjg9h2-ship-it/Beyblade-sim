@@ -14,6 +14,8 @@ import { ARENA_INDEX } from '../../src/data/arenas.js';
 import { buildArena } from '../../src/render/arenaMesh.js';
 import { Effects } from '../../src/render/effects.js';
 import { sampleProfile } from '../../src/physics/profile.js';
+import { SpiritSystem } from '../../src/render/spirits.js';
+import { Arena } from '../../src/physics/arena.js';
 
 // Envelope audit of a part model (mm, model space, ink hulls excluded): how
 // far geometry strays outside the space the physics gives the part.
@@ -144,6 +146,23 @@ if (C.mode === 'slot') {
   }
 } else if (C.mode === 'arena') {
   renderArenaScene();
+} else if (C.mode === 'spirits') {
+  // every Bit-Beast spirit mid-manifestation, standing on a small top-sized disc
+  const sys = new SpiritSystem(scene, C.quality || 'high');
+  for (const beast of BEASTS) {
+    const obj = new THREE.Group();
+    const anchor = new THREE.Object3D();
+    anchor.position.set(0, 0.018, 0);
+    obj.add(anchor);
+    const inst = sys.spawn(beast, anchor, { duration: 1.4, height: 0.13 });
+    sys.active.length = 0; // driven manually below
+    inst.t = (C.fxTime ?? 0.5) * inst.dur;
+    sys.scene = obj; obj.add(inst.root, inst.pillar, inst.sigil);
+    inst.root.parent && sys.place(inst, 0.016);
+    obj.updateMatrixWorld(true);
+    items.push({ obj, label: `${beast.name} (${beast.emblem})`, radius: 0.085, cy: 0.085 });
+  }
+  scene.background = new THREE.Color(C.bg || '#101830');
 } else {
   const builds = C.builds || REF;
   builds.forEach((ids, i) => {
@@ -190,6 +209,9 @@ function renderArenaScene() {
   // effects
   if (C.fx) {
     const fx = new Effects(scene, C.quality || 'high');
+    const floor = new Arena(def);
+    fx.spirits.floorAt = (x, z) => floor.heightAtR(Math.hypot(x, z));
+    window.__fx = fx;
     const p = (x, z) => [x, 0.012, z];
     for (const name of C.fx) {
       if (name === 'impact') fx.impact(p(0.005, -0.005), [1, 0, 0], 0.08, '#3fa9ff', '#9aa4b5');
@@ -200,9 +222,11 @@ function renderArenaScene() {
       if (name === 'dust') fx.dustPuff({ x: 0.08, y: 0.002, z: 0.06 }, 20);
       if (name === 'counter') fx.ring([0.06, 0.01, -0.03], 0.02, 0.06, 0.3, '#7fffd4');
       if (name === 'aura') for (let i = 0; i < 12; i++) fx.aura({ x: -0.05, y: 0.01, z: 0.02 }, '#ff5a5a', 3);
-      if (name === 'manifest') fx.manifestation(tops[0].root, BEASTS[0], 1.4, 0.12);
+      if (name === 'manifest') fx.manifestation(tops[0].root, BEASTS.find((b) => b.id === C.beast) || BEASTS[0], 1.4, 0.13, tops[1].root);
       if (name === 'burst') fx.burst(tops[1], { x: 0.2, y: 0, z: 0 });
       if (name === 'victory') fx.victory({ x: -0.05, y: 0.01, z: 0.02 }, '#ffd84d');
+      if (name === 'knockout') fx.knockout({ x: 0.12, y: 0.03, z: -0.16 }, '#3fa9ff');
+      if (name === 'wobble') fx.wobble({ x: 0.06, y: 0.012, z: -0.03 });
       if (name === 'trail') { const tr = fx.trail('a', '#3fa9ff'); if (tr) for (let i = 0; i < 40; i++) tr.push(new THREE.Vector3(-0.05 + Math.cos(i * 0.15) * 0.08, 0.01, 0.02 + Math.sin(i * 0.15) * 0.08), 1); }
     }
     const steps = Math.round((C.fxTime ?? 0.06) / (1 / 120));
