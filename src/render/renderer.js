@@ -223,39 +223,56 @@ export class GameRenderer {
       if (f.mods.timed.some((t) => t.origin === 'ability') && Math.random() < 0.35) this.effects.aura(v.root.position, BEAST_INDEX[f.p.beast?.id]?.colors.primary || '#ffffff', 1);
     }
     if (this.settings.debug) this.drawDebug(battle);
-    else if (this.debugGroup.children.length) this.debugGroup.clear();
+    else this.hideDebug();
   }
 
   // Physics debug overlay: contact points, normals, velocity, spin axis, COM.
+  // Arrows and markers are pooled and reused every frame (no per-frame GPU allocations).
   drawDebug(battle) {
-    this.debugGroup.clear();
-    const add = (from, dir, len, color) => {
-      const a = new THREE.ArrowHelper(dir.clone().normalize(), from, Math.max(0.002, len), color, 0.006, 0.004);
-      this.debugGroup.add(a);
+    const D = this._debug || (this._debug = {
+      arrows: [], coms: [], comGeo: new THREE.SphereGeometry(0.002, 8, 6),
+      comMat: new THREE.MeshBasicMaterial({ color: '#ff3333', depthTest: false }),
+      from: new THREE.Vector3(), dir: new THREE.Vector3(),
+    });
+    let nArrows = 0, nComs = 0;
+    const add = (len, color) => {
+      let a = D.arrows[nArrows++];
+      if (!a) { a = new THREE.ArrowHelper(); D.arrows.push(a); this.debugGroup.add(a); }
+      a.visible = true;
+      a.position.copy(D.from);
+      a.setDirection(D.dir.normalize());
+      a.setLength(Math.max(0.002, len), 0.006, 0.004);
+      a.setColor(color);
     };
     for (const f of battle.fighters) {
       const t = f.top;
       if (!f.launch.launched) continue;
-      const p = new THREE.Vector3(t.p.x, t.p.y, t.p.z);
-      add(p, new THREE.Vector3(t.a.x, t.a.y, t.a.z), 0.05, '#ffff00'); // spin axis
-      const L = new THREE.Vector3(t.L.x, t.L.y, t.L.z);
-      add(p, L, 0.035, '#ff00ff'); // angular momentum direction
-      const v = new THREE.Vector3(t.v.x, t.v.y, t.v.z);
-      if (v.length() > 0.01) add(p, v, v.length() * 0.06, '#00ffff'); // velocity
-      const com = new THREE.Mesh(new THREE.SphereGeometry(0.002, 8, 6), new THREE.MeshBasicMaterial({ color: '#ff3333', depthTest: false }));
-      com.position.copy(p);
-      this.debugGroup.add(com);
+      D.from.set(t.p.x, t.p.y, t.p.z);
+      D.dir.set(t.a.x, t.a.y, t.a.z); add(0.05, '#ffff00'); // spin axis
+      D.dir.set(t.L.x, t.L.y, t.L.z); add(0.035, '#ff00ff'); // angular momentum direction
+      const sp = t.v.length();
+      if (sp > 0.01) { D.dir.set(t.v.x, t.v.y, t.v.z); add(sp * 0.06, '#00ffff'); } // velocity
+      let com = D.coms[nComs++];
+      if (!com) { com = new THREE.Mesh(D.comGeo, D.comMat); D.coms.push(com); this.debugGroup.add(com); }
+      com.visible = true;
+      com.position.copy(D.from);
     }
     const dbg = battle.sim?.debug;
     if (dbg) {
       dbg.enabled = true;
-      for (const c of dbg.contacts.slice(-40)) {
-        const pt = new THREE.Vector3(...c.p);
-        const n = new THREE.Vector3(...c.n);
-        const col = c.type === 'top' ? '#ff4444' : c.type === 'wall' ? '#44ff44' : c.type === 'scrape' ? '#ff9900' : '#4488ff';
-        add(pt, n, 0.012 + Math.min(0.04, c.l * 3), col);
+      const cs = dbg.contacts;
+      for (let i = Math.max(0, cs.length - 40); i < cs.length; i++) {
+        const c = cs[i];
+        D.from.fromArray(c.p); D.dir.fromArray(c.n);
+        add(0.012 + Math.min(0.04, c.l * 3), c.type === 'top' ? '#ff4444' : c.type === 'wall' ? '#44ff44' : c.type === 'scrape' ? '#ff9900' : '#4488ff');
       }
     }
+    for (let i = nArrows; i < D.arrows.length; i++) D.arrows[i].visible = false;
+    for (let i = nComs; i < D.coms.length; i++) D.coms[i].visible = false;
+  }
+
+  hideDebug() {
+    for (const o of this.debugGroup.children) o.visible = false;
   }
 
   onBattleEvent(type, e, battle) {
@@ -327,6 +344,11 @@ export class GameRenderer {
     window.removeEventListener('resize', this._onResize);
     this.clearFighters();
     this.inspect?.dispose();
+    if (this._debug) {
+      for (const a of this._debug.arrows) a.dispose();
+      this._debug.comGeo.dispose();
+      this._debug.comMat.dispose();
+    }
     this.renderer.dispose();
   }
 }

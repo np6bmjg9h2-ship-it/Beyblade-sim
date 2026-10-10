@@ -86,6 +86,7 @@ class ParticlePool {
     this.cursor = 0;
     for (let i = 0; i < count; i++) this.pos[i * 3 + 1] = -100;
   }
+  dispose() { this.points.removeFromParent(); this.geo.dispose(); this.mat.dispose(); }
   emit(x, y, z, vx, vy, vz, life, r, g, b) {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.count;
@@ -134,6 +135,7 @@ class StreakPool {
     this.cursor = 0;
     for (let i = 0; i < count * 2; i++) this.vtx[i * 3 + 1] = -100;
   }
+  dispose() { this.lines.removeFromParent(); this.geo.dispose(); this.lines.material.dispose(); }
   emit(x, y, z, vx, vy, vz, life, r, g, b) {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.count;
@@ -197,13 +199,8 @@ class Trail {
 export class Effects {
   constructor(scene, quality = 'high') {
     this.scene = scene;
+    this.textures = [dotTexture(), sparkleTexture(), puffTexture(), hitFlashTexture()];
     this.setQuality(quality);
-    const tex = dotTexture();
-    this.textures = [tex, sparkleTexture(), puffTexture(), hitFlashTexture()];
-    this.sparks = new ParticlePool(scene, this.q.sparks, { size: 0.008, map: this.textures[1], additive: true, gravity: -4, drag: 2.5 });
-    this.dust = new ParticlePool(scene, this.q.dust, { size: 0.014, map: this.textures[2], additive: false, gravity: 0.05, drag: 3 });
-    this.glow = new ParticlePool(scene, this.q.glow, { size: 0.018, map: tex, additive: true, gravity: 0.25, drag: 1.2 });
-    this.streaks = new StreakPool(scene, this.q.streaks);
     // star-shaped hit flashes (camera-facing, a few frames long)
     this.flashes = [];
     for (let i = 0; i < 6; i++) {
@@ -245,7 +242,16 @@ export class Effects {
       medium: { sparks: 400, dust: 160, glow: 300, streaks: 120, trail: 24, mult: 0.7 },
       high: { sparks: 900, dust: 320, glow: 600, streaks: 240, trail: 40, mult: 1 },
     };
+    const prev = this.q;
     this.q = table[q] || table.high;
+    // particle pools are sized by quality; rebuild them when the size changes
+    if (prev && prev.sparks === this.q.sparks) return;
+    for (const p of [this.sparks, this.dust, this.glow, this.streaks]) p?.dispose();
+    const [tex, sparkle, puff] = this.textures;
+    this.sparks = new ParticlePool(this.scene, this.q.sparks, { size: 0.008, map: sparkle, additive: true, gravity: -4, drag: 2.5 });
+    this.dust = new ParticlePool(this.scene, this.q.dust, { size: 0.014, map: puff, additive: false, gravity: 0.05, drag: 3 });
+    this.glow = new ParticlePool(this.scene, this.q.glow, { size: 0.018, map: tex, additive: true, gravity: 0.25, drag: 1.2 });
+    this.streaks = new StreakPool(this.scene, this.q.streaks);
   }
 
   color(hex) { return this._c.set(hex); }
@@ -404,7 +410,7 @@ export class Effects {
   }
 
   clearTransient() {
-    for (const tr of this.trails.values()) { this.scene.remove(tr.line); tr.geo.dispose(); }
+    for (const tr of this.trails.values()) { this.scene.remove(tr.line); tr.geo.dispose(); tr.line.material.dispose(); }
     this.trails.clear();
     for (const d of this.debris) { this.scene.remove(d.m); }
     this.debris = [];
