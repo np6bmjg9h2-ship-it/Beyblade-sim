@@ -51,7 +51,7 @@ No code was changed during the audit.
 |---|---|---|
 | #1 frame-rate dependence | FIXED | Countdown, charge, IGNITE and spawns run in fixed ticks; 12/12 seeds identical at 30/60/144 fps; unit test `a live AI match ends identically at 30, 60 and 144 fps` |
 | #6 clamp losses | FIXED | New `clamp` ledger key ("Safety limits"); unit test checks the ledger closes with no numerical residual |
-| #10 Windows paths | FIXED | Browser harness, preview and balance tools; browser suite 11/11 on Windows (beasts scenario hardened against a fast natural finish) |
+| #10 Windows paths | FIXED | Browser harness, preview and balance tools; full browser run 10/11 on Windows; beasts failed once on a timing flake, was hardened against a fast natural finish and then passed twice on its own |
 | Head-on vs glancing | PASS | Glancing hits deflect the struck top ~51-55° to the side opposite the contact, head-on ~2°; glancing impulse lower |
 | Off-centre destabilisation | PASS | Struck-top peak tilt 0.9° / 1.8° / 3.7° / 5.4° at 0.5 / 1 / 2 / 3 m/s |
 | Wall rebounds | PASS | Rebound slower than approach, wall ledger negative, restitution 0.8 rebounds >2x faster than 0.2 |
