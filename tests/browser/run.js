@@ -161,7 +161,7 @@ scenarios.gamepad = async () => {
     await h.padAxes([0.8, 0, 0, -0.6]); await h.page.waitForTimeout(400); await h.padAxes([0, 0, 0, 0]);
     await h.padButton(0); // ready
     const q = await timedLaunch(h, { pad: true });
-    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'battle running');
+    await h.waitFor(() => ['battle', 'finishing', 'roundOver', 'matchOver'].includes(window.__app.ui.current.battle.phase), 15000, 'battle running');
     await h.padAxes([0, -1, 0, 0]); await h.page.waitForTimeout(700); await h.padAxes([0, 0, 0, 0]);
     await h.padButton(0); // dash
     await h.padButton(2); // counter
@@ -170,11 +170,17 @@ scenarios.gamepad = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
     await h.padButton(9);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 5000, 'unpause');
-    // controller disconnect mid-battle auto-pauses
+    // controller disconnect mid-battle auto-pauses (not on the round-over
+    // banner, so if slow rendering let the round end, go to the next setup)
+    if (await h.eval(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle.phase))) {
+      await h.padButton(0);
+      await h.waitFor(() => ['setup', 'countdown'].includes(window.__app.ui.current.battle?.phase), 10000, 'next round setup');
+    }
     await h.eval(() => { const ev = new Event('gamepaddisconnected'); ev.gamepad = { index: 0, id: 'test pad' }; window.dispatchEvent(ev); });
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'auto pause on disconnect');
     await h.padButton(0); // Resume (focused)
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 5000, 'resume after reconnect');
+    if (await h.eval(() => window.__app.ui.current.battle.phase === 'setup')) { await h.padButton(0); await timedLaunch(h, { pad: true }); }
     for (let round = 0; round < 6; round++) {
       await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 120000, 'round over');
       const done = await h.eval(() => !!window.__app.ui.current.battle.result);
