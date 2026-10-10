@@ -29,6 +29,19 @@ Goal: every reference build (attack, defense, stamina, balance, burst) wins
 40-60% in `npm run balance -- 8 all`. Baseline (Standard Stadium, rounds won):
 attack 30%, defense 71%, stamina 74%, balance 32%, burst 45%.
 
+All-stadium baseline (`node tools/balance-par.js 8 all`, match win rates):
+
+| Stadium | Attack | Defense | Stamina | Balance | Burst |
+|---|---|---|---|---|---|
+| standard | 22% | 72% | 84% | 25% | 47% |
+| vortex | 13% | 75% | 91% | 44% | 28% |
+| edgebreaker | 44% | 69% | 69% | 22% | 47% |
+| crystal | 44% | 72% | 63% | 6% | 66% |
+| magma | 22% | 69% | 100% | 50% | 9% |
+| skyfall | 28% | 75% | 69% | 25% | 53% |
+| zero | 41% | 69% | 66% | 13% | 63% |
+| average | ~31% | ~72% | ~77% | ~26% | ~45% |
+
 Diagnosis so far (see audit doc):
 - Defense beats balance and burst 12-0 each; only stamina beats defense.
 - Attack vs stamina is 8-8 (should favour attack); attack loses most rounds
@@ -44,15 +57,14 @@ match win rates per build, per stadium and per matchup).
 
 ## Next steps (in order)
 
-1. Record the all-stadium baseline from `node tools/balance-par.js 8 all`.
-2. Tune with physics-honest changes only (part properties, AI behaviour),
+1. Tune with physics-honest changes only (part properties, AI behaviour),
    measuring each across all stadiums: attack spin drain and steering
    economy; balance AI aggression/steering; defense lock vs burst.
-3. Add a balance regression check so future changes can't silently break it.
-4. Review the new-player default launch (Rookie Cup instant ring-outs).
-5. Verify the career loop end to end (build, inspect, tournament, rewards,
+2. Add a balance regression check so future changes can't silently break it.
+3. Review the new-player default launch (Rookie Cup instant ring-outs).
+4. Verify the career loop end to end (build, inspect, tournament, rewards,
    upgrade, equip, progress, save/reload); fix gaps.
-6. Final QA pass against the Phase 1 baseline; push.
+5. Final QA pass against the Phase 1 baseline; push.
 
 ## Deferred / known
 
