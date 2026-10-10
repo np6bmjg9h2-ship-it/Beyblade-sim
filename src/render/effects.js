@@ -257,13 +257,18 @@ export class Effects {
 
   color(hex) { return this._c.set(hex); }
 
-  impact(point, normal, impulse, colorA = '#ffd27a', colorB = '#7fd8ff') {
+  // glance (0..1) and tangent come from the impact event: grazing hits spray
+  // sparks both ways along the sliding direction, head-on hits burst radially.
+  impact(point, normal, impulse, colorA = '#ffd27a', colorB = '#7fd8ff', glance = 0, tangent = null) {
     const n = Math.min(80, Math.floor((8 + impulse * 900) * this.q.mult));
     const [x, y, z] = point;
+    const graze = glance > 0.55 && tangent && (tangent[0] || tangent[2]);
+    const ta = graze ? Math.atan2(tangent[2], tangent[0]) : 0;
+    const dirAt = (i) => (graze ? ta + (i % 2 ? Math.PI : 0) + (Math.random() - 0.5) * 0.9 : Math.random() * Math.PI * 2);
     for (let i = 0; i < n; i++) {
       const c = this.color(i % 2 ? colorA : colorB);
       const sp = 0.4 + Math.random() * (0.6 + impulse * 30);
-      const a = Math.random() * Math.PI * 2;
+      const a = dirAt(i);
       this.sparks.emit(x, y, z, Math.cos(a) * sp, 0.2 + Math.random() * sp * 0.6, Math.sin(a) * sp, 0.25 + Math.random() * 0.35, c.r, c.g, c.b);
     }
     // speed-line streaks flying out of the contact
@@ -271,7 +276,7 @@ export class Effects {
     for (let i = 0; i < ns; i++) {
       const c = this.color(i % 3 === 0 ? '#ffffff' : i % 2 ? colorA : colorB);
       const sp = 0.8 + Math.random() * (1 + impulse * 40);
-      const a = Math.random() * Math.PI * 2;
+      const a = dirAt(i);
       this.streaks.emit(x, y, z, Math.cos(a) * sp, 0.1 + Math.random() * sp * 0.4, Math.sin(a) * sp, 0.12 + Math.random() * 0.16, c.r, c.g, c.b);
     }
     if (impulse > 0.015) this.hitFlash(point, Math.min(0.09, 0.025 + impulse * 0.6), impulse > 0.06 ? '#ffffff' : colorA);

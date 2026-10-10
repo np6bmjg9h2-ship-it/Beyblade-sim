@@ -15,12 +15,26 @@ export class AudioEngine {
     this.unlocked = false;
   }
 
+  // Creates the audio graph on first use. Without Web Audio (or if the browser
+  // refuses a context) the game simply runs silent: every call becomes a no-op.
   ensure() {
     if (this.ctx) return this.ctx;
+    if (this.failed) return null;
     const AC = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
     if (!AC) return null;
-    this.ctx = new AC();
-    const c = this.ctx;
+    try {
+      this.build(new AC());
+    } catch (e) {
+      console.warn('Audio unavailable; continuing without sound', e);
+      this.failed = true;
+      this.ctx = null;
+      return null;
+    }
+    return this.ctx;
+  }
+
+  build(c) {
+    this.ctx = c;
     this.master = c.createGain();
     this.master.connect(c.destination);
     this.comp = c.createDynamicsCompressor();
@@ -35,12 +49,15 @@ export class AudioEngine {
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.applyVolumes();
-    return c;
   }
 
   unlock() {
     const c = this.ensure();
-    if (c && c.state === 'suspended') c.resume();
+    if (c && c.state === 'suspended') {
+      // older WebKit contexts return nothing from resume()
+      const p = c.resume();
+      if (p && p.catch) p.catch((e) => console.warn('Audio resume failed', e));
+    }
     this.unlocked = true;
   }
 
@@ -126,15 +143,17 @@ export class AudioEngine {
     if (quality === 'Misfire') this.noise(0.3, { type: 'lowpass', freq: 300, gain: 0.4 });
   }
 
-  impact(impulse, approach) {
+  // glance: 0 = head-on (metal clash and thud), 1 = graze (scraping screech)
+  impact(impulse, approach, glance = 0) {
     const k = Math.min(1, impulse / 0.1);
+    if (glance > 0.55) this.noise(0.16 + 0.22 * k, { type: 'bandpass', freq: 4200, sweepTo: 1600, q: 5, gain: 0.2 * (0.35 + k) * glance });
     // metallic inharmonic partials
     const base = 900 + Math.random() * 400;
     for (const [m, g] of [[1, 1], [2.76, 0.6], [5.4, 0.35], [8.93, 0.2]]) {
       this.tone(base * m, 0.12 + 0.25 * k, { type: 'sine', gain: 0.08 * g * (0.3 + k), attack: 0.001 });
     }
     this.noise(0.08 + 0.12 * k, { type: 'highpass', freq: 2500, gain: 0.25 * (0.3 + k) });
-    if (k > 0.5) this.noise(0.25, { type: 'lowpass', freq: 220, gain: 0.35 * k });
+    if (k > 0.5) this.noise(0.25, { type: 'lowpass', freq: 220, gain: 0.35 * k * (1 - 0.6 * glance) });
     if (k > 0.6) this.cheer(k);
   }
 
@@ -148,6 +167,9 @@ export class AudioEngine {
     if (Math.random() > 0.35) return;
     this.noise(0.04, { type: 'bandpass', freq: 3000 + Math.random() * 2000, q: 3, gain: 0.05 + 0.1 * Math.min(1, intensity) });
   }
+
+  // Your top just crossed into the danger zone (spin or stability critical).
+  warning() { this.tone(880, 0.07, { type: 'square', gain: 0.07 }); this.tone(660, 0.09, { type: 'square', gain: 0.07, at: 0.09 }); }
 
   lockClick() { this.tone(2200, 0.03, { type: 'square', gain: 0.12 }); this.tone(1400, 0.05, { type: 'square', gain: 0.08, at: 0.03 }); }
 
@@ -303,9 +325,15 @@ export class AudioEngine {
     }
     if (tr.bpm > 100) {
       const noise = (dur, gain, hp) => {
-        const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
-        const d = buf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+        // decaying noise bursts are reused per length rather than rebuilt on every hit
+        const bufs = this._perc || (this._perc = new Map());
+        let buf = bufs.get(dur);
+        if (!buf) {
+          buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+          bufs.set(dur, buf);
+        }
         const src = c.createBufferSource(); src.buffer = buf;
         const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
         const g = c.createGain(); g.gain.value = gain;

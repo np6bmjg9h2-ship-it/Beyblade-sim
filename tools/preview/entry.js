@@ -225,6 +225,7 @@ function renderArenaScene() {
       if (name === 'manifest') fx.manifestation(tops[0].root, BEASTS.find((b) => b.id === C.beast) || BEASTS[0], 1.4, 0.13, tops[1].root);
       if (name === 'burst') fx.burst(tops[1], { x: 0.2, y: 0, z: 0 });
       if (name === 'victory') fx.victory({ x: -0.05, y: 0.01, z: 0.02 }, '#ffd84d');
+      if (name === 'graze') fx.impact([0.07, 0.012, -0.04], [1, 0, 0], 0.05, '#3fa9ff', '#9aa4b5', 0.8, [0, 0, 1]);
       if (name === 'knockout') fx.knockout({ x: 0.12, y: 0.03, z: -0.16 }, '#3fa9ff');
       if (name === 'wobble') fx.wobble({ x: 0.06, y: 0.012, z: -0.03 });
       if (name === 'trail') { const tr = fx.trail('a', '#3fa9ff'); if (tr) for (let i = 0; i < 40; i++) tr.push(new THREE.Vector3(-0.05 + Math.cos(i * 0.15) * 0.08, 0.01, 0.02 + Math.sin(i * 0.15) * 0.08), 1); }

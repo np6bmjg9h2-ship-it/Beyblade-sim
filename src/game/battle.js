@@ -30,6 +30,15 @@ export const FORMATS = {
 export const FINISH_POINTS = { spin: 1, out: 2, burst: 2, decision: 1 };
 export const FINISH_NAMES = { spin: 'Spin Finish', out: 'Ring Out', burst: 'Shatter Finish', decision: 'Judge Decision', draw: 'Draw' };
 
+// How glancing a contact was: sideways sliding speed against head-on approach
+// speed (0 = straight on, 1 = pure graze), plus the sliding direction. Feeds
+// presentation only (sparks, sound); the physics already handled the contact.
+export function glanceOf(normal, va, vb, approach) {
+  const rx = vb.x - va.x, rz = vb.z - va.z, rn = rx * normal[0] + rz * normal[2];
+  const tx = rx - rn * normal[0], tz = rz - rn * normal[2], vt = Math.hypot(tx, tz);
+  return { glance: vt / (vt + Math.max(1e-6, approach)), tangent: vt > 1e-6 ? [tx / vt, 0, tz / vt] : [0, 0, 0] };
+}
+
 const COUNTDOWN = 3.0;
 const FALSE_START = COUNTDOWN - 0.15;
 const AUTO_RELEASE = COUNTDOWN + 2.0;
@@ -141,6 +150,7 @@ export class Battle extends Emitter {
       f.roundWearCauses = {};
       f.lastCollision = -10;
       f.hadLowSpin = false;
+      f.outAngle = null;
       const spinOpts = f.gear.spinMech === 'dual' ? ['R', 'L'] : [f.gear.spinMech];
       f.launch = {
         aim: { x: (f.index === 0 ? -1 : 1) * 0.07, z: 0, lean: 0.12, dir: f.index === 0 ? 0 : Math.PI },
@@ -514,7 +524,8 @@ export class Battle extends Emitter {
       fa.ability.onImpact(e, fb.ability);
       fb.ability.onImpact(e, fa.ability);
       const critical = J > 0.06;
-      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };
+      const { glance, tangent } = glanceOf(e.normal, fa.top.v, fb.top.v, e.approach);
+      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };
       this.lastImpact = ev;
       this.roundNotable.push(ev);
       this.emit('impact', ev);
@@ -555,9 +566,13 @@ export class Battle extends Emitter {
 
   onFinish(e) {
     const f = this.fighterOf(e.top);
+    // where a ring-out left the stadium (the top keeps flying; explain() runs later)
+    if (e.how === 'out') f.outAngle = Math.atan2(f.top.p.z, f.top.p.x);
     this.roundFinishes.push({ fighter: f, how: e.how, time: this.battleTime });
     this.emit('topFinished', { fighter: f, how: e.how });
-    if (this.phase === 'battle') {
+    // After IGNITE a top can finish before the opponent has even spawned (a late
+    // release); that still decides the round, it must not wait for the other top.
+    if (this.phase === 'battle' || (this.phase === 'countdown' && this.ignited)) {
       // resolve at the end of this tick (both may finish on the same tick)
       this.phase = 'finishing';
       this.finishT = 0;
@@ -708,7 +723,7 @@ export class Battle extends Emitter {
       }
       case 'out': {
         const R = this.arena.radius;
-        const ang = Math.atan2(L.p.z, L.p.x);
+        const ang = loser.outAngle ?? Math.atan2(L.p.z, L.p.x);
         const exit = this.arena.openingAt(ang);
         const where = exit ? 'through an exit' : 'over the wall';
         const last = [...this.roundNotable].sort((a, b) => b.time - a.time)[0];

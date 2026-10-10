@@ -24,8 +24,18 @@ async function timedLaunch(h, { pad = false } = {}) {
 
 // Let a round start, then end it as a player win (unless physics already ended it).
 async function forcePlayerRound(h) {
+  // At 3x test speed a frame can advance 0.3 s of battle under software rendering,
+  // enough for a natural ring-out to beat the debug finish. Run 1x until it lands.
+  const speed = await h.eval(() => { const s = window.__testSpeed; window.__testSpeed = 1; return s ?? null; });
   await h.waitFor(() => { const b = window.__app.ui.current.battle; return (b.phase === 'battle' && b.fighters.every((f) => f.launch.launched)) || ['finishing', 'roundOver', 'matchOver'].includes(b.phase); }, 15000, 'battle running');
-  await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+  const forced = await h.eval(() => {
+    const b = window.__app.ui.current.battle;
+    const info = { phase: b.phase, t: +b.battleTime.toFixed(2), finishes: b.roundFinishes.map((x) => `${x.fighter.index}:${x.how}@${x.time.toFixed(2)}`) };
+    return { ok: b.debugFinish(1, 'out'), ...info };
+  });
+  await h.eval((s) => { window.__testSpeed = s ?? undefined; }, speed);
+  if (!forced.ok) (h.notes = h.notes || []).push('round ended before the forced finish: ' + JSON.stringify(forced));
+  return forced;
 }
 
 // Move focus to a tile with d-pad presses chosen from on-screen positions.
@@ -353,7 +363,7 @@ scenarios.tournament = async () => {
     await h.padButton(1);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'back to hub');
     const st = await h.eval(() => { const t = window.__app.profile.tournaments.active; const ms = t.stages[0].matches; return { mine: ms.find((m) => (m.a === 0 || m.b === 0) && m.round === 0), sim: ms.filter((m) => m.simulated).length, id: t.id }; });
-    if (st.mine.status !== 'done' || st.mine.winner !== 0) throw new Error('player match not recorded as a win: ' + JSON.stringify(st.mine));
+    if (st.mine.status !== 'done' || st.mine.winner !== 0) throw new Error('player match not recorded as a win: ' + JSON.stringify(st.mine) + ' ' + (h.notes || []).join('; '));
     // other first-round matches are simulated by the worker with real physics
     await h.waitFor(() => window.__app.profile.tournaments.active.stages[0].matches.filter((m) => m.round === 0 && m.simulated).length >= 3, 60000, 'AI matches simulated');
     await h.shot('t05_bracket');

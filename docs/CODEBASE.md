@@ -26,7 +26,7 @@ generated in code (no image or model files).
 ```sh
 npm install              # esbuild + three
 npm run build            # bundle src/ -> dist/chaos-spin.js (embeds the sim worker)
-npm test                 # 54 Node unit tests (node --test tests/*.test.js)
+npm test                 # 70 Node unit tests (node --test tests/*.test.js)
 npm run test:browser     # build, then 11 end-to-end scenarios in headless Chromium
 npm run balance -- 8 all # AI-vs-AI round robin of reference builds on every stadium
 node tools/preview/shoot.js slot ring --audit   # render part models + geometry audit
@@ -61,7 +61,7 @@ src/
   workers/            Web Worker entry for background AI-vs-AI matches
 tests/                Node unit tests + tests/browser (Playwright end-to-end)
 tools/                build, static server, balance simulators, headless part/stadium preview
-docs/                 this file
+docs/                 this file; audit-phase1.md (audit baseline and per-phase results)
 ```
 
 ---
@@ -167,7 +167,7 @@ physical (mm, g) and consumed by `assembly.js`.
 ### render/
 | File | Lines | Purpose |
 |---|---|---|
-| `renderer.js` | 332 | Owns the WebGLRenderer, lights, camera rig, arena, top visuals, launchers, the battle-event → effects mapping, ink-layer toggle, the inspect stage switch. |
+| `renderer.js` | 368 | Owns the WebGLRenderer, lights, camera rig, arena, top visuals, launchers, the battle-event → effects mapping, pooled physics debug overlay, ink-layer toggle, the inspect stage switch. Preloads both battlers' spirits at round start. |
 | `toon.js` | 292 | Cel-shading kit: `toonMaterial()` (MeshToonMaterial + stepped ramps + specular band + rim, shader patch), ink outlines as inverted-hull child meshes on `INK_LAYER` (shared materials marked `userData.shared`), `disposeTree()`. |
 | `lighting.js` | 28 | Shared lights and tone mapping (also used by the preview tool). |
 | `topMesh.js` | 205 | `TopVisual`: builds the six part models, stacks them at physics heights, interpolates pose, display spin, speed ring, explode, assemble animation, ghosting for Inspect, dispose. `meshes[slot]` = part groups (a Shatter detaches them). |
@@ -175,9 +175,11 @@ physical (mm, g) and consumed by `assembly.js`.
 | `parts/index.js` | 72 | Builder registry, build context (`ctx`), stack placement, aux mount kinds. |
 | `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids. Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
 | `arenaMesh.js` | 1168 | Cel-shaded stadiums built from the same arena definition as the physics (floor lathe of the height profile, walls, exits, crowd, backdrop). |
-| `effects.js` | 462 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Bit-Beast manifestation sprite, Shatter debris (detached part groups). |
+| `effects.js` | 483 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Shatter debris (detached part groups), ring-out bursts, wobble warnings, head-on vs graze impact sprays (`glance` from the impact event). Pools are rebuilt when quality changes their size. Hosts the `SpiritSystem`. |
+| `spirits.js` | 261 | Bit-Beast manifestations: spirit shader (cel rim, scan stripes, lower-body fade), light pillar, sigil laid on the bowl slope, rise/fade timeline, pooling, shader warm-up and per-battle preload (no first-summon stall). Visual only. |
+| `spiritForms.js` | 333 | One procedural 3D form per beast emblem (coil dragon/serpent, phoenix, raven, manta, wolf, lion, stag, tortoise, scorpion, orrery) built from merged primitives; `aU` per vertex drives the body wave. |
 | `inspect.js` | 154 | Inspect turntable stage (own scene and camera): explode, focus and ghost, assembly replay. |
-| `camera.js`, `emblems.js` | ~300 | Camera modes (broadcast, tracking, player, overhead, launch, victory); procedural beast emblems. |
+| `camera.js`, `emblems.js` | ~300 | Camera modes (broadcast, tracking, player, overhead, launch, victory; tracking and player pull back near the wall during ring-out threats); procedural beast emblems. |
 
 ### ui/
 `ui.js` (screen stack, spatial focus navigation for controller and keyboard,
@@ -191,7 +193,10 @@ returning DOM, optional `onEnter`, `onExit`, `update`, `handleInput`,
 ### input/, audio/, workers/
 Action contexts (`menu`, `launch`, `battle`) with remappable bindings and
 presets (Classic, Competitive, Advanced), dead zones, curves and calibration;
-procedural Web Audio; the simulation worker entry.
+`padLayouts.js` presents non-standard (DirectInput) controllers in the
+standard layout, including hat-switch d-pads, and the player is told once.
+Procedural Web Audio that degrades to silence if the browser refuses a
+context; the simulation worker entry.
 
 ---
 
@@ -204,7 +209,8 @@ procedural Web Audio; the simulation worker entry.
    comes from `core/rng.js`. `Math.random` appears only to pick a default
    seed (`battle.js`, `items.js`) and in visual effects.
 2. **Fixed timestep.** Simulation results must not depend on render frame
-   rate (TICK 1/120 s, 16 substeps).
+   rate (TICK 1/120 s, 16 substeps). This includes the countdown: charge,
+   IGNITE and spawns advance in ticks (`Battle.step`), tested at 30/60/144 fps.
 3. **Render never feeds back** into the simulation.
 4. **Physics/visual coupling.** The ring and aux 3D outlines come from
    `physics/profile.js`. Part models must stay inside their physical
@@ -238,15 +244,17 @@ procedural Web Audio; the simulation worker entry.
 
 | Command or file | Covers |
 |---|---|
-| `tests/physics.test.js` | Conservation, gyroscopic dynamics against theory, friction, collisions, ring-out, determinism. |
+| `tests/physics.test.js` | Conservation, gyroscopic dynamics against theory, friction, collisions (head-on vs glancing, impact tilt, repeated contacts), wall rebounds, ring-out, determinism, clamp ledger. |
 | `tests/progression.test.js` | Items, loot, traits, sets, durability, XP, workshop, saves and migration. |
 | `tests/beasts.test.js` | Every ability has a measurable effect in the real simulation. |
 | `tests/ai.test.js` | Personalities are distinguishable, fairness (same controls), rival adaptation. |
 | `tests/tournament.test.js`, `story.test.js`, `modes.test.js` | Formats and standings; story integrity and once-only rewards; challenge, survival and league rules. |
-| `tests/replay.test.js` | Recorded match replays identically under different frame timing; replay storage. |
-| `tests/browser/run.js` | 11 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect. On slow (software-rendered) machines it takes about 30 min; run scenarios one at a time with `node tests/browser/run.js <name>`. |
+| `tests/replay.test.js` | Recorded match replays identically under different frame timing; a live AI match ends identically at 30/60/144 fps; replay storage. |
+| `tests/render.test.js` | Spirit forms for every beast (finite, stadium-sized, animate safely); camera wall framing. |
+| `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
+| `tests/browser/run.js` | 11 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect. On slow (software-rendered) machines it takes about 45 min; run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. |
-| `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects; `--audit` prints envelope numbers per part. |
+| `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 
 ---
 
@@ -256,17 +264,17 @@ procedural Web Audio; the simulation worker entry.
   about 35–45%, Burst about 40–50%, Balance only about 15–30%.
 - **Story:** chapter 1 is complete (11 scenes); chapters 2–6 are thin (5–7
   scenes). Characters have no portrait art (the dialogue shows initials).
-- **Bit-Beasts in battle** appear as a 2D emblem sprite, not 3D.
 - **Visual review gaps** in the new cel-shaded part models: `glows` are
   collected but never pulsed; ring key-slots don't align with core tabs;
   higher-rarity trims only partly checked; no automatic quality downgrade on
-  software rendering (draw calls rose from about 58 to about 164 after the
-  restyle).
+  software rendering. Measured battle frame: 201 draw calls / 150k triangles
+  at High with ink, 82 / 49k at Low without (see docs/audit-phase1.md).
 - **Large files** that are candidates for splitting: `physics/simulation.js`
   (893), `game/battle.js` (795), `systems/tournament.js` (704),
   `render/arenaMesh.js` (1168), `render/parts/ring.js` (1102).
 - **Browser tests are timing-sensitive** under software rendering (a few
-  waits were hardened; others may still be marginal).
+  waits were hardened; others may still be marginal). At 3x test speed a fast
+  natural ring-out can beat the debug finish the scenarios use to force wins.
 - **No touch controls, no multiplayer** (local or online).
 
 ---
@@ -315,7 +323,7 @@ branch claude/chaos-spin-arena-zero-ynh785.
 
 1. Read docs/CODEBASE.md fully. It maps every module, the invariants the code
    must keep (section 5), known issues (section 7) and a checklist (section 8).
-2. Run `npm install` and `npm test` (54 tests must pass). Do not edit
+2. Run `npm install` and `npm test` (70 tests must pass). Do not edit
    dist/chaos-spin.js; it is generated by `npm run build`.
 3. Review the code against the invariants and the checklist. Prioritise:
    determinism of the simulation path, save migration, battle and tournament

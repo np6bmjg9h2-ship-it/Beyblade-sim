@@ -211,7 +211,9 @@ export class CalibrationScreen {
     const pads = this.app.input.pads;
     if (!pads.length) { this.info.textContent = 'No controller detected. Connect one and press any button.'; return; }
     const p = pads[0];
-    this.info.textContent = `${p.id} — detected as ${detectPadType(p.id)} layout, mapping: ${p.mapping || 'non-standard'}`;
+    this.info.textContent = p.nonStandard
+      ? `${p.id} — non-standard controller, translated using the ${p.layout === 'sony' ? 'PlayStation (DirectInput)' : 'generic'} layout. If a button below lights the wrong label, remap it in Controls.`
+      : `${p.id} — detected as ${detectPadType(p.id)} layout, standard mapping`;
     const dz = this.app.input.settings.deadzone;
     const drawStick = (cx, cy, rx, ry, sx, sy, label) => {
       ctx.strokeStyle = '#3a4a66'; ctx.lineWidth = 2;

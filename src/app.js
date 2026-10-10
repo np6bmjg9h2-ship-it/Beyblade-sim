@@ -52,6 +52,9 @@ export class App {
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
     this.input.on('padConnected', (e) => { this.ui.toast(`Controller connected (${e.type === 'playstation' ? 'PlayStation' : e.type === 'xbox' ? 'Xbox' : e.type === 'nintendo' ? 'Nintendo' : 'Generic'})`, 'good'); unlock(); });
+    this.input.on('padNonStandard', () => {
+      this.ui.toast('This controller reports a non-standard layout. If buttons feel wrong, check Settings → Controls → Controller calibration and remap.', 'warn', 6000);
+    });
     this.input.on('padDisconnected', () => {
       this.ui.toast('Controller disconnected — game paused. Reconnect or use the keyboard.', 'warn', 4000);
       this.ui.current?.onControllerLost?.();
@@ -175,13 +178,15 @@ export class App {
     // optional frame-rate cap (the simulation step is fixed regardless)
     const cap = this.settings.graphics.fpsCap;
     if (cap && this.last && t - this.last < 1000 / cap - 2) { requestAnimationFrame((tt) => this.frame(tt)); return; }
-    const dt = Math.min(0.1, this.last ? (t - this.last) / 1000 : 1 / 60);
+    // the game steps at most 0.1 s per frame; the fps readout uses the real frame time
+    const frameTime = this.last ? (t - this.last) / 1000 : 1 / 60;
+    const dt = Math.min(0.1, frameTime);
     this.last = t;
     try {
       this.input.poll(dt);
       this.ui.update(dt);
       if (this.sceneMode === 'showcase') this.updateShowcase(dt);
-      this.renderer.render(dt);
+      this.renderer.render(dt, frameTime);
       if (this.profile) {
         this.profile.playtime += dt;
         this.autosaveT += dt;

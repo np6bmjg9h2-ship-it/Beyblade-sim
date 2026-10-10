@@ -121,10 +121,15 @@ at the heights the physics uses, and every part stays inside the space the
 physics gives it (ring silhouettes are the collision profile). Parts click
 together at the start of a battle, fly apart on a Shatter, and can be
 inspected one by one in the Workshop's Inspect 3D view. Stadiums, effects
-(star hit flashes, speed-line sparks) and the interface (Bangers and Chakra
-Petch display fonts, OFL, embedded) share the same anime style.
-`node tools/preview/shoot.js` renders part grids, assembled or exploded tops
-and stadiums headlessly, with an envelope audit (`--audit`).
+(star hit flashes, speed-line sparks, ring-out bursts, wobble warnings) and
+the interface (Bangers and Chakra Petch display fonts, OFL, embedded) share
+the same anime style. Bit-Beast abilities summon the beast itself: a
+translucent 3D spirit, one procedural form per beast (`spirits.js`,
+`spiritForms.js`), rising in a pillar of light over a sigil. It is purely
+visual and fades low down so the top and its collisions stay readable.
+`node tools/preview/shoot.js` renders part grids, assembled or exploded tops,
+stadiums with effects, and the spirit gallery (`spirits`) headlessly, with an
+envelope audit (`--audit`).
 
 **Replays.** Battles are deterministic given their seed and inputs. Each
 match records your per-tick controls, launch setups and releases and when
@@ -134,8 +139,8 @@ the same way.
 ## Development
 
 ```sh
-npm test               # 55 unit tests (physics, loot, progression, beasts,
-                       # tournaments, AI, story, modes, replays)
+npm test               # 63 unit tests (physics, loot, progression, beasts,
+                       # tournaments, AI, story, modes, replays, render)
 npm run test:browser   # builds, then plays the game in headless Chromium with
                        # a keyboard and a virtual gamepad (11 scenarios;
                        # first run: npx playwright install chromium)
@@ -169,8 +174,10 @@ story, modes), `src/data` (all game content), `src/render` (Three.js),
   (5–7 scenes each) and reuse the same battle and bracket systems.
 - All 3D models and textures are generated in code (no imported model
   files), and music and sound effects are synthesised at runtime.
-- Ink outlines and the detailed part models cost draw calls: on software
-  rendering or weak GPUs turn off Ink outlines or lower Quality.
+- Ink outlines and the detailed part models cost draw calls: a battle frame
+  measures about 200 draw calls / 150k triangles at High with outlines and
+  82 / 49k at Low without. On software rendering or weak GPUs turn off Ink
+  outlines or lower Quality.
 - Single-player only: no online or local versus play.
 - Software-rendered browsers (no GPU) run slowly; lowering Render
   resolution, Quality and turning off Shadows in Settings helps. The physics

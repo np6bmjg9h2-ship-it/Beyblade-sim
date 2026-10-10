@@ -199,7 +199,7 @@ export class BattleScreen {
       }
       case 'battleStart': app.renderer.rig.override = null; this.ui.refreshPrompts(); break;
       case 'impact': {
-        app.audio.impact(e.impulse, e.approach);
+        app.audio.impact(e.impulse, e.approach, e.glance);
         if (involvesHuman(e.A) || involvesHuman(e.B)) app.input.rumble(Math.min(1, e.impulse * 10), Math.min(1, e.impulse * 14), 90 + e.impulse * 900);
         if (e.critical) this.notify('CRITICAL IMPACT', 'crit');
         break;
@@ -364,6 +364,17 @@ export class BattleScreen {
         const [st, cls] = this.stability(f);
         r.stab.textContent = st;
         r.stab.className = 'fp-stab ' + cls;
+        // your top just crossed into the danger zone: audible + rumble cue (rate-limited)
+        if (f.human) {
+          const crit = cls === 'crit';
+          const now = performance.now();
+          if (crit && !this._critState && now - (this._critCueT || -1e9) > 1500) {
+            this._critCueT = now;
+            this.app.audio.warning();
+            this.app.input.rumble(0.35, 0.1, 140);
+          }
+          this._critState = crit;
+        }
         const pips = r.lock.children;
         const n = t.burstNotches;
         for (let k = 0; k < pips.length; k++) {

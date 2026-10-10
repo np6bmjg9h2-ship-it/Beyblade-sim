@@ -6,6 +6,7 @@
 
 import { Emitter } from '../core/events.js';
 import { buildBindings, presetReleaseMode, detectPadType, PAD_GLYPHS, AXIS_GLYPHS, keyGlyph } from './bindings.js';
+import { normalizePad } from './padLayouts.js';
 
 export const DEFAULT_INPUT_SETTINGS = {
   preset: 'competitive',
@@ -29,6 +30,8 @@ export class InputManager extends Emitter {
   constructor(opts = {}) {
     super();
     this.win = opts.window || (typeof window !== 'undefined' ? window : null);
+    this.getGamepads = opts.getGamepads || null; // injectable for tests
+    this.warnedPads = new Set();
     this.settings = { ...DEFAULT_INPUT_SETTINGS, ...(opts.settings || {}) };
     this.bindings = opts.bindings || buildBindings(this.settings.preset);
     this.context = 'menu';
@@ -116,9 +119,15 @@ export class InputManager extends Emitter {
 
   readPads() {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
-    const raw = nav && nav.getGamepads ? nav.getGamepads() : [];
+    const raw = this.getGamepads ? this.getGamepads() : nav && nav.getGamepads ? nav.getGamepads() : [];
     const pads = [];
-    for (const p of raw || []) if (p && p.connected !== false) pads.push(p);
+    for (const p of raw || []) {
+      if (!p || p.connected === false) continue;
+      if (p.mapping === 'standard') { pads.push(p); continue; }
+      // raw layout: present it in the standard layout, and say so once per controller
+      pads.push(normalizePad(p));
+      if (!this.warnedPads.has(p.id)) { this.warnedPads.add(p.id); this.emit('padNonStandard', { index: p.index, id: p.id }); }
+    }
     this.pads = pads;
     return pads;
   }

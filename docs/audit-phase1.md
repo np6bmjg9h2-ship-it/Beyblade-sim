@@ -59,3 +59,47 @@ No code was changed during the audit.
 | Simulation cost after changes | measured | 0.28 ms per tick (unchanged) |
 
 Unit tests: 60/60.
+
+## Phase 3 results
+
+| Item | Result | Evidence |
+|---|---|---|
+| #2 debug overlay GPU leak | FIXED | Pooled arrows/markers; GPU geometries flat at 100 with the overlay on (before: 99 -> 214 in 24 s) |
+| #3 trail materials | FIXED | Disposed with their geometry |
+| #4 particle pools vs quality | FIXED | High -> Low resizes pools 900/320/600/240 -> 160/80/120/48 |
+| Bit-Beast manifestations | DONE | 3D spirit per beast (11 forms), pillar, sigil on the bowl slope; faces the opponent; lower body fades so the top stays visible; unit tests for every form |
+| First-summon hitch | FIXED | Spirits of both battlers are built and drawn once at round start: first-summon frame 5.6 ms vs 5.1 ms baseline (1357 ms without, software rendering) |
+| Ring-out / destabilisation effects | DONE | Outward flash + speed lines + camera kick on ring out; warning pulse at the HUD's CRITICAL line |
+| Camera ring-out framing | DONE | Tracking/player cameras pull back and re-centre near the wall; unit test fails without the change |
+| Draw calls per battle frame | MEASURED | High+ink 201 calls / 150k tris; High 144 / 107k; Medium+ink 197 / 140k; Low+ink 135 / 86k; Low 82 / 49k (1280x720) |
+| Frame time | NOT MEASURABLE HERE | Headless SwiftShader renders ~2 fps at 1280x720 (JS per frame ~5 ms render submit + ~5 ms simulation); the in-game fps readout was floored at 10 by the 0.1 s step cap (fixed in Phase 4) |
+| Bloom / post-processing | DEFERRED | Cannot measure its GPU cost on this machine |
+| Browser regression (11 scenarios) | 10/11 PASS | Full run 44.5 min at commit 0bad165; tournament failed (player rung out before the test's forced finish); see Phase 4 |
+
+## Phase 4 results
+
+| Item | Result | Evidence |
+|---|---|---|
+| #7 non-standard controllers | FIXED | `src/input/padLayouts.js`: DirectInput PlayStation layout and a generic layout presented as standard, hat-switch d-pads decoded (rest at 0 or > 1 reads neutral), untouched trigger axes at 0 not read as half pressed; one warning toast; calibration screen names the translation. Tested with synthetic pads (hardware not available) |
+| Simultaneous devices | PASS | Keyboard + pad pressing confirm together counts once; menu auto-repeat waits for its delay |
+| Disconnect mid-hold | PASS | No stuck buttons or stick; release still reported |
+| Audio failures | FIXED | A refused AudioContext no longer throws (all cues become no-ops, no retry storm); percussion noise buffers reused instead of rebuilt per hit |
+| Spin depletion feedback | DONE | Warning beeps + rumble when the player's top crosses the HUD's CRITICAL line (rate-limited) |
+| Head-on vs glancing feedback | DONE | Impact events carry `glance` (0 head-on .. 1 graze): 0.05 / 0.33 / 0.51 / 0.70 for hit offsets 0 / 20 / 35 / 46 mm; grazes spray sparks along the sliding direction with a scrape sound |
+| FPS readout | FIXED | Was floored at 10 by the 0.1 s step cap; now averages real frame time |
+| Ring-out explanation | FIXED (VERIFIED) | The round summary judged "through an exit" vs "over the wall" from where the top was when the round ended (1.4 s later, 87 cm away) instead of where it left; now records the exit angle at the finish |
+| Tournament browser flake | FIXED | At 3x test speed a frame advances up to 0.3 s of battle, enough for a natural ring-out to beat the forced finish (1 of 3 runs passed). The helper runs 1x until the finish lands: 3/3 passed. Failures now report how the round actually ended |
+| Early finish bug | FIXED (VERIFIED) | A top finishing after IGNITE but before the opponent spawned left the round running and later awarded the win to the eliminated top (seed 1: rung out at 0.04 s, "won" by Spin Finish at 48.5 s). Now resolved immediately; regression test fails without the fix |
+
+### Input for Phase 5: launch clashes in the Rookie Cup
+
+A fresh profile's starter (attack build, Perfect "bank" launch, no steering) vs
+each Rookie Cup opponent, 24 battles each on the Standard Stadium:
+striker 13/24 player wins, wall 17/24, drifter 3/24, all-rounder 18/24,
+breaker 12/24. About one round in six against striker/wall/all-rounder ends
+in a ring-out ~0.2 s after IGNITE. Traced (seed 28757 vs wall): the default
+launch aims straight at the stadium centre where the AI lands; the tops meet
+at 0.10 s with a 4.0 m/s contact approach (blade faces at 732 rad/s), the
+attack starter rebounds at 2.1 m/s and rides over the 2 mm lip of the 210°
+exit. The physics behaves as designed; the issue is the new-player default
+launch, to be reviewed with type balance.

@@ -112,3 +112,42 @@ test('a live AI match ends identically at 30, 60 and 144 fps', () => {
     for (const fps of [30, 144]) assert.deepEqual(run(seed, arenaId, fps), ref, `seed ${seed} at ${fps} fps`);
   }
 });
+
+test('a top that finishes before the opponent spawns loses the round at once', () => {
+  // seed 1: the two AIs release a few ticks apart, leaving one top alone after IGNITE
+  const b = new Battle({ arenaId: 'standard', format: 'single', seed: 1, headless: true, roundTime: 60,
+    participants: [participantFromDef(ARCHETYPE_INDEX.striker, { difficulty: 1 }), participantFromDef(ARCHETYPE_INDEX.all, { difficulty: 1 })] });
+  b.headless = true;
+  let early = null;
+  for (let g = 0; g < 120 * 120 && b.phase !== 'matchOver'; g++) {
+    b.update(1 / 120, []);
+    const [A, B] = b.fighters;
+    if (!early && b.phase === 'countdown' && A.launch.launched !== B.launch.launched) {
+      early = A.launch.launched ? A : B;
+      b.sim.finish(early.top, 'out'); // flies out while the opponent is still on the launcher
+      b.processEvents(b.sim.events.splice(0));
+    }
+  }
+  assert.ok(early, 'found a moment with only one top in the stadium');
+  const r = b.result.rounds[0];
+  assert.equal(r.winner, 1 - early.index, 'the other battler wins');
+  assert.equal(r.how, 'out');
+  assert.ok(r.time < 1, `decided immediately (${r.time.toFixed(2)} s), not at the time limit`);
+});
+
+test('a ring-out explanation names where the top left, not where it landed', () => {
+  const b = new Battle({ arenaId: 'standard', format: 'single', seed: 3, headless: true,
+    participants: [participantFromDef(ARCHETYPE_INDEX.striker, { difficulty: 1 }), participantFromDef(ARCHETYPE_INDEX.all, { difficulty: 1 })] });
+  b.headless = true;
+  while (b.phase !== 'battle') b.update(1 / 120, []);
+  // fighter 0 crosses the 210° exit, then flies on sideways until it is far outside that sector
+  const top = b.fighters[0].top, a = (210 * Math.PI) / 180;
+  top.p.set(Math.cos(a) * 0.22, b.arena.rimY + 0.02, Math.sin(a) * 0.22); // airborne, past the lip
+  top.v.set(-Math.sin(a) * 3, 1, Math.cos(a) * 3);
+  b.update(1 / 120, []);
+  while (b.phase !== 'matchOver') b.update(1 / 120, []);
+  const r = b.result.rounds[0];
+  assert.equal(r.how, 'out');
+  assert.ok(Math.abs(Math.atan2(top.p.z, top.p.x) - a) > 0.5, 'by the end the top is well outside the exit sector');
+  assert.match(r.explanation, /through an exit/);
+});

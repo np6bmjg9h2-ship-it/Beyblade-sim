@@ -301,7 +301,7 @@ export class GameRenderer {
         break;
       }
       case 'impact':
-        fx.impact(e.point, e.normal, e.impulse, colorOf(e.A), colorOf(e.B));
+        fx.impact(e.point, e.normal, e.impulse, colorOf(e.A), colorOf(e.B), e.glance, e.tangent);
         this.rig.shake(Math.min(0.01, e.impulse * 0.12));
         if (e.critical) this.rig.emphasize(e.point);
         break;
@@ -330,11 +330,11 @@ export class GameRenderer {
     }
   }
 
-  render(dt) {
+  render(dt, frameTime = dt) {
     if (this.inspectActive) {
       this.inspect.update(dt);
       this.renderer.render(this.inspect.scene, this.inspect.camera);
-      this.frameTimes.push(dt);
+      this.frameTimes.push(frameTime);
       if (this.frameTimes.length > 120) this.frameTimes.shift();
       return;
     }
@@ -344,7 +344,7 @@ export class GameRenderer {
     }
     this.effects.update(dt);
     this.renderer.render(this.scene, this.camera);
-    this.frameTimes.push(dt);
+    this.frameTimes.push(frameTime);
     if (this.frameTimes.length > 120) this.frameTimes.shift();
   }
 
