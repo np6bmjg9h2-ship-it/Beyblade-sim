@@ -294,26 +294,35 @@ export class Battle extends Emitter {
     if (this.paused || this.phase === 'matchOver') return;
     if (this.phase === 'intro') { this.startRound(); return; }
     const dt = Math.min(realDt, 0.1);
-    this.phaseT += dt;
-    if (this.phase === 'setup') return;
-    if (this.phase === 'countdown') { this.updateCountdown(dt); }
+    if (this.phase === 'setup') { this.phaseT += dt; return; }
     if (this.phase === 'roundOver') {
+      this.phaseT += dt;
       if (this.headless || this.autoAdvance) { if (this.phaseT > 0.1) this.nextRound(); }
       return;
     }
-    if (this.phase === 'battle' || this.phase === 'finishing' || (this.phase === 'countdown' && this.ignited)) {
-      // slow-motion handling (simulation stays fixed-step; fewer ticks per real second)
-      if (this.slowmoT > 0) { this.slowmoT -= dt; if (this.slowmoT <= 0) this.timeScale = 1; }
-      this.acc += dt * this.timeScale * (this.speedMul || 1);
-      let n = 0;
-      while (this.acc >= TICK && n < 12) {
-        this.acc -= TICK;
-        this.tick(humanControls);
-        n++;
-        if (this.phase === 'roundOver' || this.phase === 'matchOver') break;
-      }
-      if (n >= 12) this.acc = 0; // never spiral
+    // Countdown, launch and battle all advance in fixed ticks, so charge,
+    // IGNITE and spawn times land on the same tick whatever the frame rate.
+    // Slow motion only changes how many ticks run per real second.
+    if (this.slowmoT > 0) { this.slowmoT -= dt; if (this.slowmoT <= 0) this.timeScale = 1; }
+    this.acc += dt * this.timeScale * (this.speedMul || 1);
+    let n = 0;
+    while (this.acc >= TICK && n < 12) {
+      this.acc -= TICK;
+      this.step(humanControls);
+      n++;
+      if (this.phase === 'roundOver' || this.phase === 'matchOver') break;
     }
+    if (n >= 12) this.acc = 0; // never spiral
+  }
+
+  // One fixed step of the countdown/battle state machine.
+  step(humanControls) {
+    if (this.phase === 'countdown') {
+      this.phaseT += TICK;
+      this.updateCountdown(TICK);
+      if (this.phase === 'countdown' && !this.ignited) return;
+    } else this.phaseT += TICK;
+    this.tick(humanControls);
   }
 
   updateCountdown(dt) {

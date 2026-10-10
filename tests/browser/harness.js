@@ -4,6 +4,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
 
 function loadPlaywright() {
@@ -13,7 +14,7 @@ function loadPlaywright() {
   return require(path.join(globalRoot, 'playwright'));
 }
 
-export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export async function launch({ width = 1600, height = 900, outDir } = {}) {
   const { chromium } = loadPlaywright();
@@ -39,7 +40,7 @@ export async function launch({ width = 1600, height = 900, outDir } = {}) {
   const h = {
     browser, page, errors, dir,
     async open() {
-      await page.goto('file://' + path.join(ROOT, 'index.html'));
+      await page.goto(pathToFileURL(path.join(ROOT, 'index.html')).href);
       await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'app ready');
     },
     async waitFor(fn, timeout = 15000, label = 'condition', arg) {

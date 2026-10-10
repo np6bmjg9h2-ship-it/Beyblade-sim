@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import * as esbuild from 'esbuild';
 import { launch, ROOT } from '../../tests/browser/harness.js';
 
@@ -42,7 +43,7 @@ await esbuild.build({ entryPoints: [path.join(ROOT, 'tools/preview/entry.js')], 
 fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#111;position:relative}</style><body><script>window.PREVIEW=${JSON.stringify(cfg)}</script><script src="p.js"></script></body>`);
 const h = await launch({ width: 400, height: 300, outDir: path.dirname(out) });
 try {
-  await h.page.goto('file://' + path.join(dir, 'index.html'));
+  await h.page.goto(pathToFileURL(path.join(dir, 'index.html')).href);
   const done = await h.waitFor(() => window.__done, 60000, 'preview rendered');
   await h.page.setViewportSize({ width: done.W, height: done.H });
   await h.page.screenshot({ path: out, clip: { x: 0, y: 0, width: done.W, height: done.H } });

@@ -134,10 +134,11 @@ the same way.
 ## Development
 
 ```sh
-npm test               # 54 unit tests (physics, loot, progression, beasts,
+npm test               # 55 unit tests (physics, loot, progression, beasts,
                        # tournaments, AI, story, modes, replays)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (11 scenarios)
+                       # a keyboard and a virtual gamepad (11 scenarios;
+                       # first run: npx playwright install chromium)
 npm run balance -- 8 all   # simulated round robin of reference builds on
                            # every stadium (worker threads)
 ```

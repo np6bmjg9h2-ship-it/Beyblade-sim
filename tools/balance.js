@@ -2,6 +2,7 @@
 // matching AI personality) across arenas, using the real battle code.
 // Usage: node tools/balance.js [matchesPerPair=4] [arena=standard|all] [--json]
 
+import { pathToFileURL } from 'node:url';
 import { Battle } from '../src/game/battle.js';
 import { PART_INDEX } from '../src/data/parts.js';
 import { ARENAS } from '../src/data/arenas.js';
@@ -38,7 +39,7 @@ export function runMatchup(a, b, arenaId, n, seedBase = 1000) {
   return out;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const n = parseInt(process.argv[2] || '4', 10);
   const arenaArg = process.argv[3] || 'standard';
   const arenas = arenaArg === 'all' ? ARENAS.map((a) => a.id) : [arenaArg];

@@ -94,3 +94,21 @@ test('replay storage keeps the newest twelve plus pinned replays, per save slot'
   await sm.remove('slot1');
   assert.equal((await sm.listReplays('slot1')).length, 0, 'deleting a slot deletes its replays');
 });
+
+test('a live AI match ends identically at 30, 60 and 144 fps', () => {
+  const run = (seed, arenaId, fps) => {
+    const battle = new Battle({ arenaId, format: 'single', seed, headless: true,
+      participants: [participantFromDef(ARCHETYPE_INDEX.striker, { difficulty: 1 }), participantFromDef(ARCHETYPE_INDEX.all, { difficulty: 1 })] });
+    battle.headless = true;
+    const spawns = [];
+    battle.on('launch', () => spawns.push(battle.sim.tickCount));
+    let guard = 0;
+    while (battle.phase !== 'matchOver' && guard++ < 300 * fps) battle.update(1 / fps, []);
+    const r = battle.result.rounds[0];
+    return { how: r.how, winner: r.winner, time: r.time, spawns };
+  };
+  for (const [seed, arenaId] of [[1010, 'vortex'], [1011, 'edgebreaker'], [1006, 'standard']]) {
+    const ref = run(seed, arenaId, 60);
+    for (const fps of [30, 144]) assert.deepEqual(run(seed, arenaId, fps), ref, `seed ${seed} at ${fps} fps`);
+  }
+});

@@ -274,7 +274,8 @@ scenarios.beasts = async () => {
       await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
       await h.padButton(0);
       await timedLaunch(h, { pad: true });
-      await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, 'battle running');
+      // a fast natural finish at 3x test speed can skip past 'battle' between polls
+      await h.waitFor(() => ['battle', 'finishing', 'roundOver', 'matchOver'].includes(window.__app.ui.current.battle.phase), 15000, 'battle running');
       if (round === 0) await h.shot('b02_trial');
       // deterministic outcome: the trial champion is rung out
       await forcePlayerRound(h);
