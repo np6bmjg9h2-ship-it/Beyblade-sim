@@ -72,7 +72,7 @@ Unit tests: 60/60.
 | Ring-out / destabilisation effects | DONE | Outward flash + speed lines + camera kick on ring out; warning pulse at the HUD's CRITICAL line |
 | Camera ring-out framing | DONE | Tracking/player cameras pull back and re-centre near the wall; unit test fails without the change |
 | Draw calls per battle frame | MEASURED | High+ink 201 calls / 150k tris; High 144 / 107k; Medium+ink 197 / 140k; Low+ink 135 / 86k; Low 82 / 49k (1280x720) |
-| Frame time | NOT MEASURABLE HERE | Headless SwiftShader renders ~2 fps at 1280x720 (JS per frame ~5 ms render submit + ~5 ms simulation); the in-game fps readout was floored at 10 by the 0.1 s step cap (fixed in Phase 4) |
+| Frame time | MEASURED (Phase 4 follow-up) | Intel UHD Graphics 620 (D3D11), 1920x1080, frame cap off, identical frozen battle frame: High+ink 65 fps (15.3 ms avg, 19.1 ms p95), High 63, Medium+ink 57, Low+ink 69, Low 80 fps (12.5 ms avg). Differences of a few fps are noise. Software rendering (SwiftShader) manages ~2-7 fps |
 | Bloom / post-processing | DEFERRED | Cannot measure its GPU cost on this machine |
 | Browser regression (11 scenarios) | 10/11 PASS | Full run 44.5 min at commit 0bad165; tournament failed (player rung out before the test's forced finish); see Phase 4 |
 
@@ -103,3 +103,10 @@ at 0.10 s with a 4.0 m/s contact approach (blade faces at 732 rad/s), the
 attack starter rebounds at 2.1 m/s and rides over the 2 mm lip of the 210°
 exit. The physics behaves as designed; the issue is the new-player default
 launch, to be reviewed with type balance.
+
+### Browser tests on the GPU
+
+The test harness now uses the machine's GPU (ANGLE D3D11 on Windows) and
+falls back to SwiftShader without one; `BROWSER_SOFTWARE=1` forces software.
+The run prints the WebGL renderer it got. Full suite: 11/11 PASS in 2 min 52 s
+on an Intel UHD 620 (software rendering: 44.5 min).

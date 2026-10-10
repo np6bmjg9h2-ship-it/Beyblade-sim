@@ -142,7 +142,8 @@ the same way.
 npm test               # 63 unit tests (physics, loot, progression, beasts,
                        # tournaments, AI, story, modes, replays, render)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (11 scenarios;
+                       # a keyboard and a virtual gamepad (11 scenarios, ~3 min
+                       # on a GPU; BROWSER_SOFTWARE=1 forces software rendering;
                        # first run: npx playwright install chromium)
 npm run balance -- 8 all   # simulated round robin of reference builds on
                            # every stadium (worker threads)

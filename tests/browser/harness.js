@@ -16,9 +16,18 @@ function loadPlaywright() {
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
+// WebGL backend: the machine's GPU by default (about 8x faster than software
+// rendering on an integrated Intel GPU), SwiftShader with BROWSER_SOFTWARE=1.
+// Without a usable GPU Chromium falls back to SwiftShader on its own.
+const SOFTWARE = process.env.BROWSER_SOFTWARE === '1';
+const GL_ARGS = SOFTWARE
+  ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+  : ['--use-angle=' + (process.platform === 'win32' ? 'd3d11' : 'default'), '--ignore-gpu-blocklist', '--enable-gpu', '--enable-unsafe-swiftshader'];
+let reportedRenderer = false;
+
 export async function launch({ width = 1600, height = 900, outDir } = {}) {
   const { chromium } = loadPlaywright();
-  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  const browser = await chromium.launch({ args: [...GL_ARGS, '--autoplay-policy=no-user-gesture-required'] });
   const context = await browser.newContext({ viewport: { width, height } });
   const page = await context.newPage();
   const errors = [];
@@ -42,6 +51,11 @@ export async function launch({ width = 1600, height = 900, outDir } = {}) {
     async open() {
       await page.goto(pathToFileURL(path.join(ROOT, 'index.html')).href);
       await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'app ready');
+      if (!reportedRenderer) {
+        reportedRenderer = true;
+        const r = await page.evaluate(() => { const gl = window.__app.renderer.renderer.getContext(); const x = gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); });
+        console.log(`(WebGL renderer: ${r})`);
+      }
     },
     async waitFor(fn, timeout = 15000, label = 'condition', arg) {
       const t0 = Date.now();
