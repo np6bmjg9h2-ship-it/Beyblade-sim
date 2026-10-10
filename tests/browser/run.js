@@ -15,7 +15,8 @@ async function timedLaunch(h, { pad = false } = {}) {
   await h.waitFor((t) => window.__app.ui.current.battle.phaseT >= t, 20000, 'charge start', startAt);
   if (pad) await h.padHold(6, 1); else await h.page.keyboard.down('Space');
   await h.waitFor(() => { const b = window.__app.ui.current.battle; const m = b.fighters[0].launch.meter; return b.phaseT >= 2.95 || m.charge >= 0.92; }, 20000, 'charged');
-  if (pad) { await h.padHold(7, 1); await h.page.waitForTimeout(150); await h.padHold(7, 0); await h.padHold(6, 0); }
+  // hold for whole frames: at software-rendering frame rates a fixed 150 ms tap can fall between polls
+  if (pad) { await h.padHold(7, 1); await h.frames(3); await h.padHold(7, 0); await h.padHold(6, 0); }
   else await h.page.keyboard.up('Space');
   await h.waitFor(() => window.__app.ui.current.battle.fighters[0].launch.released, 10000, 'released');
   return h.eval(() => window.__app.ui.current.battle.fighters[0].launch.result.quality);
@@ -389,6 +390,22 @@ scenarios.tournament = async () => {
 };
 
 // Press confirm through dialogue / title cards until `until` holds.
+// Focus a button and press it, retrying if a late re-render stole focus
+// (common at software-rendering frame rates).
+async function pressUntil(h, id, until, tries = 6) {
+  for (let i = 0; i < tries; i++) {
+    if (await h.eval(until)) return true;
+    await h.focusId(id);
+    await h.frames(2);
+    if (await h.eval((x) => window.__app.ui.focused?.dataset?.id === x, id)) await h.padButton(0);
+    for (let k = 0; k < 20 && !(await h.eval(until)); k++) {
+      if (await h.eval(() => window.__app.ui.current?.constructor.screenName === 'DialogueScreen')) return true;
+      await h.page.waitForTimeout(150);
+    }
+  }
+  return h.eval(until);
+}
+
 async function advanceStory(h, until, max = 120, choiceDown = 0) {
   for (let i = 0; i < max; i++) {
     if (await h.eval(until)) return true;
@@ -442,7 +459,7 @@ scenarios.story = async () => {
     if (!items.includes('ring_ironwall')) throw new Error('guardian starter parts missing: ' + items);
     await h.shot('s05_nextup');
     await h.eval(() => { window.__testRoundTime = 30; window.__testSpeed = 2; });
-    await h.focusId('story-play'); await h.padButton(0);
+    await pressUntil(h, 'story-play', () => window.__app.ui.current?.constructor.screenName === 'BattleScreen');
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'training battle');
     await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'training setup');
     await h.padButton(0);
@@ -456,8 +473,8 @@ scenarios.story = async () => {
     await h.eval(() => { const ob = window.__app.ui.current.objectives; for (const o of ob.list) { o.done = true; o.progress = o.n || 1; } ob.changed = true; });
     await advanceStory(h, () => window.__app.profile.story.node === 'ch1_sora1' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy);
     // first rival battle
-    await h.focusId('story-play'); await h.padButton(0);
-    await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10);
+    await pressUntil(h, 'story-play', () => window.__app.ui.current?.constructor.screenName !== 'StoryScreen');
+    await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 60);
     for (let round = 0; round < 4; round++) {
       await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
       await h.padButton(0);
