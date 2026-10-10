@@ -5,7 +5,7 @@ import { buildCore } from './core.js';
 import { buildDisc } from './disc.js';
 import { buildLock } from './lock.js';
 import { buildTip } from './tip.js';
-import { buildAux } from './aux.js';
+import { buildAux } from './auxModule.js';
 import { MM, rarityTrim } from './common.js';
 import { BEAST_INDEX } from '../../data/beasts.js';
 
