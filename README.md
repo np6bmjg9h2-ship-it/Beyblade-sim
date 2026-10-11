@@ -65,6 +65,14 @@ options. Unplugging a controller mid-battle pauses the game.
   prizes, first-win unlocks, rankings, a trophy cabinet and career history.
   Other matches in a bracket are real headless battles simulated in a Web
   Worker. Tournaments resume after a reload.
+- **Rift Run** — roguelite runs through four Rifts (three floors and a rival
+  boss each) on a branching map: battles, elites, vault challenges, traders,
+  forges, shrines, camps and unknown events. Run-only loot (parts with
+  elements, 38 charms in six resonating families including cursed ones,
+  levelled boons tied to your Bit-Beast), Scorch / Static / Rust statuses
+  that fuse, sweet-spot hits, hearts instead of one life, and Essence that
+  buys permanent Rift Talents. Depths 0-8 add rules for more Essence; the
+  Locker keeps your best find. Runs resume after a reload.
 - **Modes hub** — **Practice Lab** (launch range with launch analysis,
   sparring targets with the physics debug overlay, a Build Lab that compares
   two builds with spin-decay curves and simulated head-to-heads), **Custom
@@ -139,10 +147,10 @@ the same way.
 ## Development
 
 ```sh
-npm test               # 63 unit tests (physics, loot, progression, beasts,
-                       # tournaments, AI, story, modes, replays, render)
+npm test               # 93 unit tests (physics, loot, progression, beasts,
+                       # tournaments, AI, story, modes, replays, render, rift)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (11 scenarios, ~3 min
+                       # a keyboard and a virtual gamepad (12 scenarios, ~3 min
                        # on a GPU; BROWSER_SOFTWARE=1 forces software rendering;
                        # first run: npx playwright install chromium)
 npm run balance -- 8 all   # simulated round robin of reference builds on
@@ -152,7 +160,7 @@ npm run balance -- 8 all   # simulated round robin of reference builds on
 Layout: `src/physics` (simulation), `src/game` (battle, AI, launch,
 abilities, objectives, replays, background simulation), `src/systems`
 (assembly, items, loot, progression, workshop, saves, rivals, tournaments,
-story, modes), `src/data` (all game content), `src/render` (Three.js),
+story, modes, rift), `src/data` (all game content), `src/render` (Three.js),
 `src/audio` (procedural Web Audio), `src/ui` (screens), `tools/`, `tests/`.
 
 ## Known limitations (honest list)

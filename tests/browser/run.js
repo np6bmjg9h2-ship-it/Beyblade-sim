@@ -791,6 +791,132 @@ scenarios.inspect = async () => {
   } finally { await h.close(); }
 };
 
+// Fight a Rift battle as the player (forced wins) until the spoils screen opens.
+async function riftFight(h) {
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 15000, 'rift battle');
+  for (let round = 0; round < 5; round++) {
+    await h.waitFor(() => window.__app.ui.current.battle?.phase === 'setup', 15000, 'setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => { const b = window.__app.ui.current.battle; return (b.phase === 'battle' && b.fighters.every((f) => f.launch.launched)) || ['finishing', 'roundOver', 'matchOver'].includes(b.phase); }, 15000, 'battle running');
+    await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+    await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+    const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+    await h.padButton(0);
+    if (done) break;
+  }
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftRewardScreen', 15000, 'spoils');
+}
+
+// Take the first offer on every waiting reward screen (equipping parts that fit).
+async function riftClaim(h) {
+  const taken = [];
+  for (let i = 0; i < 6 && (await h.screen()) === 'RiftRewardScreen'; i++) {
+    taken.push(await h.eval(() => { const o = window.__app.profile.rift.active.pending[0].options[0]; return o.type === 'part' ? 'part:' + o.item.rarity : o.type; }));
+    await h.focusId('loot-0'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal || window.__app.ui.current?.constructor.screenName !== 'RiftRewardScreen' || window.__app.profile.rift.active.pending.length < 9, 10000, 'reward taken');
+    if (await h.eval(() => !!window.__app.ui.modal)) await h.padButton(0);
+    await h.waitFor(() => !window.__app.ui.modal && ['RiftScreen', 'RiftRewardScreen'].includes(window.__app.ui.current?.constructor.screenName), 10000, 'after reward');
+    await h.frames(4);
+  }
+  return taken;
+}
+
+scenarios.rift = async () => {
+  const h = await launch();
+  const openNode = (type) => h.eval((t) => [...document.querySelectorAll('.rift-node.open')].find((b) => b.classList.contains('type-' + t))?.dataset.id || null, type);
+  const run = () => h.eval(() => { const r = window.__app.profile.rift.active; return r && { act: r.act, floor: r.floor, wins: r.stats.wins, bosses: r.stats.bosses, essence: r.essence, shards: r.shards, bag: r.bag.length, charms: r.charms.length, boons: Object.keys(r.boons).length, hearts: r.hearts, seed: r.seed }; });
+  try {
+    await newGame(h);
+    await openTile(h, 'rift', 'RiftScreen');
+    await h.shot('r01_lobby');
+    const inv0 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    await h.focusId('rift-start'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.profile.rift.active && !!document.querySelector('.rift-node.open'), 10000, 'rift map');
+    await h.shot('r02_map');
+    // floor 1 always offers a battle
+    await h.eval(() => { window.__testRoundTime = 25; window.__testSpeed = 3; });
+    const first = await openNode('battle');
+    if (!first) throw new Error('no battle on floor 1');
+    await h.focusId(first); await h.padButton(0);
+    await riftFight(h);
+    await h.page.waitForTimeout(900);
+    await h.shot('r03_spoils');
+    const spoils = await riftClaim(h);
+    const a = await run();
+    if (a.floor !== 1 || a.wins !== 1 || !(a.essence > 0)) throw new Error('battle node not completed: ' + JSON.stringify(a));
+    // floor 2 always offers a trader
+    await h.focusId(await openNode('trader')); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftNodeScreen', 10000, 'trader');
+    await h.shot('r04_trader');
+    const buyId = await h.eval(() => [...document.querySelectorAll('[data-id^="buy-"]')].find((b) => !b.disabled)?.dataset.id || null);
+    if (buyId) {
+      await h.focusId(buyId); await h.padButton(0);
+      if (await h.eval(() => !!window.__app.ui.modal)) await h.padButton(0);
+      await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftNodeScreen' && !window.__app.ui.modal, 10000, 'bought');
+    }
+    await h.focusId('node-leave'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftScreen' && window.__app.profile.rift.active.floor === 2, 10000, 'floor 3');
+    // the run survives a reload
+    const before = await run();
+    await h.page.waitForTimeout(500);
+    await h.page.reload();
+    await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'reloaded');
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots again');
+    await h.padButton(0);
+    await openTile(h, 'rift', 'RiftScreen');
+    const after = await run();
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('run not restored: ' + JSON.stringify({ before, after }));
+    // floor 3 always offers a camp or a forge (shards topped up so a forge job is affordable)
+    await h.eval(() => { window.__app.profile.rift.active.shards += 120; });
+    const third = (await openNode('camp')) || (await openNode('forge'));
+    await h.focusId(third); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftNodeScreen', 10000, 'camp or forge');
+    await h.shot('r05_' + third.replace(/\W+/g, '_'));
+    const work = await h.eval(() => [...document.querySelectorAll('[data-id^="tune-"], [data-id="job-upgrade"]')].find((b) => !b.disabled)?.dataset.id || null);
+    if (work) { await h.focusId(work); await h.padButton(0); await h.frames(4); }
+    const forged = await h.eval(() => { const r = window.__app.profile.rift.active; return [...Object.values(r.equipped), ...r.bag].filter(Boolean).some((x) => x.forge > 0); });
+    if (!forged) throw new Error('no part was tuned or upgraded at ' + third);
+    await h.focusId('node-leave'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftScreen' && window.__app.profile.rift.active.floor === 3, 10000, 'boss floor');
+    // the boss: best of three, then a chain of rewards and the next Rift
+    await h.eval(() => { window.__testRoundTime = 25; window.__testSpeed = 3; });
+    await h.focusId(await openNode('boss')); await h.padButton(0);
+    await riftFight(h);
+    await h.page.waitForTimeout(900);
+    await h.shot('r06_boss_spoils');
+    const bossLoot = await riftClaim(h);
+    const b = await run();
+    if (b.act !== 1 || b.floor !== 0 || b.bosses !== 1 || !b.boons) throw new Error('boss not cleared: ' + JSON.stringify(b));
+    await h.shot('r07_rift2');
+    // abandon, keep a part in the Locker, bank
+    await h.focusId('rift-abandon'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'abandon confirm');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((x) => x.textContent === 'Abandon')));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftSummaryScreen', 10000, 'summary');
+    const keepId = await h.eval(() => document.querySelector('[data-id^="keep-"]')?.dataset.id || null);
+    if (keepId) { await h.focusId(keepId); await h.padButton(0); }
+    await h.shot('r08_summary');
+    await h.focusId('rift-bank'); await h.padButton(0);
+    await h.waitFor(() => !!document.querySelector('[data-id="rift-done"]'), 10000, 'banked');
+    await h.shot('r09_banked');
+    await h.focusId('rift-done'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftScreen' && !window.__app.profile.rift.active, 10000, 'lobby again');
+    const R = await h.eval(() => { const r = window.__app.profile.rift; return { essence: r.essence, runs: r.runs, history: r.history.length }; });
+    const inv1 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    if (R.runs !== 1 || R.history !== 1 || !(R.essence > 0)) throw new Error('run not banked: ' + JSON.stringify(R));
+    if (keepId && inv1 !== inv0 + 1) throw new Error(`locker part not added: ${inv0} -> ${inv1}`);
+    // talents page
+    await h.padButton(5);
+    await h.waitFor(() => !!document.querySelector('.talent-grid'), 5000, 'talents');
+    await h.shot('r10_talents');
+    return { spoils, bossLoot, forged, kept: !!keepId, essence: R.essence, errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

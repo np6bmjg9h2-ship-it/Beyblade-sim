@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-11 (after balance pass 1). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-11 (after Rift Run). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -19,10 +19,11 @@ current build; no install or server needed. WebGL required.
 | 3 Visuals | d196965, 5448640 | GPU leak fixes; 3D Bit-Beast spirits (11 forms, pillar, sigil, no first-summon stall); ring-out burst; wobble warning; camera keeps the wall in frame |
 | 4 Input/feel | 9ba8c0b | Non-standard controllers translated; audio never crashes; glance-aware impact sparks/sound; low-spin warning; real fps readout; two battle bugs fixed (early finish awarded the win to the eliminated top; ring-out text) |
 | Test infra | 79267f2 | Browser tests use the GPU: 11/11 in ~3 min (was 45 min) |
-| 5 Balance pass 1 | (this commit) | Attack/Defense/Stamina/Burst in the 40-60% band; PHYSICS coefficients; pressWhenBehind AI; balance:check |
+| 5 Balance pass 1 | d9801eb | Attack/Defense/Stamina/Burst in the 40-60% band; PHYSICS coefficients; pressWhenBehind AI; balance:check |
+| 5 Fun grind | (this commit) | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low. Unit tests: 72/72. Browser tests: 11/11.
+outlines, ~80 fps on Low. Unit tests: 93/93. Browser tests: 12/12 (~3.5 min).
 
 ## In progress: Phase 5
 
@@ -40,10 +41,22 @@ Guard: `npm run balance:check` (25-70% band). Experiments:
    weighting its ring and a calmer AI did not help.
 2. DONE: the default player launch now circles the bowl (no instant
    launch-clash ring-outs; fastest Rookie Cup loss 0.8 s instead of 0.1 s).
-3. "Fun grind" (playtest): early-game pacing and progression feel.
+3. DONE: "Fun grind" → Rift Run mode (`src/systems/rift*.js`, `src/data/rift*.js`,
+   `src/game/riftEffects.js`, `src/ui/screens/rift*.js`; tests `tests/rift.test.js`,
+   browser scenario `rift`). Economy and difficulty are first estimates: tune
+   from playtests.
 4. Verify the career loop end to end (build, inspect, tournament, rewards,
    upgrade, equip, progress, save/reload); fix gaps.
 5. Final QA pass against the Phase 1 baseline; push.
+
+## Ideas waiting for a decision
+
+- Plastic-generation research (wiki, 118 pages) suggests: clutch-release tips
+  (stored spring burst, e.g. fires when struck), flip-mode support skirts
+  (attack/defence face), magnet stadium + polarity cores, removable tip
+  ballast, life-after-death skirts.
+- `references/` (user's part photos: attack rings, bases, launchers, weight
+  disks, winders) is untracked on purpose: product photos stay out of git.
 
 ## Deferred / known
 

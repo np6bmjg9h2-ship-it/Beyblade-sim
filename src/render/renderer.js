@@ -326,6 +326,12 @@ export class GameRenderer {
         break;
       }
       case 'restore': fx.ring([e.fighter.top.p.x, e.fighter.top.p.y, e.fighter.top.p.z], 0.01, 0.07, 0.6, '#ffe28a'); break;
+      // Rift Run: statuses, fusions, sweet spots, Second Wind
+      case 'riftStatus': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.015, 0.05, 0.45, e.color); fx.aura(p, e.color, 12); break; }
+      case 'riftFusion': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.02, 0.09, 0.6, e.color); fx.aura(p, e.color, 30); this.rig.shake(0.006); break; }
+      case 'sweetSpot': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.01, 0.06, 0.35, '#fff27a'); break; }
+      case 'meltdownHit': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.015, 0.08, 0.5, '#ff8a3d'); this.rig.shake(0.008); break; }
+      case 'secondWind': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.01, 0.08, 0.7, '#7fe3a8'); fx.aura(p, '#7fe3a8', 20); break; }
       default:
     }
   }

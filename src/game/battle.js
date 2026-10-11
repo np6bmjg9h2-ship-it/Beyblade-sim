@@ -19,6 +19,7 @@ import { ModifierStack, collectTraitSources } from '../systems/modifiers.js';
 import { AbilityRuntime } from './abilities.js';
 import { resolveLaunchGear, ChargeMeter, computeLaunch, MAX_LEAN, LAUNCH_RING } from './launch.js';
 import { AIController, emptyControls } from './ai.js';
+import { RiftEffects, hasRiftEffects } from './riftEffects.js';
 
 export const FORMATS = {
   single: { id: 'single', name: 'Single Round', roundsToWin: 1 },
@@ -191,6 +192,8 @@ export class Battle extends Emitter {
     }
     this.sim = new Simulation({ arena: this.arena, tops });
     for (const f of this.fighters) f.ability.sim = this.sim;
+    // Rift Run statuses and sweet spots (only when a participant carries them)
+    this.riftFx = hasRiftEffects(this.fighters.map((f) => f.p)) ? new RiftEffects(this) : null;
     this.emit('roundStart', { round: this.round, phase: this.phase });
   }
 
@@ -420,6 +423,7 @@ export class Battle extends Emitter {
       f.mods.tick(TICK);
       f.mods.evaluate(this.conditionContext(f, opp), f.top.mods);
     }
+    this.riftFx?.preTick();
     const events = sim.tick();
     this.roundTicks++;
     if (this.phase === 'battle' || this.phase === 'countdown') this.battleTime += TICK;
@@ -529,6 +533,7 @@ export class Battle extends Emitter {
     if (e.type === 'impact') {
       fa.ability.onImpact(e, fb.ability);
       fb.ability.onImpact(e, fa.ability);
+      this.riftFx?.onImpact(fa, fb, e);
       const critical = J > 0.06;
       const { glance, tangent } = glanceOf(e.normal, fa.top.v, fb.top.v, e.approach);
       const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };

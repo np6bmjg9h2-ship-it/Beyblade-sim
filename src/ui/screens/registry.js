@@ -10,11 +10,13 @@ import { StoryScreen } from './story.js';
 import { ModesScreen } from './modes.js';
 import { SkillsScreen } from './skills.js';
 import { StatsScreen } from './stats.js';
+import { RiftScreen } from './rift.js';
 import { trialStatus } from '../../systems/beasts.js';
 import { BEASTS } from '../../data/beasts.js';
 
 export const MENU_ENTRIES = [
   { id: 'story', label: 'Story', desc: 'Six chapters from the harbor rooftops to Arena Zero: rivals, training, tournaments and the secret of Orrery.', primary: true, screen: () => new StoryScreen(), badge: (p) => !p.story?.completed?.length },
+  { id: 'rift', label: 'Rift Run', desc: 'Roguelite runs: pick your path through four Rifts, grab parts and charms, earn boons, and push deeper for Essence.', screen: () => new RiftScreen(), badge: (p) => !!p.rift?.active },
   { id: 'quick', label: 'Quick Battle', desc: 'Jump straight into a match against an AI opponent.', screen: () => new QuickBattleScreen() },
   { id: 'modes', label: 'Modes', desc: 'Practice Lab, Custom Battle, Challenges, Survival and League.', screen: () => new ModesScreen(), badge: (p) => !!(p.survival?.active || p.league?.active) },
   { id: 'tournaments', label: 'Tournaments', desc: 'The competitive circuit: brackets, leagues, rivals, scouting and your career record.', screen: () => new TournamentsScreen({ openActive: true }), badge: (p) => !!p.tournaments.active },

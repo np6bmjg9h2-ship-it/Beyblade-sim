@@ -141,6 +141,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `abilities.js` | 301 | Spirit meter, Bit-Beast abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
 | `humanController.js` | 163 | Turns input actions into the control frame. |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
+| `riftEffects.js` | 122 | Rift Run in-battle effects, only when a participant carries a `rift` block: sweet-spot hits, Scorch/Static/Rust statuses as timed modifiers, status fusions (meltdown, flashover, brittle), Second Wind. Emits `riftStatus`, `riftFusion`, `sweetSpot`, `meltdownHit`, `secondWind`. |
 | `matchJob.js`, `matchSim.js`, `tournamentRunner.js` | ~290 | Headless AI-vs-AI matches for tournaments: Web Worker from an embedded Blob URL, with an inline time-sliced fallback. |
 
 ### systems/ (persistent logic, plain data)
@@ -155,13 +156,17 @@ Inspect screen switches the renderer to its own turntable scene.
 | `profile.js` | 137 | New profile, normalisation, default settings. |
 | `tournament.js` | 704 | Pure tournament engine: single and double elimination (bracket reset), round robin, league with playoffs, Swiss; standings, placements, prizes. |
 | `story.js`, `rivals.js`, `modes.js`, `beasts.js`, `loadout.js` | ~900 | Story progress and flags; habit tracking and rival counter-builds; Challenge, Survival and League; beast bond and trials; loadout to participant. |
+| `rift.js` | 386 | Rift Run state on `profile.rift`: seeded act maps, start, node flow, battle results, hearts, reward queue and picking, bag, end of run (Essence, Locker, career rewards), talents. |
+| `riftBattle.js`, `riftLoot.js`, `riftNodes.js` | ~560 | Run effects (charms, resonance, boons) → battle participants and opponents (elite affixes, vault rules); counter-seeded loot, prices, forge jobs, shrine and event rolls; trader, forge, shrine, camp and event actions. Everything rolls from `runRng(run, label…)`, so a run replays from its seed. |
 
 ### data/ (content)
 Parts (49 across 6 slots), traits (72), sets (6), rarity (7), launchers (6) and
 cables (5), techniques, arenas (7), beasts (11) plus lore, AI profiles,
 opponents (8 archetypes), characters (10), story (6 chapters: ch1 11 nodes,
 ch2–6 5–7 nodes), tournaments (9 plus story events plus 5 league divisions),
-challenges (12), skills (5 paths), upgrades and tuning. Part numbers are
+challenges (12), skills (5 paths), upgrades and tuning; Rift Run content
+(`rift.js` acts, nodes, depths, statuses, affixes, vaults, events, economy,
+talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons). Part numbers are
 physical (mm, g) and consumed by `assembly.js`.
 
 ### render/
@@ -186,7 +191,9 @@ physical (mm, g) and consumed by `assembly.js`.
 prompts with device glyphs, toasts, modals), `widgets.js`, `charts.js`, and
 `screens/` (title, main menu, quick battle, battle HUD 630 lines, results and
 replays, workshop 590, inspect, beasts, skills, stats, settings, story 408,
-dialogue, tournament 580, modes and lab). Screens are classes with `render()`
+dialogue, tournament 580, modes and lab, Rift Run hub/map, loot and node
+screens). Style objects passed to `h()` support CSS custom properties
+(`'--rc': color`). Screens are classes with `render()`
 returning DOM, optional `onEnter`, `onExit`, `update`, `handleInput`,
 `onNav`, `onTab`, `onAlt`, `onFocus`, `prompts()`.
 
@@ -251,8 +258,9 @@ context; the simulation worker entry.
 | `tests/tournament.test.js`, `story.test.js`, `modes.test.js` | Formats and standings; story integrity and once-only rewards; challenge, survival and league rules. |
 | `tests/replay.test.js` | Recorded match replays identically under different frame timing; a live AI match ends identically at 30/60/144 fps; replay storage. |
 | `tests/render.test.js` | Spirit forms for every beast (finite, stadium-sized, animate safely); camera wall framing. |
+| `tests/rift.test.js` | Rift Run: seeded maps and constraints, rewards and skips, hearts and Second Wind, charms/resonance/boons into participants, forge, trader, shrine, camp, events, Locker, talents, statuses, fusions, sweet spots, a headless two-act run. |
 | `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
-| `tests/browser/run.js` | 11 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect. It uses the GPU when there is one (about 3 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
+| `tests/browser/run.js` | 12 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank). It uses the GPU when there is one (about 3 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. |
 | `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 

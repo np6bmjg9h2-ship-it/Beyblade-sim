@@ -220,6 +220,11 @@ export class BattleScreen {
       case 'counterWhiff': if (involvesHuman(e.fighter)) this.notify('Counter missed', 'info'); break;
       case 'interrupted': this.notify(`${e.name} interrupted!`, 'bad'); break;
       case 'restore': app.audio.heal(); this.notify(`${e.fighter.name} restored spin (+${e.energy.toFixed(2)} J)`, 'good'); break;
+      case 'riftStatus': this.notify(`${e.fighter.name}: ${e.name.toUpperCase()}!`, involvesHuman(e.fighter) ? 'bad' : 'good'); break;
+      case 'riftFusion': app.audio.burst(); this.notify(`${e.name.toUpperCase()} on ${e.fighter.name}!`, 'crit'); if (involvesHuman(e.fighter)) app.input.rumble(0.6, 0.6, 200); break;
+      case 'sweetSpot': this.notify(`${e.fighter.name}: SWEET SPOT!`, 'gold'); if (involvesHuman(e.fighter)) app.input.rumble(0.5, 0.8, 120); break;
+      case 'meltdownHit': this.notify(`${e.fighter.name}: MELTDOWN HIT!`, 'crit'); break;
+      case 'secondWind': app.audio.heal(); this.notify(`${e.fighter.name}: SECOND WIND!`, 'good'); break;
       case 'topFinished':
         if (e.how === 'burst') app.audio.burst();
         else if (e.how === 'out') app.audio.ringOut();
@@ -387,6 +392,7 @@ export class BattleScreen {
         if (f.ability.counter) tags.push('COUNTER');
         if (f.ability.channel) tags.push('CHANNEL ' + f.ability.channel.name);
         for (const tm of f.mods.timed) if (tm.origin === 'ability' && !tm.id.startsWith('counter')) tags.push(tm.name);
+        for (const tm of f.mods.timed) if (tm.origin === 'rift') tags.push(tm.name.toUpperCase());
         r.status.textContent = [...new Set(tags)].join(' · ');
       });
       // timer & round

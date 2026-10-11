@@ -89,7 +89,8 @@ export class AbilityRuntime {
     if (!chk.ok) return chk;
     const d = this.slotDef(slot);
     this.spirit -= this.costOf(slot);
-    this.cool[slot] = d.cooldown;
+    const cdCut = (this.skills.abilityCooldown || 0) + (slot === 'signature' ? this.skills.signatureCooldown || 0 : 0);
+    this.cool[slot] = d.cooldown * Math.max(0.2, 1 - cdCut);
     const durMul = this.f.top.mods.abilityDuration * (1 + (this.skills.abilityDuration || 0));
     const power = this.f.top.mods.abilityPower * this.bondPower * (1 + (this.skills.abilityPower || 0));
     for (const op of d.ops) this.runOp(op, d, ctx, durMul, power, slot);
