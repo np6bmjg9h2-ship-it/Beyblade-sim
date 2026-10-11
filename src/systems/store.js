@@ -6,7 +6,8 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { PARTS } from '../data/parts.js';
 import { LAUNCHERS } from '../data/launchers.js';
 import { rarityRank } from '../data/rarity.js';
-import { OFFER_INDEX, DAILY, DEAL_PRICE, DEAL_SLOT_MUL } from '../data/store.js';
+import { OFFER_INDEX, DAILY, DEAL_PRICE, DEAL_SLOT_MUL, DAILY_STORE } from '../data/store.js';
+import { generatePart } from './partGen.js';
 import { rollLoot, rollBase, rollRarity, rarityWeights, addItem } from './loot.js';
 import { createItem } from './items.js';
 
@@ -124,7 +125,7 @@ export function dailyDeals(profile, day = dayKey()) {
 
 export function buyDeal(profile, index, day = dayKey()) {
   const S = storeState(profile);
-  if (S.daily.day !== day) S.daily = { day, bought: [], seen: S.daily.seen };
+  if (S.daily.day !== day) S.daily = { day, bought: [], protos: [], seen: S.daily.seen };
   const deal = dailyDeals(profile, day)[index];
   if (!deal) return fail('No such deal.');
   if (deal.bought) return fail('Already bought today.');
@@ -142,3 +143,43 @@ export function buyDeal(profile, index, day = dayKey()) {
 export function markDealsSeen(profile, day = dayKey()) { storeState(profile).daily.seen = day; }
 export function dealsUnseen(profile, day = dayKey()) { return storeState(profile).daily.seen !== day; }
 
+
+// ------------------------------------------------------------ daily store
+
+// The Daily Store: one-of-a-kind prototype parts and launchers designed each
+// day (systems/partGen.js). The lineup, every part's design and every
+// item's traits come from the day's seed, so they are fixed for the day.
+export function dailyStore(profile, day = dayKey()) {
+  const S = storeState(profile);
+  const rng = new Rng(mixSeeds(profile.seeds.loot, 'proto', day));
+  const level = profile.player.level;
+  const lineup = [];
+  DAILY_STORE.lineup.forEach((slot, i) => {
+    const seed = rng.nextU32();
+    const id = `proto_${slot}_${day.replace(/-/g, '')}_${i}_${seed.toString(36)}`;
+    const def = generatePart(seed, slot, id);
+    const rarity = rollRarity(rng, DAILY_STORE.tier, DAILY_STORE.luck, DAILY_STORE.minRarity);
+    const item = createItem({ base: id, def, rarity, level, seed: rng.nextU32(), source: 'Daily Store', uid: `${id}_item` });
+    const price = Math.round((DAILY_STORE.price[rarity] * (DEAL_SLOT_MUL[slot] ?? 1)) / 10) * 10;
+    lineup.push({ index: i, item, price, bought: S.daily.day === day && (S.daily.protos || []).includes(i) });
+  });
+  return lineup;
+}
+
+export function buyDailyStore(profile, index, day = dayKey()) {
+  const S = storeState(profile);
+  if (S.daily.day !== day) S.daily = { day, bought: [], protos: [], seen: S.daily.seen };
+  S.daily.protos ||= [];
+  const entry = dailyStore(profile, day)[index];
+  if (!entry) return fail('No such prototype.');
+  if (entry.bought) return fail('Already bought: each prototype is one of a kind.');
+  const c = canBuy(profile, entry.price);
+  if (!c.ok) return c;
+  pay(profile, entry.price);
+  S.daily.protos.push(index);
+  const it = structuredClone(entry.item);
+  it.history.acquired = 'Daily Store';
+  it.history.acquiredAt = Date.now();
+  addItem(profile, it);
+  return { ok: true, items: [it], materials: null };
+}

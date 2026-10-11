@@ -34,7 +34,7 @@ export function conditionBand(c) {
 export function resolvePart(entry) {
   if (!entry) return null;
   const isItem = !!entry.base;
-  const base = isItem ? PART_INDEX[entry.base] : entry;
+  const base = isItem ? (entry.def || PART_INDEX[entry.base]) : entry;
   if (!base) throw new Error('Unknown part base ' + entry.base);
   const def = structuredClone(base);
   const notes = [];

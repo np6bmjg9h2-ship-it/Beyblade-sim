@@ -22,7 +22,7 @@ const condOf = (cur, max = 100) => clamp((cur ?? max) / max, 0, 1);
 
 // Merge launcher + cable items (or bases) into effective launch gear.
 export function resolveLaunchGear(launcher, cable, extra = {}) {
-  const lBase = launcher?.base ? LAUNCHER_INDEX[launcher.base] : launcher || LAUNCHER_INDEX.launcher_spark;
+  const lBase = launcher?.base ? (launcher.def || LAUNCHER_INDEX[launcher.base]) : launcher || LAUNCHER_INDEX.launcher_spark;
   const cBase = cable?.base ? CABLE_INDEX[cable.base] : cable || CABLE_INDEX.cable_standard;
   const L = structuredClone(lBase);
   const C = structuredClone(cBase);

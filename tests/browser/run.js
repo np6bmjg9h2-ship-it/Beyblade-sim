@@ -251,6 +251,21 @@ scenarios.workshop = async () => {
     const dur = await h.eval(() => Object.values(window.__app.profile.inventory)[0].durability);
     if (dur <= 20) throw new Error('repair did not apply');
     for (let i = 0; i < 3; i++) { await h.padButton(5); await h.shot('ws_tab' + i); }
+    // craft tab: crafting a blueprint works and shows what you got
+    await h.padButton(4);
+    await h.waitFor(() => window.__app.ui.current.tab === 'craft', 5000, 'craft tab');
+    const inv0 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    await h.eval(() => window.__app.ui.focus(document.querySelector('[data-id^="bp-"]')));
+    await h.padButton(0);
+    const inv1 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    if (inv1 !== inv0 + 1) throw new Error(`blueprint craft did not add an item: ${inv0} -> ${inv1}`);
+    // the Forge panel scrolls with the right stick even though focus is in the other panel
+    await h.eval(() => { window.__app.profile.materials.coreShard = 20; window.__app.profile.materials.alloy = 40; window.__app.profile.currency.credits = 9000; });
+    await h.eval(() => window.__app.ui.focus(document.querySelector('[data-id="forge-ring"]')));
+    await h.padButton(0);
+    const inv2 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    if (inv2 !== inv1 + 1) throw new Error('forge did not add an item');
+    await h.shot('ws_craft');
     await h.padButton(1);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'back to menu');
     return { errors: h.errors };
@@ -995,7 +1010,7 @@ scenarios.store = async () => {
   };
   try {
     await newGame(h);
-    await h.eval(() => { window.__app.profile.currency.credits = 5000; });
+    await h.eval(() => { window.__app.profile.currency.credits = 30000; });
     const inv0 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
     await openTile(h, 'store', 'StoreScreen');
     await h.shot('s01_packs');
@@ -1007,16 +1022,31 @@ scenarios.store = async () => {
     if (got.length !== 4) throw new Error('street pack should open 4 items: ' + got);
     await h.focusId('reveal-done'); await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'StoreScreen', 5000, 'back to shop');
-    await h.padButton(5); await h.padButton(5);
-    await h.waitFor(() => !!document.querySelector('[data-id="deal-0"]'), 5000, 'deals tab');
+    // today's deals sit further down the Main Store page: scroll there with the right stick
+    await h.padNeutral();
+    await h.eval(() => { window.__pad.axes = [0, 0, 0, 1]; });
+    await h.page.waitForTimeout(900);
+    await h.padNeutral();
+    const scrolled = await h.eval(() => document.querySelector('[data-scroll="shop-main"]').scrollTop);
+    if (!(scrolled > 50)) throw new Error('right stick did not scroll the store page: ' + scrolled);
     await h.shot('s03_deals');
     await h.focusId('deal-0'); await h.padButton(0);
     await confirmBuy();
     await h.focusId('reveal-done'); await h.padButton(0);
-    const after = await h.eval(() => ({ cr: window.__app.profile.currency.credits, inv: Object.keys(window.__app.profile.inventory).length, sold: !!document.querySelector('[data-id="deal-0"][disabled]') }));
-    if (after.inv !== inv0 + 5) throw new Error(`inventory ${inv0} -> ${after.inv}`);
-    if (!(after.cr < 5000 - 500)) throw new Error('credits not spent: ' + after.cr);
-    if (!after.sold) throw new Error('deal not marked sold');
+    const sold = await h.eval(() => !!document.querySelector('[data-id="deal-0"][disabled]'));
+    // Daily Store: a one-of-a-kind prototype
+    await h.padButton(5);
+    await h.waitFor(() => !!document.querySelector('[data-id="proto-0"]'), 5000, 'daily store');
+    await h.shot('s04_daily');
+    await h.focusId('proto-0'); await h.padButton(0);
+    await confirmBuy();
+    const proto = await h.eval(() => !!window.__app.ui.current.result.items[0].def?.generated);
+    await h.focusId('reveal-done'); await h.padButton(0);
+    const after = await h.eval(() => ({ cr: window.__app.profile.currency.credits, inv: Object.keys(window.__app.profile.inventory).length }));
+    if (!proto) throw new Error('daily store item is not a prototype');
+    if (after.inv !== inv0 + 6) throw new Error(`inventory ${inv0} -> ${after.inv}`);
+    if (!(after.cr < 30000 - 500)) throw new Error('credits not spent: ' + after.cr);
+    if (!sold) throw new Error('deal not marked sold');
     return { got, credits: after.cr, errors: h.errors };
   } finally { await h.close(); }
 };

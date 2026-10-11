@@ -117,7 +117,7 @@ export function processMatch(profile, result, session, battle) {
   if (difficulty >= 1 && won) mats.alloy = 1;
   if (difficulty >= 1.15 && won) mats.coreShard = 1;
   for (const [k, v] of Object.entries(mats)) if (v > 0) { rw.materials[k] = Math.round(v * Math.max(0.5, rep)); }
-  rw.research += Math.round((st.launches.filter((l) => l.techniqueSuccess).length * 2 + (st.abilitiesUsed > 0 ? 2 : 0)) * rep);
+  rw.research += Math.round(((won ? 3 : 1) + st.launches.filter((l) => l.techniqueSuccess).length * 2 + (st.abilitiesUsed > 0 ? 2 : 0)) * rep);
   rw.levelUps = addPlayerXp(profile, rw.playerXp);
   profile.currency.credits += rw.credits;
   profile.currency.research += rw.research;

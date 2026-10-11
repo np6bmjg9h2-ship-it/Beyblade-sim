@@ -70,13 +70,13 @@ export function itemCard(item, opts = {}) {
   const m = masteryOf(item.xp || 0);
   const traits = [...(item.traits || []), ...(item.special ? [item.special] : [])];
   const set = item.set ? SET_INDEX[item.set] : null;
-  const el = h('div', { class: 'item-card ' + (opts.class || ''), style: { '--rarity': R.color } },
+  const el = h('div', { class: `item-card r-${item.rarity} ` + (opts.class || ''), style: { '--rarity': R.color } },
     h('div', { class: 'item-head' },
       h('span', { class: 'swatch', style: { background: item.visual?.color || base?.color || '#888' } }),
       h('div', { class: 'item-title' }, h('div', { class: 'item-name' }, itemName(item), item.favourite ? ' ★' : '', item.locked ? ' 🔒' : ''),
         h('div', { class: 'item-sub' }, `${SLOT_NAMES[item.slot] || item.slot} · Lv ${item.level}`)),
       rarityChip(item.rarity)),
-    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null),
+    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null, item.def?.generated ? h('span', { class: 'chip proto-chip' }, 'Prototype') : null),
     opts.compact ? null : h('div', { class: 'item-traits' }, traits.length ? traits.map((t) => h('div', { class: 'trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ': ', TRAIT_INDEX[t.id]?.desc(t.mag) || '')) : h('div', { class: 'muted' }, 'No traits')));
   return el;
 }
@@ -104,3 +104,21 @@ export function fmtTime(s) {
 }
 
 export function fmtRpm(w) { return `${Math.round((Math.abs(w) * 60) / (2 * Math.PI)).toLocaleString()} RPM`; }
+
+// ------------------------------------------------------------ resources
+
+export const RESOURCE_NAMES = { credits: 'CR', research: 'Research', scrap: 'Scrap', polymer: 'Polymer', alloy: 'Alloy', coreShard: 'Core shard', spiritDust: 'Spirit dust', relicFragment: 'Relic frag.' };
+const haveOf = (profile, k) => (k === 'credits' ? profile.currency.credits : k === 'research' ? profile.currency.research : profile.materials[k] || 0);
+
+// Compact wallet for screen headers: CR first, then the chosen resources.
+export function resourceBar(profile, keys = ['credits', 'research', 'scrap', 'polymer', 'alloy', 'coreShard', 'spiritDust', 'relicFragment']) {
+  return h('div', { class: 'res-bar' }, keys.map((k) => h('span', { class: 'res res-' + k, title: RESOURCE_NAMES[k] },
+    h('i', {}, RESOURCE_NAMES[k]), h('b', {}, haveOf(profile, k).toLocaleString()))));
+}
+
+// A cost as chips, each green when you have enough and red when not.
+export function costChips(profile, cost) {
+  const parts = Object.entries(cost).filter(([, v]) => v > 0);
+  if (!parts.length) return h('span', { class: 'cost-chip ok' }, 'Free');
+  return h('span', { class: 'cost-chips' }, parts.map(([k, v]) => h('span', { class: 'cost-chip ' + (haveOf(profile, k) >= v ? 'ok' : 'short') }, `${v.toLocaleString()} ${RESOURCE_NAMES[k] || k}`)));
+}

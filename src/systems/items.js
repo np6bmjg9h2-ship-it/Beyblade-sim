@@ -32,7 +32,8 @@ export const tuningSlots = (xp) => Math.max(0, masteryOf(xp).index - 1);
 
 export function baseOf(item) {
   if (!item) return null;
-  return PART_INDEX[item.base] || LAUNCHER_INDEX[item.base] || CABLE_INDEX[item.base] || null;
+  // generated prototypes carry their own definition
+  return item.def || PART_INDEX[item.base] || LAUNCHER_INDEX[item.base] || CABLE_INDEX[item.base] || null;
 }
 
 export function slotOf(item) { return baseOf(item)?.slot; }
@@ -111,7 +112,7 @@ export function makeUid(seed) {
 // Create an item instance.
 // opts: { base, rarity, level, seed, set, traits, special, noTraits, source }
 export function createItem(opts) {
-  const base = PART_INDEX[opts.base] || LAUNCHER_INDEX[opts.base] || CABLE_INDEX[opts.base];
+  const base = opts.def || PART_INDEX[opts.base] || LAUNCHER_INDEX[opts.base] || CABLE_INDEX[opts.base];
   if (!base) throw new Error('Unknown base ' + opts.base);
   const seed = (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0;
   const rng = new Rng(mixSeeds(seed, base.id));
@@ -153,6 +154,7 @@ export function createItem(opts) {
     visual: { color: opts.color || null },
   };
   if (base.slot === 'launcher') item.parts = { drive: 100, trigger: 100, grip: 100 };
+  if (opts.def) item.def = structuredClone(opts.def);
   return item;
 }
 

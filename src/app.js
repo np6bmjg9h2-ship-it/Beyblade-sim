@@ -81,6 +81,9 @@ export class App {
     this.renderer.rig.invertY = s.input.invertCameraY;
     this.root.classList.toggle('high-contrast', !!s.gameplay.highContrast);
     this.root.classList.toggle('colorblind', !!s.gameplay.colorblind);
+    // frosted glass where the GPU budget allows it; calmer UI with reduced effects
+    this.root.classList.toggle('fx-glass', s.graphics.quality !== 'low' && !s.graphics.reducedEffects);
+    this.root.classList.toggle('reduce-motion', !!s.graphics.reducedEffects);
     this.root.style.setProperty('--hud-scale', s.gameplay.hudScale);
     this.fpsEl && (this.fpsEl.style.display = s.graphics.showFps ? 'block' : 'none');
   }

@@ -7,6 +7,8 @@ import { PLAYER_LEVEL_XP } from '../../systems/profile.js';
 import { MENU_ENTRIES } from './registry.js';
 import { TitleScreen } from './title.js';
 
+const TILE_ICONS = { story: '★', rift: '◈', quick: '⚡', modes: '◎', tournaments: '♛', workshop: '⚒', store: '✦', beasts: '❂', skills: '✚', stats: '▤', settings: '⚙', save: '⬇' };
+
 export class MainMenu {
   static screenName = 'MainMenu';
   render() {
@@ -27,7 +29,7 @@ export class MainMenu {
       if (e.hidden?.(p)) continue;
       const locked = e.locked?.(p);
       const badge = e.badge?.(p);
-      const b = btn(h('div', { class: 'tile' }, h('div', { class: 'tile-title' }, e.label, badge ? h('span', { class: 'badge' }, '!') : null), h('div', { class: 'tile-desc' }, locked || e.desc)), () => this.open(e), { class: 'tile-btn' + (e.primary ? ' primary' : ''), disabled: !!locked });
+      const b = btn(h('div', { class: 'tile' }, h('span', { class: 'tile-icon', 'aria-hidden': 'true' }, TILE_ICONS[e.id] || '◆'), h('div', { class: 'tile-title' }, e.label, badge ? h('span', { class: 'badge' }, '!') : null), h('div', { class: 'tile-desc' }, locked || e.desc)), () => this.open(e), { class: 'tile-btn' + (e.primary ? ' primary' : ''), disabled: !!locked });
       b.dataset.id = e.id;
       b.dataset.desc = locked || e.desc;
       grid.append(b);

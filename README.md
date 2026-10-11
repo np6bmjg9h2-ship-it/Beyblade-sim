@@ -83,12 +83,16 @@ options. Unplugging a controller mid-battle pauses the game.
   (12 constrained goals), **Survival** (endless, escalating, wear carries
   over) and **League** (five divisions, promotion and relegation).
 - **Workshop** — loadouts, inventory, repair, upgrades, trait reroll and
-  transfer, tuning, crafting, the collection log.
-- **Shop** — spend CR on booster packs (Starter, Street, Pro, Champion,
-  Classic, Launch Gear) with guaranteed rarities, mystery capsules, themed
-  bundles (Attack, Defense, Stamina), a materials crate and three daily deals
-  (exact parts at 20% off, one each per day). Every sealed offer prints its
-  odds, taken from the same rarity weights as battle drops.
+  transfer, tuning, crafting (blueprints for every discovered part, paid in CR
+  and common materials, plus the Forge), the collection log.
+- **Store** — the **Main Store** sells booster packs (Starter, Street, Pro,
+  Champion, Classic, Launch Gear) with guaranteed rarities, mystery capsules,
+  themed bundles (Attack, Defense, Stamina), a materials crate and three daily
+  deals (exact parts at 20% off); every sealed offer prints its odds, taken
+  from the same rarity weights as battle drops. The **Daily Store** (Prototype
+  Lab) sells six one-of-a-kind prototype parts and a launcher designed by the
+  game each day (`src/systems/partGen.js`): new names, numbers and models
+  drawn inside the catalogue's ranges, each sold once.
 - **Bit-Beasts**, **Skills** (five paths, respec), **Statistics** (records,
   charts, history and **replays**).
 

@@ -27,11 +27,21 @@ export const h = (tag, attrs = {}, ...children) => {
 // A focusable button. `onActivate` runs on click, Enter/A.
 export function btn(label, onActivate, opts = {}) {
   const el = h('button', { class: 'btn ' + (opts.class || ''), type: 'button', 'data-focus': '', disabled: opts.disabled, title: opts.title }, label);
-  el.addEventListener('click', (e) => { e.preventDefault(); if (!el.disabled) onActivate?.(e); });
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (el.disabled) return;
+    // press flash (keyboard, controller and mouse all land here)
+    el.classList.remove('pressed'); void el.offsetWidth; el.classList.add('pressed');
+    setTimeout(() => el.classList.remove('pressed'), 220);
+    onActivate?.(e);
+  });
   if (opts.desc) el.dataset.desc = opts.desc;
   if (opts.id) el.dataset.id = opts.id;
   return el;
 }
+
+// Scroll containers of a screen (panels marked scroll, data-scroll lists, item lists).
+export function scrollers(root) { return [...root.querySelectorAll('[data-scroll], .scroll, .item-list')]; }
 
 export function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -76,9 +86,11 @@ export class UI {
     screen.el.classList.add('screen');
     if (screen.overlay) screen.el.classList.add('screen-overlay');
     (screen.overlay ? this.overlay : this.layer).appendChild(screen.el);
+    screen.el.classList.add('screen-enter');
     this.stack.push(screen);
     screen.onEnter?.(params);
     this.autoFocus(screen);
+    this.markScrollers(screen.el);
     this.refreshPrompts();
     return screen;
   }
@@ -89,6 +101,7 @@ export class UI {
     const cur = this.current;
     if (cur) {
       cur.el.classList.remove('inactive');
+      cur.el.classList.remove('screen-enter', 'screen-resume'); void cur.el.offsetWidth; cur.el.classList.add('screen-resume');
       cur.onResume?.();
       if (cur._lastFocus && cur.el.contains(cur._lastFocus) && cur._lastFocus.isConnected) this.focus(cur._lastFocus, { silent: true });
       else this.autoFocus(cur);
@@ -108,12 +121,18 @@ export class UI {
     const background = screen !== this.current;
     const fid = background ? screen._lastFocus?.dataset?.id : this.focused?.dataset?.id;
     const old = screen.el;
-    const scroll = [...old.querySelectorAll('[data-scroll]')].map((e) => [e.dataset.scroll, e.scrollTop]);
+    // every scroll container keeps its place (by data-scroll key, else by order)
+    const scroll = scrollers(old).map((e, i) => [e.dataset.scroll || '#' + i, e.scrollTop]);
     screen.el = screen.render(screen.params);
     screen.el.classList.add('screen');
     if (screen.overlay) screen.el.classList.add('screen-overlay');
+    // switching tabs slides the new content in
+    const tabWas = old.querySelector('.tab.active')?.textContent, tabNow = screen.el.querySelector('.tab.active')?.textContent;
+    if (tabWas && tabNow && tabWas !== tabNow) screen.el.classList.add('tab-in');
     old.replaceWith(screen.el);
-    for (const [k, top] of scroll) { const e = screen.el.querySelector(`[data-scroll="${k}"]`); if (e) e.scrollTop = top; }
+    const now = scrollers(screen.el);
+    for (const [k, top] of scroll) { const e = k[0] === '#' ? now[+k.slice(1)] : screen.el.querySelector(`[data-scroll="${k}"]`); if (e) e.scrollTop = top; }
+    this.markScrollers(screen.el);
     if (background) {
       // never steal focus from the active screen; just remember where to return
       screen.el.classList.add('inactive');
@@ -231,6 +250,41 @@ export class UI {
     if (input.pressed('tab_next', 'menu')) { if (screen.onTab?.(1)) this.app.audio.ui('tab'); }
     if (input.pressed('alt', 'menu')) screen.onAlt?.(this.focused);
     if (input.pressed('alt2', 'menu')) screen.onAlt2?.(this.focused);
+    const sv = input.value('scroll', 'menu');
+    if (Math.abs(sv) > 0.15) this.scrollBy(Math.sign(sv) * Math.pow(Math.abs(sv), 1.4) * 1100 * dt);
+  }
+
+  // Scroll the panel being read: the scrollable panel around the focus if it
+  // can move that way, else a panel with nothing focusable in it (details,
+  // lore, stats) that a controller could never reach by moving focus.
+  scrollBy(dy) {
+    const scope = this.modal ? this.modal.el : this.current?.el;
+    if (!scope) return false;
+    const can = (e) => (dy > 0 ? e.scrollTop + e.clientHeight < e.scrollHeight - 1 : e.scrollTop > 0);
+    const list = scrollers(scope).filter((e) => e.offsetParent !== null && e.scrollHeight > e.clientHeight + 2);
+    if (!list.length) return false;
+    const around = this.focused ? list.filter((e) => e.contains(this.focused)) : [];
+    const plain = list.filter((e) => !e.querySelector('[data-focus]'));
+    const pick = [...around, ...plain, ...list].find(can);
+    if (!pick) return false;
+    pick.scrollTop += dy;
+    return true;
+  }
+
+  // Scroll hints: fade the edges of a panel that has more to show.
+  markScrollers(root) {
+    let any = false;
+    for (const e of scrollers(root)) {
+      const mark = () => {
+        const more = e.scrollHeight > e.clientHeight + 2;
+        e.classList.toggle('more-up', more && e.scrollTop > 2);
+        e.classList.toggle('more-down', more && e.scrollTop + e.clientHeight < e.scrollHeight - 2);
+      };
+      if (!e._marked) { e.addEventListener('scroll', mark, { passive: true }); e._marked = true; }
+      requestAnimationFrame(mark);
+      any = true;
+    }
+    if (any !== this.hasScroll) { this.hasScroll = any; this.refreshPrompts(); }
   }
 
   // ------------------------------------------------------------ prompts
@@ -244,6 +298,7 @@ export class UI {
       const g = this.app.input.glyph(action, ctx || 'menu');
       this.prompts.append(h('span', { class: 'prompt' }, h('kbd', {}, g), ' ', label));
     }
+    if (this.hasScroll && !this.modal && !screen?.noScrollPrompt) this.prompts.append(h('span', { class: 'prompt' }, h('kbd', {}, this.app.input.glyph('scroll', 'menu')), ' Scroll'));
   }
 
   glyph(action, ctx = 'menu') { return this.app.input.glyph(action, ctx); }
@@ -253,6 +308,8 @@ export class UI {
   toast(text, kind = 'info', ms = 2600) {
     const t = h('div', { class: 'toast toast-' + kind }, text);
     this.toasts.append(t);
+    // at most three on screen: the oldest makes room
+    while (this.toasts.children.length > 3) this.toasts.firstElementChild.remove();
     requestAnimationFrame(() => t.classList.add('show'));
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, ms);
   }

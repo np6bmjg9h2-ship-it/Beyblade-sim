@@ -34,9 +34,8 @@ const STAMINA = {
 const bundleItems = (T) => [{ slot: 'ring', pool: T.ring }, { slot: 'tip', pool: T.tip }, { slot: 'disc', pool: T.disc }];
 
 export const STORE_TABS = [
-  { id: 'packs', label: 'Packs' },
-  { id: 'bundles', label: 'Bundles' },
-  { id: 'deals', label: 'Daily Deals' },
+  { id: 'main', label: 'Main Store' },
+  { id: 'daily', label: 'Daily Store' },
 ];
 
 export const OFFERS = [
@@ -74,3 +73,10 @@ export const OFFER_INDEX = Object.fromEntries(OFFERS.map((o) => [o.id, o]));
 export const DAILY = { count: 3, tier: 2, luck: 0.3, minRarity: 'rare', discount: 0.8 };
 export const DEAL_PRICE = { rare: 380, epic: 900, legendary: 2000, mythic: 4500, relic: 9000 };
 export const DEAL_SLOT_MUL = { ring: 1.2, tip: 1.1, disc: 1, lock: 0.9, core: 0.9, aux: 0.8, launcher: 1, cable: 0.8 };
+
+// Daily Store: six prototype designs a day, Rare or better, one of each.
+export const DAILY_STORE = {
+  lineup: ['ring', 'ring', 'tip', 'disc', 'lock', 'launcher'],
+  tier: 2, luck: 0.15, minRarity: 'rare',
+  price: { rare: 450, epic: 1000, legendary: 2200, mythic: 4800, relic: 9500 },
+};

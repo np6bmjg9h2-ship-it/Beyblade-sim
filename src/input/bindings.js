@@ -45,6 +45,8 @@ function base() {
       alt: { keys: ['KeyX'], pad: b(2) },
       alt2: { keys: ['KeyY', 'KeyC'], pad: b(3) },
       pause: { keys: [], pad: b(9) },
+      // scroll the panel you are reading (right stick / R and F)
+      scroll: { axis: true, neg: ['KeyR'], pos: ['KeyF'], pad: [{ axis: 3 }] },
     },
     launch: {
       aim_x: { axis: true, neg: ['KeyA'], pos: ['KeyD'], pad: [{ axis: 0 }] },

@@ -3,7 +3,7 @@
 // favourites, Y compares/locks, A selects, B backs out.
 
 import { h, btn, selector, toggle } from '../ui.js';
-import { itemCard, rarityChip, condChip, beastImg, statRow, diffRow, textEntry } from '../widgets.js';
+import { itemCard, rarityChip, condChip, beastImg, statRow, diffRow, textEntry, resourceBar, costChips, RESOURCE_NAMES } from '../widgets.js';
 import { SLOTS, SLOT_NAMES, PARTS } from '../../data/parts.js';
 import { LAUNCHERS, CABLES, TECHNIQUE_INDEX } from '../../data/launchers.js';
 import { RARITIES, RARITY_INDEX, rarityRank } from '../../data/rarity.js';
@@ -54,7 +54,7 @@ export class WorkshopScreen {
       collection: () => this.renderCollection(),
     }[this.tab]();
     const P = this.p;
-    const mats = h('div', { class: 'mats' }, `${P.currency.credits.toLocaleString()} cr · ${P.currency.research} research · scrap ${P.materials.scrap} · polymer ${P.materials.polymer} · alloy ${P.materials.alloy} · core shard ${P.materials.coreShard} · spirit dust ${P.materials.spiritDust} · relic ${P.materials.relicFragment}`);
+    const mats = resourceBar(P);
     return h('div', { class: 'std-screen workshop' },
       h('div', { class: 'screen-head' }, h('h1', {}, 'Workshop'),
         h('div', { class: 'tabbar' }, h('kbd', {}, this.app.input.glyph('tab_prev')), TABS.map((t) => h('div', { class: 'tab' + (t.id === this.tab ? ' active' : ''), onclick: () => this.setTab(t.id) }, t.label)), h('kbd', {}, this.app.input.glyph('tab_next'))),
@@ -332,7 +332,7 @@ export class WorkshopScreen {
     const choice = await this.ui.choose(itemName(it), [
       { label: `Equip to ${L.name}`, value: 'equip', disabled: equipped, desc: 'Quick-equip into the active loadout.' },
       ...(isPart ? [{ label: 'Inspect in 3D', value: 'inspect', desc: 'See this part on its own and fitted into your active top.' }] : []),
-      ...(PARTS.find((b) => b.id === it.base)?.magnet ? [{ label: `Flip magnet (${it.pole === 'S' ? 'S' : 'N'} face up → ${it.pole === 'S' ? 'N' : 'S'})`, value: 'flip', desc: 'Turn the disc over to swap its pole. Opposite poles attract, matching poles repel; plain tops are always pulled a little.' }] : []),
+      ...(baseOf(it)?.magnet ? [{ label: `Flip magnet (${it.pole === 'S' ? 'S' : 'N'} face up → ${it.pole === 'S' ? 'N' : 'S'})`, value: 'flip', desc: 'Turn the disc over to swap its pole. Opposite poles attract, matching poles repel; plain tops are always pulled a little.' }] : []),
       { label: it.favourite ? 'Unfavourite' : 'Favourite ★', value: 'fav' },
       { label: it.locked ? 'Unlock' : 'Lock 🔒', value: 'lock' },
       { label: 'Nickname…', value: 'nick' },
@@ -482,16 +482,36 @@ export class WorkshopScreen {
   renderCraft() {
     const P = this.p;
     const bases = [...PARTS, ...LAUNCHERS, ...CABLES];
-    const rows = h('div', { class: 'col gap', 'data-wrap': '', 'data-scroll': 'craft' });
-    rows.append(h('p', { class: 'small muted' }, 'Blueprints unlock when you first discover a part. Crafting gives a fresh Uncommon copy — a reliable way to get a specific base part without depending on drops.'));
-    for (const b of bases) {
-      if (!P.discovery.parts[b.id]) continue;
+    const rows = h('div', { class: 'col gap', 'data-wrap': '' });
+    const known = bases.filter((b) => P.discovery.parts[b.id]);
+    rows.append(h('p', { class: 'small muted' }, `Every part you have discovered (${known.length}/${bases.length}) has a blueprint. Crafting makes a fresh Uncommon copy: the sure way to get a specific part without waiting for a drop.`));
+    for (const b of known) {
       const cost = WS.blueprintCost(P, b);
-      rows.append(btn(h('div', { class: 'row gap' }, h('span', { class: 'swatch', style: { background: b.color } }), h('b', {}, b.name), h('span', { class: 'small muted' }, `${SLOT_NAMES[b.slot]} · ${WS.costText(cost)}`)), () => this.act(() => { const r = WS.craftBlueprint(P, b.id); if (r.ok) this.ui.toast(`Crafted ${itemName(r.item)}`, 'good'); return r; }), { disabled: !WS.canAfford(P, cost), desc: b.desc }));
+      const ok = WS.canAfford(P, cost);
+      rows.append(btn(h('div', { class: 'craft-row' }, h('span', { class: 'swatch', style: { background: b.color } }), h('div', { class: 'craft-name' }, h('b', {}, b.name), h('span', { class: 'small muted' }, SLOT_NAMES[b.slot])), costChips(P, cost)),
+        () => this.craft(() => WS.craftBlueprint(P, b.id), cost, (r) => `Crafted ${itemName(r.item)}.`), { class: 'craft-btn' + (ok ? '' : ' cant'), id: 'bp-' + b.id, desc: ok ? `Craft ${b.name}. ${b.desc}` : `Missing ${this.missingText(cost)}. ${b.desc}` }));
     }
-    const forge = h('div', { class: 'col gap', 'data-wrap': '' }, h('p', { class: 'small muted' }, `The Forge produces a random Epic-or-better part for a chosen slot. Cost: ${WS.costText(WS.FORGE_COST)}.`),
-      ...ALL_SLOTS.map((s) => btn(`Forge ${SLOT_NAMES[s]}`, () => this.act(() => { const r = WS.forge(P, s, rollLoot); if (r.ok) this.ui.toast(`Forged ${itemName(r.item)} (${RARITY_INDEX[r.item.rarity].name})`, 'good'); return r; }), { disabled: !WS.canAfford(P, WS.FORGE_COST) })));
-    return h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel scroll' }, h('h3', {}, 'Blueprints'), rows), h('div', { class: 'panel scroll' }, h('h3', {}, 'Forge'), forge));
+    const fok = WS.canAfford(P, WS.FORGE_COST);
+    const forge = h('div', { class: 'col gap', 'data-wrap': '' },
+      h('p', { class: 'small muted' }, 'The Forge turns materials into a random Epic-or-better part for the slot you choose.'),
+      h('div', { class: 'row gap' }, h('span', { class: 'small' }, 'Cost per forge:'), costChips(P, WS.FORGE_COST)),
+      ...ALL_SLOTS.map((s) => btn(`Forge ${SLOT_NAMES[s]}`, () => this.craft(() => WS.forge(P, s, rollLoot), WS.FORGE_COST, (r) => `Forged ${itemName(r.item)} (${RARITY_INDEX[r.item.rarity].name}).`), { class: 'craft-btn' + (fok ? '' : ' cant'), id: 'forge-' + s, desc: fok ? `Forge a random Epic-or-better ${SLOT_NAMES[s]}.` : `Missing ${this.missingText(WS.FORGE_COST)}.` })));
+    return h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel scroll', 'data-scroll': 'craft' }, h('h3', {}, 'Blueprints'), rows), h('div', { class: 'panel scroll', 'data-scroll': 'forge' }, h('h3', {}, 'Forge'), forge));
+  }
+
+  missingText(cost) {
+    return Object.entries(WS.missingFor(this.p, cost)).map(([k, v]) => `${v.toLocaleString()} ${RESOURCE_NAMES[k] || k}`).join(', ');
+  }
+
+  // Craft or forge with clear feedback: what is missing, or what you got.
+  craft(fn, cost, okText) {
+    if (!WS.canAfford(this.p, cost)) { this.ui.toast(`Not enough: you still need ${this.missingText(cost)}.`, 'bad', 3600); this.app.audio.ui('error'); return; }
+    const r = fn();
+    if (!r.ok) { this.ui.toast(r.reason, 'bad', 3600); this.app.audio.ui('error'); return; }
+    this.app.audio.ui('levelup');
+    this.ui.toast(okText(r), 'good', 3600);
+    this.app.save('silent');
+    this.ui.refresh(this);
   }
 
   // ================================================================ collection

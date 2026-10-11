@@ -25,6 +25,16 @@ function repairBlocked(profile, uid) {
 
 function econ(profile) { return computeSkillEffects(profile.player.skills).economy; }
 
+// What is still missing for a cost, e.g. { alloy: 2, credits: 140 } (empty when affordable).
+export function missingFor(profile, cost) {
+  const out = {};
+  for (const [k, v] of Object.entries(cost)) {
+    const have = k === 'credits' ? profile.currency.credits : k === 'research' ? profile.currency.research : profile.materials[k] || 0;
+    if (have < v) out[k] = v - have;
+  }
+  return out;
+}
+
 export function canAfford(profile, cost) {
   for (const [k, v] of Object.entries(cost)) {
     const have = k === 'credits' ? profile.currency.credits : k === 'research' ? profile.currency.research : profile.materials[k] || 0;
@@ -277,7 +287,8 @@ export function applyTuning(profile, uid, tuningId) {
 
 export function blueprintCost(profile, base) {
   const tier = base.tier || 1;
-  return scaleCost({ credits: 180 * tier, scrap: 6 * tier, polymer: 2 * tier, alloy: tier, research: 8 * tier }, 1 + (econ(profile).craftCost || 0));
+  // credits and common materials only: research is scarce and was blocking every blueprint
+  return scaleCost({ credits: 160 * tier, scrap: 5 * tier, polymer: 2 * tier, alloy: Math.max(0, tier - 1) }, 1 + (econ(profile).craftCost || 0));
 }
 
 // Craft a fresh Uncommon copy of a discovered base part (targeted acquisition).
@@ -294,7 +305,7 @@ export function craftBlueprint(profile, baseId) {
   return { ok: true, cost, item: it };
 }
 
-export const FORGE_COST = { credits: 600, coreShard: 3, relicFragment: 1, research: 30 };
+export const FORGE_COST = { credits: 900, coreShard: 2, alloy: 4 };
 
 // Forge: a random Epic-or-better part for a chosen slot.
 export function forge(profile, slot, rollLoot) {
@@ -328,7 +339,7 @@ export function toggleFlag(profile, uid, field) {
 // Turn a magnet disc over: N face up <-> S face up.
 export function flipMagnet(profile, uid) {
   const it = profile.inventory[uid];
-  if (!it || !PART_INDEX[it.base]?.magnet) return fail('Only magnet discs can be flipped.');
+  if (!it || !(it.def || PART_INDEX[it.base])?.magnet) return fail('Only magnet discs can be flipped.');
   const prev = it.pole ?? null;
   it.pole = it.pole === 'S' ? 'N' : 'S';
   pushUndo(profile, { type: 'field', uid, field: 'pole', prev, label: 'Flip magnet' });
