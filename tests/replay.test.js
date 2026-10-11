@@ -151,3 +151,18 @@ test('a ring-out explanation names where the top left, not where it landed', () 
   assert.ok(Math.abs(Math.atan2(top.p.z, top.p.x) - a) > 0.5, 'by the end the top is well outside the exit sector');
   assert.match(r.explanation, /through an exit/);
 });
+
+test('the default player launch circles the bowl instead of charging the centre', () => {
+  for (const spin of ['R', 'L']) {
+    const me = { ...participantFromDef(ARCHETYPE_INDEX.striker, { id: 'player' }), human: true, spin, launcher: { base: 'launcher_twin' } };
+    const b = new Battle({ arenaId: 'standard', format: 'single', seed: 4, headless: true, participants: [me, participantFromDef(ARCHETYPE_INDEX.all, { difficulty: 1 })] });
+    b.update(1 / 120, []);
+    const L = b.fighters[0].launch;
+    assert.equal(L.spin, spin);
+    // the lean points along the bowl (perpendicular to the launcher's radius), not at the centre
+    const radial = Math.cos(L.aim.dir) * Math.sign(-L.aim.x);
+    assert.ok(Math.abs(radial) < 1e-9, `lean direction ${(L.aim.dir * 57.3).toFixed(0)}° from (${L.aim.x}, ${L.aim.z})`);
+    // and it circles the same way as Spiral Drive for that spin direction
+    assert.equal(Math.sign(Math.sin(L.aim.dir)), Math.sign(L.aim.x) * (spin === 'L' ? -1 : 1));
+  }
+});

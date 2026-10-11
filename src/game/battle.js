@@ -152,10 +152,16 @@ export class Battle extends Emitter {
       f.hadLowSpin = false;
       f.outAngle = null;
       const spinOpts = f.gear.spinMech === 'dual' ? ['R', 'L'] : [f.gear.spinMech];
+      const sx = (f.index === 0 ? -1 : 1) * 0.07;
+      const spin0 = spinOpts.includes(p.spin) ? p.spin : spinOpts[0];
+      // Default (human) launch: lean along the bowl so the top starts circling,
+      // as Spiral Drive does, instead of straight at the centre where the
+      // opponent lands (that made ~1 Rookie Cup round in 6 an instant clash).
+      const along = Math.sign(sx) * (spin0 === 'L' ? -1 : 1);
       f.launch = {
-        aim: { x: (f.index === 0 ? -1 : 1) * 0.07, z: 0, lean: 0.12, dir: f.index === 0 ? 0 : Math.PI },
+        aim: { x: sx, z: 0, lean: 0.12, dir: Math.atan2(along, 0) },
         technique: p.technique || 'normal',
-        spin: spinOpts.includes(p.spin) ? p.spin : spinOpts[0],
+        spin: spin0,
         spinOptions: spinOpts,
         meter: null, released: false, releaseTime: null, result: null, confirmed: !f.human, launched: false,
         falseStart: false, ai: null,
@@ -707,7 +713,10 @@ export class Battle extends Emitter {
     const { winner, loser, how } = res;
     if (!winner) {
       if (res.rawHow === 'decision') return 'Time expired with both tops equally stable — the round is a draw.';
-      return 'Both tops finished on the same instant — the round is a draw.';
+      const hows = new Set(this.roundFinishes.map((x) => x.how));
+      if (hows.size === 1 && hows.has('burst')) return 'Both locks gave way on the same hit — a double Shatter. The round is a draw and is fought again.';
+      if (hows.size === 1 && hows.has('out')) return 'Both tops left the stadium on the same instant — a double Ring Out. The round is a draw and is fought again.';
+      return 'Both tops finished on the same instant — the round is a draw and is fought again.';
     }
     const L = loser.top;
     const led = L.ledger || {};

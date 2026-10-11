@@ -38,8 +38,8 @@ Guard: `npm run balance:check` (25-70% band). Experiments:
 
 1. Balance type (~30%): needs a deeper look (build or AI redesign); rim
    weighting its ring and a calmer AI did not help.
-2. New-player default launch: the starter still loses some Rookie Cup
-   rounds to a launch clash ~0.2 s after IGNITE (default aim = centre).
+2. DONE: the default player launch now circles the bowl (no instant
+   launch-clash ring-outs; fastest Rookie Cup loss 0.8 s instead of 0.1 s).
 3. "Fun grind" (playtest): early-game pacing and progression feel.
 4. Verify the career loop end to end (build, inspect, tournament, rewards,
    upgrade, equip, progress, save/reload); fix gaps.
