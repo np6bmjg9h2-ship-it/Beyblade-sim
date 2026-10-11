@@ -897,7 +897,9 @@ scenarios.rift = async () => {
     await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((x) => x.textContent === 'Abandon')));
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftSummaryScreen', 10000, 'summary');
-    // the best find starts in the Locker
+    const secured = await h.eval(() => (window.__app.profile.rift.active.stash || []).length + [...Object.values(window.__app.profile.rift.active.equipped), ...window.__app.profile.rift.active.bag].filter((x) => x?.secured).length);
+    if (!(secured >= 1)) throw new Error('beating the boss secured no parts');
+    // the best unsecured find starts in the Locker
     const keepId = await h.eval(() => document.querySelector('.tour-btn.sel[data-id^="keep-"]')?.dataset.id || null);
     const anyKeepable = await h.eval(() => !!document.querySelector('[data-id^="keep-"]'));
     if (anyKeepable && !keepId) throw new Error('no part was pre-selected for the Locker');
@@ -910,7 +912,7 @@ scenarios.rift = async () => {
     const R = await h.eval(() => { const r = window.__app.profile.rift; return { essence: r.essence, runs: r.runs, history: r.history.length }; });
     const inv1 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
     if (R.runs !== 1 || R.history !== 1 || !(R.essence > 0)) throw new Error('run not banked: ' + JSON.stringify(R));
-    if (keepId && inv1 !== inv0 + 1) throw new Error(`locker part not added: ${inv0} -> ${inv1}`);
+    if (inv1 < inv0 + secured + (keepId ? 1 : 0)) throw new Error(`secured / locker parts not added: ${inv0} -> ${inv1} (secured ${secured})`);
     // talents page
     await h.padButton(5);
     await h.waitFor(() => !!document.querySelector('.talent-grid'), 5000, 'talents');

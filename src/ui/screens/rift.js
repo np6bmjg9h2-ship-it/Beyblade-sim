@@ -17,7 +17,7 @@ import { updateStats } from '../../systems/progression.js';
 import { markSeen } from '../../systems/rivals.js';
 import { mixSeeds } from '../../core/rng.js';
 import {
-  riftState, startRun, canStart, currentChoices, nodeById, enterNode, completeNode, recordBattle, maxHearts, buyTalent, talentCost, BATTLE_NODES,
+  riftState, startRun, canStart, currentChoices, nodeById, enterNode, completeNode, recordBattle, maxHearts, buyTalent, talentCost, BATTLE_NODES, homeBound,
 } from '../../systems/rift.js';
 import { riftParticipant, nodeOpponent, nodeRules, familyCounts } from '../../systems/riftBattle.js';
 import { BattleScreen } from './battle.js';
@@ -62,7 +62,7 @@ export class RiftScreen {
     return h('div', { class: 'two-col' },
       h('div', { class: 'panel col gap', 'data-wrap': '' },
         h('h2', {}, 'Enter the Rift'),
-        h('div', { class: 'small' }, 'Four Rifts, each three floors and a rival boss. Choose your path, grab the loot, and push as deep as you can. What you find stays in the run. Essence and the parts you lock away come home with you.'),
+        h('div', { class: 'small' }, 'Four Rifts, each three floors and a rival boss. Choose your path, grab the loot, and push as deep as you can. Charms and boons stay in the run; the parts you secure come home for your Workshop.'),
         selector('Bring loadout', P.loadouts.map((x, i) => ({ value: i, label: x.name + (validateLoadout(P, x).ok ? '' : ' ⚠') })), this.loadoutIdx, (v) => { this.loadoutIdx = v; this.ui.refresh(this); }, { id: 'rift-loadout', desc: 'Your starting top and Bit-Beast. Copies are used: nothing you own is worn or lost.' }),
         selector('Depth', depthOpts, this.depth, (v) => { this.depth = v; this.ui.refresh(this); }, { id: 'rift-depth', desc: 'Clear a run to unlock the next depth. Deeper runs are harder and pay more Essence.' }),
         h('div', { class: 'small muted' }, `You start with ${Math.max(1, HEARTS_BASE + (T.grit || 0) + D.heartsDelta)} hearts and ${START_SHARDS + 25 * (T.pockets || 0)} shards.`),
@@ -76,7 +76,8 @@ export class RiftScreen {
           h('li', {}, 'Elites and bosses grant boons: upgrades that grow with your Bit-Beast.'),
           h('li', {}, 'Hits can Scorch, put Static on, or Rust the other top. Two different statuses fuse into something worse.'),
           h('li', {}, 'Losing a battle costs a heart. At zero the run ends, and you still keep the Essence you earned.'),
-          h('li', {}, 'Spend Essence on Rift Talents. At the end of every run, keep your best find in the Locker.'))));
+          h('li', {}, 'Loot comes home: beat a Rift\'s boss and every part you found so far is secured. Clear all four Rifts and everything comes home. If a run ends early, the Locker still saves your best unsecured find.'),
+          h('li', {}, 'Deeper runs and later Rifts drop rarer, higher-level parts. Spend Essence on Rift Talents to go further.'))));
   }
 
   async begin() {
@@ -105,7 +106,8 @@ export class RiftScreen {
     const left = h('div', { class: 'panel scroll col gap', 'data-scroll': 'rift-left' },
       h('div', { class: 'row gap' }, run.beast ? beastImg(run.beast.id, 44) : null, h('div', {}, h('b', {}, run.loadoutName), h('div', { class: 'small muted' }, `Depth ${run.depth} · ${run.stats.wins} wins`))),
       ...SLOTS.map((s) => run.equipped[s]).filter(Boolean).map((it) => h('div', { class: 'rift-eq' }, h('span', { class: 'slot-name' }, SLOT_NAMES[it.slot]), h('b', { style: { color: RARITY_INDEX[it.rarity].color } }, `${baseOf(it)?.name}${it.forge ? ` +${it.forge}` : ''}`), it.element ? h('span', { class: 'chip', style: { color: STATUSES[it.element].color, borderColor: STATUSES[it.element].color } }, STATUSES[it.element].name) : null)),
-      btn(`Parts and bag (${run.bag.length})`, () => this.ui.push(new RiftPartsScreen()), { id: 'rift-parts', desc: 'Swap parts between your top and your bag.' }),
+      btn(`Parts and bag (${run.bag.length})`, () => this.ui.push(new RiftPartsScreen()), { id: 'rift-parts', desc: 'Swap parts between your top and your bag, or send secured parts home.' }),
+      h('div', { class: 'small muted' }, homeBound(run).length ? `${homeBound(run).length} found part${homeBound(run).length > 1 ? 's' : ''} secured for home.` : 'Beat this Rift\'s boss to secure the parts you find.'),
       h('h3', {}, `Charms (${run.charms.length})`), this.charmList(),
       h('h3', {}, 'Boons'), this.boonList(),
       btn('Abandon run', () => this.abandon(), { class: 'danger', id: 'rift-abandon', desc: 'End the run now. You keep the Essence earned so far.' }));
@@ -165,7 +167,7 @@ export class RiftScreen {
       completeNode(this.P, run);
       await this.app.save('silent');
       if (run.status === 'won') { this.ui.push(new RiftSummaryScreen(this)); return; }
-      if (node.type === 'boss') this.ui.toast(`${RIFT_ACTS[node.act].name} cleared!`, 'good', 3500);
+      if (node.type === 'boss') this.ui.toast(`${RIFT_ACTS[node.act].name} cleared!${run.lastSecured ? ` ${run.lastSecured} part${run.lastSecured > 1 ? 's' : ''} secured: they come home whatever happens.` : ''}`, 'good', 4500);
     }
     this.ui.refresh(this);
   }

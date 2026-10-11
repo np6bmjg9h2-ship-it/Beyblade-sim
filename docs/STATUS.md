@@ -21,6 +21,7 @@ current build; no install or server needed. WebGL required.
 | Test infra | 79267f2 | Browser tests use the GPU: 11/11 in ~3 min (was 45 min) |
 | 5 Balance pass 1 | d9801eb | Attack/Defense/Stamina/Burst in the 40-60% band; PHYSICS coefficients; pressWhenBehind AI; balance:check |
 | Classic parts | (this commit) | 14 classic-series parts + 6 launchers from the plastic-gen research and the user's reference photos; moving parts in the physics (`physics/mechanisms.js`: magnets, spring tips, clutches, auto shift, rollers); own 3D models; 2 AI archetypes; tests `tests/classic.test.js`, browser scenario `classic`. Balance A/B still running when pushed: Hit Clutch and Quad Spike were tuned once; Magna Guard ~66%, re-check |
+| Playtest fixes | 176a613, 58f6a98, (this commit) | Battle callouts moved to a small side feed; Rift loot is the grind (boss secures finds, send home, full clear keeps all, Locker pre-selects); Final Clutch toned down (store 0.12) |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink

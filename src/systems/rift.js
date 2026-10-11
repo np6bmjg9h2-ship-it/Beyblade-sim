@@ -163,6 +163,8 @@ export function completeNode(profile, run) {
   if (node) run.path.push(node.id);
   run.current = null;
   if (run.floor < FLOORS_PER_ACT) { run.floor++; return; }
+  // the boss is beaten: every part found so far is secured
+  run.lastSecured = secureFinds(run);
   run.act++;
   run.floor = 0;
   if (run.act >= RIFT_ACTS.length) { run.status = 'won'; return; }
@@ -307,6 +309,31 @@ export function keepableParts(run) {
   return [...SLOTS.map((s) => run.equipped[s]), ...run.bag].filter((x) => x && x.origin === 'found');
 }
 
+// Loot is the grind: beating a Rift's boss secures every found part you
+// carry (it comes home even if the run is lost later), secured bag parts can
+// be sent home early to free bag space, and clearing all four Rifts brings
+// everything home. The Locker adds picks from the parts not yet secured.
+export function secureFinds(run) {
+  let n = 0;
+  for (const it of keepableParts(run)) if (!it.secured) { it.secured = true; n++; }
+  return n;
+}
+export function sendHome(run, uid) {
+  const it = run.bag.find((x) => x.uid === uid);
+  if (!it || !it.secured) return { ok: false, reason: 'Only secured parts can be sent home.' };
+  run.bag = run.bag.filter((x) => x !== it);
+  (run.stash ||= []).push(it);
+  return { ok: true };
+}
+// Parts that come home whatever happens next.
+export function homeBound(run) {
+  return [...(run.stash || []), ...keepableParts(run).filter((x) => x.secured || run.status === 'won')];
+}
+// Parts the Locker can still add (found, not yet secured).
+export function lockerChoices(run) {
+  return run.status === 'won' ? [] : keepableParts(run).filter((x) => !x.secured);
+}
+
 // Bank a finished run: essence, records, career rewards and kept parts.
 export function finishRun(profile, run, { keep = [] } = {}) {
   const R = riftState(profile);
@@ -340,13 +367,17 @@ export function finishRun(profile, run, { keep = [] } = {}) {
     career.bondLevelUp = bondLevel(bs.bondXp) > lv0;
     career.beastName = BEAST_INDEX[run.beast.id]?.name;
   }
-  const allowed = new Set(keepableParts(run).map((x) => x.uid));
+  const home = homeBound(run);
+  const choices = lockerChoices(run);
+  for (const uid of keep) {
+    if (home.length >= homeBound(run).length + lockerSize(profile)) break;
+    const it = choices.find((x) => x.uid === uid);
+    if (it && !home.includes(it)) home.push(it);
+  }
   const kept = [];
-  for (const uid of keep.slice(0, lockerSize(profile))) {
-    if (!allowed.has(uid)) continue;
-    const src = keepableParts(run).find((x) => x.uid === uid);
+  for (const src of home) {
     const it = structuredClone(src);
-    delete it.origin; delete it.forge; delete it.element;
+    delete it.origin; delete it.forge; delete it.element; delete it.secured;
     it.uid = makeUid(it.seed);
     it.durability = it.maxDurability;
     it.history = { ...(it.history || {}), acquired: 'Rift Run', acquiredAt: Date.now() };

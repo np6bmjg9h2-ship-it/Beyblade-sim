@@ -12,7 +12,7 @@ import { CHARMS, CHARM_INDEX } from '../src/data/riftCharms.js';
 import { BOONS } from '../src/data/riftBoons.js';
 import {
   startRun, riftState, currentChoices, completeNode, recordBattle, pickReward, maxHearts, finishRun, buyTalent,
-  keepableParts, lockerSize, equipFromBag, generateAct,
+  keepableParts, lockerSize, equipFromBag, generateAct, sendHome, homeBound, lockerChoices,
 } from '../src/systems/rift.js';
 import { riftParticipant, nodeOpponent, nodeRules, forgeSources, runEffects } from '../src/systems/riftBattle.js';
 import { rollSpoils, fitsBuild, rollRunPart, runRng } from '../src/systems/riftLoot.js';
@@ -213,6 +213,38 @@ test('a finished run banks essence, unlocks the next depth, pays the career and 
   assert.equal(kept.base, found.base);
   assert.ok(!('forge' in kept) && !('element' in kept) && !('origin' in kept));
   assert.equal(R.active, null);
+});
+
+test('loot is the grind: a beaten boss secures finds, secured parts come home on a loss, a clear brings everything', () => {
+  const { p, run } = freshRun(21);
+  const a = rollRunPart(p, run, runRng(run, 'a')), b = rollRunPart(p, run, runRng(run, 'b'));
+  run.bag.push(a, b);
+  // walk to the end of the first Rift: the boss is beaten, finds are secured
+  run.floor = FLOORS_PER_ACT; run.current = run.map[0].boss.id;
+  completeNode(p, run);
+  assert.equal(run.act, 1);
+  assert.equal(run.lastSecured, 2);
+  assert.ok(a.secured && b.secured);
+  assert.equal(sendHome(run, a.uid).ok, true, 'secured parts can be sent home');
+  assert.equal(run.bag.length, 1, 'which frees the bag slot');
+  const c = rollRunPart(p, run, runRng(run, 'c'));
+  run.bag.push(c);
+  assert.equal(sendHome(run, c.uid).ok, false, 'unsecured parts cannot');
+  assert.deepEqual(lockerChoices(run).map((x) => x.uid), [c.uid]);
+  assert.deepEqual(homeBound(run).map((x) => x.uid).sort(), [a.uid, b.uid].sort());
+  // the run is lost: secured + stashed parts come home, plus one Locker pick
+  run.status = 'lost';
+  const inv0 = Object.keys(p.inventory).length;
+  const out = finishRun(p, run, { keep: [c.uid] });
+  assert.equal(out.kept.length, 3);
+  assert.equal(Object.keys(p.inventory).length, inv0 + 3);
+  assert.ok(out.kept.every((x) => !('secured' in x)));
+  // a cleared run brings every find home, Locker or not
+  const fresh = freshRun(22);
+  const d = rollRunPart(fresh.p, fresh.run, runRng(fresh.run, 'd')), e = rollRunPart(fresh.p, fresh.run, runRng(fresh.run, 'e'));
+  fresh.run.bag.push(d, e);
+  fresh.run.status = 'won';
+  assert.equal(finishRun(fresh.p, fresh.run, { keep: [] }).kept.length, 2);
 });
 
 test('talents cost essence and shape the next run', () => {

@@ -71,8 +71,11 @@ options. Unplugging a controller mid-battle pauses the game.
   elements, 38 charms in six resonating families including cursed ones,
   levelled boons tied to your Bit-Beast), Scorch / Static / Rust statuses
   that fuse, sweet-spot hits, hearts instead of one life, and Essence that
-  buys permanent Rift Talents. Depths 0-8 add rules for more Essence; the
-  Locker keeps your best find. Runs resume after a reload.
+  buys permanent Rift Talents. Depths 0-8 add rules for more Essence and
+  rarer parts. The Rift is the loot grind: beating a Rift's boss secures the
+  parts you found (they come home even if the run ends), a full clear brings
+  everything home, and the Locker saves your best unsecured find. Runs
+  resume after a reload.
 - **Modes hub** — **Practice Lab** (launch range with launch analysis,
   sparring targets with the physics debug overlay, a Build Lab that compares
   two builds with spin-decay curves and simulated head-to-heads), **Custom

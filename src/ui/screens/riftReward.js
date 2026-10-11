@@ -14,7 +14,7 @@ import { STATUSES, RIFT_ACTS, RING_ELEMENT_CHANCE, FORGE_BONUS, BAG_SIZE } from 
 import { baseOf } from '../../systems/items.js';
 import { assembleTop, validateBuild } from '../../systems/assembly.js';
 import { resolveLaunchGear } from '../../game/launch.js';
-import { riftState, pickReward, equipFromBag, dropFromBag, unequipAux, keepableParts, lockerSize, finishRun, maxHearts } from '../../systems/rift.js';
+import { riftState, pickReward, equipFromBag, dropFromBag, unequipAux, keepableParts, lockerSize, finishRun, maxHearts, sendHome, homeBound, lockerChoices } from '../../systems/rift.js';
 import { familyCounts } from '../../systems/riftBattle.js';
 import { skipShards, fitsBuild } from '../../systems/riftLoot.js';
 
@@ -190,14 +190,16 @@ export class RiftPartsScreen {
     if (!this.sel || !all.some((x) => x.uid === this.sel)) this.sel = all[0]?.uid || null;
     const row = (it, where) => {
       const R = RARITY_INDEX[it.rarity];
-      const b = btn(h('div', { class: 'rift-part-row' }, h('span', { class: 'slot-name' }, where === 'bag' ? 'Bag' : SLOT_NAMES[it.slot]), h('b', { style: { color: R.color } }, `${baseOf(it)?.name}${it.forge ? ` +${it.forge}` : ''}`), it.element ? h('span', { class: 'chip', style: { color: STATUSES[it.element].color, borderColor: STATUSES[it.element].color } }, STATUSES[it.element].name) : null),
+      const b = btn(h('div', { class: 'rift-part-row' }, h('span', { class: 'slot-name' }, where === 'bag' ? 'Bag' : SLOT_NAMES[it.slot]), h('b', { style: { color: R.color } }, `${baseOf(it)?.name}${it.forge ? ` +${it.forge}` : ''}`), it.element ? h('span', { class: 'chip', style: { color: STATUSES[it.element].color, borderColor: STATUSES[it.element].color } }, STATUSES[it.element].name) : null, it.secured ? h('span', { class: 'chip good' }, 'Secured') : null),
         () => { this.sel = it.uid; this.ui.refresh(this); }, { class: 'tour-btn' + (this.sel === it.uid ? ' sel' : ''), id: 'part-' + it.uid });
       return b;
     };
     const sel = all.find((x) => x.uid === this.sel);
     const inBag = sel && run.bag.some((x) => x.uid === sel.uid);
     const detail = sel ? h('div', { class: 'col gap' }, partCard(this.P, run, sel),
-      inBag ? h('div', { class: 'row gap' }, btn('Equip', () => this.equip(sel), { class: 'primary', id: 'part-equip', desc: 'Swap this part into its slot; the old one goes to the bag.' }), btn('Drop', () => this.drop(sel), { class: 'danger', id: 'part-drop' }))
+      inBag ? h('div', { class: 'row gap' }, btn('Equip', () => this.equip(sel), { class: 'primary', id: 'part-equip', desc: 'Swap this part into its slot; the old one goes to the bag.' }),
+        sel.secured ? btn('Send home', () => this.home(sel), { id: 'part-home', desc: 'Send this secured part to your Workshop now and free its bag slot. It leaves the run.' }) : null,
+        btn('Drop', () => this.drop(sel), { class: 'danger', id: 'part-drop' }))
         : sel.slot === 'aux' ? btn('Take off', () => { if (unequipAux(run)) { this.app.save('silent'); this.ui.refresh(this); } else this.ui.toast('Your bag is full.', 'bad'); }, { id: 'part-unequip', desc: 'Remove the auxiliary module (it goes to the bag).' }) : h('div', { class: 'small muted' }, 'Equipped. Pick a part from your bag to swap it out.')) : h('div', { class: 'muted' }, 'No parts.');
     return h('div', { class: 'std-screen' },
       h('div', { class: 'screen-head' }, h('h1', {}, 'Your Top'), runStatus(this.P, run)),
@@ -215,8 +217,16 @@ export class RiftPartsScreen {
     this.ui.refresh(this);
   }
 
+  async home(it) {
+    const r = sendHome(this.run, it.uid);
+    if (!r.ok) { this.ui.toast(r.reason, 'bad'); return; }
+    this.ui.toast(`${baseOf(it)?.name} is on its way home.`, 'good');
+    await this.app.save('silent');
+    this.ui.refresh(this);
+  }
+
   async drop(it) {
-    if (!(await this.ui.confirm(`Drop ${baseOf(it)?.name}?`, 'It is gone for the rest of the run.', { yes: 'Drop', danger: true }))) return;
+    if (!(await this.ui.confirm(`Drop ${baseOf(it)?.name}?`, it.secured ? 'It is gone for the rest of the run and will not come home. Send it home instead to keep it.' : 'It is gone for the rest of the run.', { yes: 'Drop', danger: true }))) return;
     dropFromBag(this.run, it.uid);
     await this.app.save('silent');
     this.ui.refresh(this);
@@ -245,16 +255,18 @@ export class RiftSummaryScreen {
     const run = riftState(this.P).active;
     if (!run) return h('div', { class: 'std-screen' }, h('h1', {}, 'No run'));
     const s = run.stats;
-    const keepable = keepableParts(run);
+    const keepable = lockerChoices(run);
+    const home = homeBound(run);
     const n = lockerSize(this.P);
-    // the best finds start in the Locker, so nothing is lost by accident
+    // the best unsecured finds start in the Locker, so nothing is lost by accident
     if (this.keep == null) this.keep = bestFinds(keepable, n);
+    const homeRows = home.map((it) => h('div', { class: 'rift-part-row' }, h('span', { class: 'slot-name' }, 'HOME'), h('b', { style: { color: RARITY_INDEX[it.rarity].color } }, baseOf(it)?.name), rarityChip(it.rarity)));
     const parts = h('div', { class: 'col gap', 'data-wrap': '' }, keepable.length ? keepable.map((it) => {
       const on = this.keep.includes(it.uid);
       const R = RARITY_INDEX[it.rarity];
       return btn(h('div', { class: 'rift-part-row' }, h('span', { class: 'slot-name' }, on ? 'KEEP' : SLOT_NAMES[it.slot]), h('b', { style: { color: R.color } }, baseOf(it)?.name), rarityChip(it.rarity), h('span', { class: 'small muted' }, `${(it.traits || []).length} trait${(it.traits || []).length === 1 ? '' : 's'}`)),
         () => this.toggle(it.uid, n), { class: 'tour-btn' + (on ? ' sel' : ''), id: 'keep-' + it.uid, desc: 'Keep this part: it joins your Workshop inventory (rarity and traits stay; forge levels and elements stay in the Rift).' });
-    }) : [h('div', { class: 'small muted' }, 'No found parts to keep.')]);
+    }) : [h('div', { class: 'small muted' }, home.length ? 'Nothing else to keep.' : 'No found parts to keep.')]);
     return h('div', { class: 'std-screen rift-summary' },
       h('div', { class: 'results-head ' + (run.status === 'won' ? 'win' : 'lose') }, h('h1', {}, OUTCOME[run.status] || 'Run Over'), h('div', { class: 'res-score' }, `Depth ${run.depth} · reached ${RIFT_ACTS[Math.min(run.act, 3)].name}`)),
       h('div', { class: 'ws-cols two-wide' },
@@ -262,8 +274,12 @@ export class RiftSummaryScreen {
           statRow('Battles won', `${s.wins} of ${s.battles}`), statRow('Elites beaten', s.elites), statRow('Bosses beaten', s.bosses), statRow('Vaults claimed', s.vaults),
           statRow('Ring outs / Shatters', `${s.ringOuts} / ${s.shatters}`), statRow('Shards earned', s.shardsEarned), statRow('Parts found', s.partsFound), statRow('Charms carried', run.charms.length),
           statRow('Essence', `${run.essence}${run.status === 'won' ? ' + clear bonus' : ''}`)),
-        h('div', { class: 'panel scroll col gap' }, h('h3', {}, `Locker: keep up to ${n} part${n > 1 ? 's' : ''}`),
-          h('div', { class: 'small muted' }, `Kept parts join your Workshop for good; everything else stays in the Rift. ${keepable.length ? 'Your best find is already in the Locker: change it if you like.' : ''}`), parts,
+        h('div', { class: 'panel scroll col gap' },
+          h('h3', {}, run.status === 'won' ? 'Rift cleared: all your finds come home' : `Coming home: ${home.length} secured part${home.length === 1 ? '' : 's'}`),
+          ...homeRows,
+          keepable.length || run.status !== 'won' ? h('h3', {}, `Locker: keep up to ${n} more`) : null,
+          run.status !== 'won' ? h('div', { class: 'small muted' }, `Parts join your Workshop for good; the rest stays in the Rift. ${keepable.length ? 'Your best unsecured find is already in the Locker: change it if you like.' : ''}`) : null,
+          run.status !== 'won' ? parts : null,
           btn('Bank rewards', () => this.bank(), { class: 'primary big', id: 'rift-bank' }))));
   }
 
@@ -276,7 +292,7 @@ export class RiftSummaryScreen {
 
   async bank() {
     const run = riftState(this.P).active;
-    if (!this.keep.length && keepableParts(run).length && !(await this.ui.confirm('Leave every part behind?', 'The Locker is empty, so all the parts from this run stay in the Rift.', { yes: 'Bank anyway', no: 'Go back' }))) return;
+    if (!this.keep.length && lockerChoices(run).length && !(await this.ui.confirm('Leave every part behind?', 'The Locker is empty, so all the parts from this run stay in the Rift.', { yes: 'Bank anyway', no: 'Go back' }))) return;
     this.banked = finishRun(this.P, run, { keep: this.keep });
     await this.app.save('silent');
     this.app.audio.ui(this.banked.career.levelUps ? 'levelup' : 'loot');
