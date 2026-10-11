@@ -229,9 +229,15 @@ export class RiftPartsScreen {
 
 const OUTCOME = { won: 'Rift Cleared', lost: 'Run Over', abandoned: 'Run Ended' };
 
+// Highest rarity first, then forge level, then item level.
+function bestFinds(parts, n) {
+  const score = (x) => RARITY_INDEX[x.rarity].rank * 1000 + (x.forge || 0) * 100 + (x.level || 0);
+  return [...parts].sort((a, b) => score(b) - score(a)).slice(0, n).map((x) => x.uid);
+}
+
 export class RiftSummaryScreen {
   static screenName = 'RiftSummaryScreen';
-  constructor(hub) { this.hub = hub; this.keep = []; this.banked = null; }
+  constructor(hub) { this.hub = hub; this.keep = null; this.banked = null; }
   get P() { return this.app.profile; }
 
   render() {
@@ -241,6 +247,8 @@ export class RiftSummaryScreen {
     const s = run.stats;
     const keepable = keepableParts(run);
     const n = lockerSize(this.P);
+    // the best finds start in the Locker, so nothing is lost by accident
+    if (this.keep == null) this.keep = bestFinds(keepable, n);
     const parts = h('div', { class: 'col gap', 'data-wrap': '' }, keepable.length ? keepable.map((it) => {
       const on = this.keep.includes(it.uid);
       const R = RARITY_INDEX[it.rarity];
@@ -255,7 +263,7 @@ export class RiftSummaryScreen {
           statRow('Ring outs / Shatters', `${s.ringOuts} / ${s.shatters}`), statRow('Shards earned', s.shardsEarned), statRow('Parts found', s.partsFound), statRow('Charms carried', run.charms.length),
           statRow('Essence', `${run.essence}${run.status === 'won' ? ' + clear bonus' : ''}`)),
         h('div', { class: 'panel scroll col gap' }, h('h3', {}, `Locker: keep up to ${n} part${n > 1 ? 's' : ''}`),
-          h('div', { class: 'small muted' }, 'Kept parts join your Workshop for good. Everything else stays in the Rift.'), parts,
+          h('div', { class: 'small muted' }, `Kept parts join your Workshop for good; everything else stays in the Rift. ${keepable.length ? 'Your best find is already in the Locker: change it if you like.' : ''}`), parts,
           btn('Bank rewards', () => this.bank(), { class: 'primary big', id: 'rift-bank' }))));
   }
 
@@ -268,6 +276,7 @@ export class RiftSummaryScreen {
 
   async bank() {
     const run = riftState(this.P).active;
+    if (!this.keep.length && keepableParts(run).length && !(await this.ui.confirm('Leave every part behind?', 'The Locker is empty, so all the parts from this run stay in the Rift.', { yes: 'Bank anyway', no: 'Go back' }))) return;
     this.banked = finishRun(this.P, run, { keep: this.keep });
     await this.app.save('silent');
     this.app.audio.ui(this.banked.career.levelUps ? 'levelup' : 'loot');

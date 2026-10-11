@@ -897,8 +897,10 @@ scenarios.rift = async () => {
     await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((x) => x.textContent === 'Abandon')));
     await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'RiftSummaryScreen', 10000, 'summary');
-    const keepId = await h.eval(() => document.querySelector('[data-id^="keep-"]')?.dataset.id || null);
-    if (keepId) { await h.focusId(keepId); await h.padButton(0); }
+    // the best find starts in the Locker
+    const keepId = await h.eval(() => document.querySelector('.tour-btn.sel[data-id^="keep-"]')?.dataset.id || null);
+    const anyKeepable = await h.eval(() => !!document.querySelector('[data-id^="keep-"]'));
+    if (anyKeepable && !keepId) throw new Error('no part was pre-selected for the Locker');
     await h.shot('r08_summary');
     await h.focusId('rift-bank'); await h.padButton(0);
     await h.waitFor(() => !!document.querySelector('[data-id="rift-done"]'), 10000, 'banked');
