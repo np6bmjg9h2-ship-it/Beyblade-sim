@@ -119,7 +119,9 @@ export class InputManager extends Emitter {
 
   readPads() {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
-    const raw = this.getGamepads ? this.getGamepads() : nav && nav.getGamepads ? nav.getGamepads() : [];
+    let raw = [];
+    // a page embedded without gamepad permission throws here; keyboard input must keep working
+    try { raw = this.getGamepads ? this.getGamepads() : nav && nav.getGamepads ? nav.getGamepads() : []; } catch { raw = []; }
     const pads = [];
     for (const p of raw || []) {
       if (!p || p.connected === false) continue;

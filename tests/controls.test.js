@@ -149,3 +149,11 @@ test('impact feedback tells head-on hits from grazes (from real simulated contac
   assert.ok(graze.glance > 0.55, `edge-on contact reads as a graze (${graze.glance.toFixed(2)})`);
   assert.ok(Math.abs(Math.hypot(...graze.tangent) - 1) < 1e-9, 'graze carries a unit sliding direction');
 });
+
+test('a browser that refuses gamepad access leaves keyboard input working', () => {
+  const input = new InputManager({ getGamepads: () => { throw new DOMException('gamepad is not allowed', 'SecurityError'); } });
+  input.onKeyDown({ code: 'Enter' });
+  assert.doesNotThrow(() => input.poll(1 / 60));
+  assert.equal(input.pressed('confirm', 'menu'), true);
+  assert.deepEqual(input.pads, []);
+});
