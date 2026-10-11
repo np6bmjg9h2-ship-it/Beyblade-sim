@@ -21,19 +21,31 @@ export const LEDGER_KEYS = [
 
 const MAX_LIN_SPEED = 9; // m/s, safety clamp (tunnelling guard)
 const MAX_SPIN = 1600; // rad/s safety clamp
-const REST_THRESHOLD = 0.08; // m/s approach speed needed for restitution
 const SLOP = 0.00015; // m allowed penetration
-const STEER_BASE = 0.28; // fraction of weight available as steering force
-const STEER_IDLE_COST = 0.03; // m/s equivalent drain while steering
-const STEER_EFF = 0.62; // conversion efficiency spin -> linear work
-const BASE_NUTATION_DAMPING = 2; // 1/s intrinsic material damping
-// Velocity-weakening friction for ring/wall contacts: polymer and metal
-// contacts lose friction at high sliding speed (flash heating), so
-// mu_eff = mu / (1 + v_slip / V_WEAKEN).
-const V_WEAKEN = 5.0;
-// Blade faces are not rigid wedges: they flex and slide along the opposing
-// ring, so only part of the face geometry turns the contact normal.
-const FACE_COUPLING = 0.4;
+
+// Calibration coefficients of the contact and steering model, in one place so
+// they are documented and balance experiments (tools/balance-tune.js) can vary
+// them. Gameplay code must not change them at runtime.
+export const PHYSICS = {
+  restThreshold: 0.08, // m/s approach speed needed for restitution
+  steerBase: 0.28, // fraction of weight available as steering force
+  steerIdleCost: 0.03, // m/s equivalent drain while steering
+  steerEff: 0.62, // conversion efficiency spin -> linear work
+  nutationDamping: 2, // 1/s intrinsic material damping
+  // Velocity-weakening friction for ring/wall contacts: polymer and metal
+  // contacts lose friction at high sliding speed (flash heating), so
+  // mu_eff = mu / (1 + v_slip / vWeaken).
+  vWeaken: 5.0,
+  // Blade faces are not rigid wedges: they flex and slide along the opposing
+  // ring, so only part of the face geometry turns the contact normal.
+  // (0.4 -> 0.6 in the Phase 5 balance pass: hits mattered too little, so
+  // avoiding contact won ~75% of AI matches.)
+  faceCoupling: 0.6,
+  // Lock stress: hits below burstMinStress of the lock threshold leave no
+  // mark; above it the lock slips burstRate notches per unit of excess stress.
+  burstMinStress: 0.45,
+  burstRate: 0.75,
+};
 
 // ---------------------------------------------------------------- contacts
 
@@ -105,14 +117,14 @@ function prepare(c) {
   if (c.type === 'top' || c.type === 'wall') {
     const vt = Math.sqrt(Math.max(0, _va.lengthSq() - c.vn0 * c.vn0));
     c.slip = vt;
-    c.mu /= 1 + vt / V_WEAKEN;
+    c.mu /= 1 + vt / PHYSICS.vWeaken;
   }
   if (c.depth < 0) {
     // speculative: separated by a small gap; only constrain if the gap closes this substep
     const gapClose = c.depth / _dt; // negative
-    c.targetVn = c.vn0 < gapClose ? (c.vn0 < -REST_THRESHOLD ? -c.e * c.vn0 : 0) : gapClose;
+    c.targetVn = c.vn0 < gapClose ? (c.vn0 < -PHYSICS.restThreshold ? -c.e * c.vn0 : 0) : gapClose;
   } else {
-    c.targetVn = c.vn0 < -REST_THRESHOLD ? -c.e * c.vn0 : 0;
+    c.targetVn = c.vn0 < -PHYSICS.restThreshold ? -c.e * c.vn0 : 0;
   }
   c.lN = c.lT1 = c.lT2 = c.lTw = 0;
   c.wN = c.wF = 0;
@@ -318,15 +330,15 @@ export class Simulation {
     const st = t.control.steer;
     const sMag = Math.hypot(st.x, st.z);
     if (sMag > 0.02 && t.contactTip) {
-      const Fmax = STEER_BASE * m * GRAVITY * t.mods.steerForce;
+      const Fmax = PHYSICS.steerBase * m * GRAVITY * t.mods.steerForce;
       const fx = st.x * Fmax, fz = st.z * Fmax;
       const before = 0.5 * m * (t.v.x * t.v.x + t.v.z * t.v.z);
       t.v.x += (fx / m) * dt;
       t.v.z += (fz / m) * dt;
       const after = 0.5 * m * (t.v.x * t.v.x + t.v.z * t.v.z);
       const work = after - before;
-      const eff = STEER_EFF * t.mods.steerEfficiency;
-      const cost = (Math.max(0, work) + Fmax * sMag * STEER_IDLE_COST * dt) / Math.max(0.1, eff);
+      const eff = PHYSICS.steerEff * t.mods.steerEfficiency;
+      const cost = (Math.max(0, work) + Fmax * sMag * PHYSICS.steerIdleCost * dt) / Math.max(0.1, eff);
       const drained = t.drainSpinEnergy(cost);
       led.control += work - drained; t.ledger.control += work - drained;
     }
@@ -362,7 +374,7 @@ export class Simulation {
 
   // Damps nutation toward steady precession (physical damping in the body).
   applyDamping(t, dt) {
-    const k = BASE_NUTATION_DAMPING + t.mods.nutationDamping;
+    const k = PHYSICS.nutationDamping + t.mods.nutationDamping;
     if (k <= 0) return;
     const s = t.spinRate;
     if (Math.abs(s) < 1) return;
@@ -724,10 +736,10 @@ export class Simulation {
     const faceB = (lb.faceAngle + (lb.attack ? B.mods.faceAngle : 0)) * best.faceB;
     _t.set(best.uA[0], best.uA[1], best.uA[2]);
     _t2.crossVectors(A.a, _t).scale(A.spinDir); // A surface motion
-    c.n.addScaled(_t2, FACE_COUPLING * Math.tan(clamp(faceA, 0, 0.45)));
+    c.n.addScaled(_t2, PHYSICS.faceCoupling * Math.tan(clamp(faceA, 0, 0.45)));
     _t.set(best.uB[0], best.uB[1], best.uB[2]);
     _t3.crossVectors(B.a, _t).scale(B.spinDir); // B surface motion
-    c.n.addScaled(_t3, -FACE_COUPLING * Math.tan(clamp(faceB, 0, 0.45)));
+    c.n.addScaled(_t3, -PHYSICS.faceCoupling * Math.tan(clamp(faceB, 0, 0.45)));
     c.n.normalize();
     c.faceA = best.faceA * (la.faceAngle || 0);
     c.faceB = best.faceB * (lb.faceAngle || 0);
@@ -813,9 +825,9 @@ export class Simulation {
     const Q = (counter * catchF + lift * R * 0.35) * (attacker.nextHitStressMul || 1);
     const T = burst.threshold * target.mods.burstThreshold * (target.lockCondition ?? 1);
     const stress = Q / Math.max(1e-9, T);
-    if (stress > 0.3) {
+    if (stress > PHYSICS.burstMinStress) {
       const before = Math.floor(target.burstNotches);
-      target.burstNotches += (stress - 0.3) * 0.75;
+      target.burstNotches += (stress - PHYSICS.burstMinStress) * PHYSICS.burstRate;
       const after = Math.floor(target.burstNotches);
       if (after > before) {
         this.events.push({ type: 'lockClick', top: target, notches: target.burstNotches, max: burst.notches, count: after - before, time: this.time });

@@ -110,3 +110,23 @@ The test harness now uses the machine's GPU (ANGLE D3D11 on Windows) and
 falls back to SwiftShader without one; `BROWSER_SOFTWARE=1` forces software.
 The run prints the WebGL renderer it got. Full suite: 11/11 PASS in 2 min 52 s
 on an Intel UHD 620 (software rendering: 44.5 min).
+
+## Phase 5 results (balance pass 1)
+
+Changes (physics-honest; each measured on all 7 stadiums):
+
+- `PHYSICS` object in `physics/simulation.js` gathers the model coefficients (identical results before tuning: 12 seeded matches matched to the tick).
+- Blade-face coupling 0.4 -> 0.6: hits convert more blade speed into knockback. This was the dominant lever (attack 30% -> 55% alone).
+- Lock stress threshold 0.30 -> 0.45 of the lock rating: light grinding no longer slips notches.
+- Rift Talon catch 0.95 -> 0.70 (still the strongest shatter ring); Semi-Flat flat radius 1.3 -> 0.9 mm.
+- AI: new `pressWhenBehind` personality setting (a top losing the spin race presses for a knock-out instead of retreating); Balanced Rival uses it, with steering economy 0.6 -> 0.75.
+
+| Build | Before (unseen seeds) | After (unseen seeds) | Official `balance -- 8 all` after |
+|---|---|---|---|
+| Attack | 33% | 48% | ~53% |
+| Defense | 71% | 61% | ~60% |
+| Stamina | 78% | 59% | ~59% |
+| Balance | 26% | 29% | ~30% |
+| Burst | 42% | 52% | ~49% |
+
+Triangle restored: attack beats stamina 46:10, defense beats attack 37:19, stamina beats defense 56:0 (unseen seeds). Remaining: Balance ~30% (loses spin races to defense and stamina; rim-weighting its ring and a calmer AI did not help). Regression guard: `npm run balance:check` (25-70% band) PASS. Unit tests 72/72 (two tests re-based: the repeated-collision scenario now uses the closed Vortex bowl; the XP farming test compares the same result against a fresh opponent instead of across a win and a loss). Browser suite 11/11.

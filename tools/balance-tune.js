@@ -3,8 +3,9 @@
 // per stadium plus the matchup matrix.
 // Usage: node tools/balance-tune.js <n> <arenas|all> [overrides.json]
 // overrides.json: { "parts": { "tip_flatstrike": { "patchRadius": 0.45 } },
-//                   "ai": { "balanced": { "aggression": 0.45 } } }
-// WORKERS=<k> limits worker threads.
+//                   "ai": { "balanced": { "aggression": 0.45 } },
+//                   "physics": { "faceCoupling": 0.6 } }
+// WORKERS=<k> limits worker threads; SEED_OFFSET=<k> plays different matches.
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -14,6 +15,8 @@ async function applyOverrides(ov) {
   if (!ov) return;
   const { PART_INDEX } = await import(ROOT + 'src/data/parts.js');
   const { AI_PROFILES } = await import(ROOT + 'src/data/aiProfiles.js');
+  const { PHYSICS } = await import(ROOT + 'src/physics/simulation.js');
+  Object.assign(PHYSICS, ov.physics || {});
   for (const [id, o] of Object.entries(ov.parts || {})) Object.assign(PART_INDEX[id], o);
   for (const [id, o] of Object.entries(ov.ai || {})) Object.assign(AI_PROFILES[id], o);
 }
@@ -24,13 +27,14 @@ if (!isMainThread) {
   process.exit(0);
 }
 const n = +(process.argv[2] || 6);
+const SEED_OFFSET = +(process.env.SEED_OFFSET || 0); // validate on matches the tuning never saw
 const { ARENAS } = await import(ROOT + 'src/data/arenas.js');
 const arenas = (process.argv[3] || 'standard') === 'all' ? ARENAS.map((a) => a.id) : process.argv[3].split(',');
 const ov = process.argv[4] ? JSON.parse(fs.readFileSync(process.argv[4], 'utf8')) : null;
 const { REFERENCE_BUILDS } = await import(ROOT + 'tools/balance.js');
 const names = Object.keys(REFERENCE_BUILDS);
 const jobs = [];
-for (const arena of arenas) for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) jobs.push({ a: names[i], b: names[j], arena, n, seedBase: 1000 + i * 37 + j * 101 });
+for (const arena of arenas) for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) jobs.push({ a: names[i], b: names[j], arena, n, seedBase: 1000 + i * 37 + j * 101 + SEED_OFFSET });
 const W = Math.min(+(process.env.WORKERS || os.cpus().length), jobs.length);
 const buckets = Array.from({ length: W }, () => []);
 jobs.forEach((jb, k) => buckets[k % W].push(jb));

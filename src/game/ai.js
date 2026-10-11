@@ -234,10 +234,15 @@ export class AIController {
     const rng = this.rng;
     const { dist, closing, myR, oppR, mySpin, oppSpin, me, ability, oppAbility } = s;
     const spinLead = mySpin - oppSpin;
+    // pressWhenBehind (0..1): a top losing the spin race can only win by a
+    // knock-out or shatter, so pressing personalities attack harder when behind
+    // instead of retreating (0 keeps the classic "retreat when behind").
+    const press = P.pressWhenBehind || 0;
+    const behind = Math.max(0, -spinLead);
     const u = {};
-    u.attack = P.aggression * (1 + spinLead * 1.5) + (dist < 0.12 ? 0.15 : 0);
+    u.attack = P.aggression * (1 + spinLead * 1.5) + press * behind * 2 + (dist < 0.12 ? 0.15 : 0);
     u.koPush = oppR > 0.5 ? P.aggression * 0.8 + P.risk * 0.6 + (oppR - 0.5) * 2 : 0;
-    u.evade = (spinLead < -0.08 ? (1 - P.aggression) * 0.9 : 0) + (closing > 0.5 && dist < 0.1 ? (1 - P.aggression) * 0.6 : 0);
+    u.evade = (spinLead < -0.08 ? (1 - P.aggression) * 0.9 * (1 - press) : 0) + (closing > 0.5 && dist < 0.1 ? (1 - P.aggression) * 0.6 : 0);
     u.center = P.centerPref * (1 - P.aggression) + 0.1;
     // recover early when drifting outward fast (predicted position), sooner in open stadiums
     const danger = s.arena.danger || 0;

@@ -1,7 +1,9 @@
 // Parallel balance simulation: every reference build against every other on
 // the chosen stadiums, real battles, sides alternated, spread over worker
 // threads. Prints win rates with 95% intervals and finish mix.
-// Usage: node tools/balance-par.js [matchesPerPair=8] [arena|all] [--json]
+// Usage: node tools/balance-par.js [matchesPerPair=8] [arena|all] [--json] [--check lo-hi]
+// --check fails (exit 1) if any build's win rate over all chosen stadiums
+// leaves the lo-hi percent band: a guard against balance regressions.
 
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import os from 'node:os';
@@ -58,3 +60,18 @@ for (const arena of arenas) {
 }
 if (json) console.log(JSON.stringify(out));
 else console.log(`\n(${((Date.now() - t0) / 1000).toFixed(0)} s on ${W} threads)`);
+
+const ci = process.argv.indexOf('--check');
+if (ci > 0) {
+  const [lo, hi] = (process.argv[ci + 1] || '25-70').split('-').map(Number);
+  const overall = Object.fromEntries(names.map((x) => [x, { w: 0, g: 0 }]));
+  for (const { job, r } of results) { overall[job.a].w += r.wins[0]; overall[job.b].w += r.wins[1]; overall[job.a].g += job.n; overall[job.b].g += job.n; }
+  let ok = true;
+  for (const x of names) {
+    const p = Math.round((100 * overall[x].w) / overall[x].g);
+    const pass = p >= lo && p <= hi;
+    ok = ok && pass;
+    console.log(`${pass ? 'PASS' : 'FAIL'} ${x} ${p}% overall (band ${lo}-${hi}%)`);
+  }
+  if (!ok) process.exitCode = 1;
+}

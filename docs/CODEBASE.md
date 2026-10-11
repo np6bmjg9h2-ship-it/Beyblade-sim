@@ -260,8 +260,10 @@ context; the simulation worker entry.
 
 ## 7. Known issues, risks and technical debt
 
-- **Balance:** in AI-vs-AI play Defense and Stamina win about 70–75%, Attack
-  about 35–45%, Burst about 40–50%, Balance only about 15–30%.
+- **Balance:** after the Phase 5 pass (all stadiums): Attack ~53%, Defense
+  ~60%, Stamina ~59%, Burst ~49%, Balance ~30%. Model coefficients live in
+  `PHYSICS` (`physics/simulation.js`); `tools/balance-tune.js` tests changes,
+  `npm run balance:check` guards the 25-70% band.
 - **Story:** chapter 1 is complete (11 scenes); chapters 2–6 are thin (5–7
   scenes). Characters have no portrait art (the dialogue shows initials).
 - **Visual review gaps** in the new cel-shaded part models: `glows` are

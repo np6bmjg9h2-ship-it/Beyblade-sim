@@ -24,9 +24,9 @@ export const AI_PROFILES = {
     technique: ['controlled', 'phantom'], lean: 0.02,
   },
   balanced: {
-    name: 'Balanced Rival', desc: 'Reads the spin race: attacks when ahead, retreats when behind.',
+    name: 'Balanced Rival', desc: 'Reads the spin race: plays safe when ahead, presses for a knock-out when behind.',
     aggression: 0.55, edgeCaution: 0.6, centerPref: 0.55, risk: 0.45, launchSkill: 0.65, steerSkill: 0.65,
-    reaction: 0.18, decisionInterval: 0.18, counterSkill: 0.4, dashUse: 0.5, abilityStyle: 'opportunistic', steerEconomy: 0.6,
+    reaction: 0.18, decisionInterval: 0.18, counterSkill: 0.4, dashUse: 0.5, abilityStyle: 'opportunistic', steerEconomy: 0.75, pressWhenBehind: 1,
     technique: ['normal', 'bank', 'spiral'], lean: 0.18,
   },
   risky: {

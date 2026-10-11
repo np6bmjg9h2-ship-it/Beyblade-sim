@@ -294,9 +294,10 @@ test('wall rebounds lose energy and follow the wall restitution', () => {
 });
 
 test('repeated collisions in a stadium never create energy and stay stable', () => {
-  const arena = new Arena(ARENA_INDEX.standard);
-  const A = new TopBody(specFromParts(BUILDS.attack), { id: 'A' });
-  const B = new TopBody(specFromParts(BUILDS.balance), { id: 'B' });
+  // a closed bowl (no exits) keeps a heavy defense and a stamina top meeting again and again
+  const arena = new Arena(ARENA_INDEX.vortex);
+  const A = new TopBody(specFromParts(BUILDS.defense), { id: 'A' });
+  const B = new TopBody(specFromParts(BUILDS.stamina), { id: 'B' });
   const sim = new Simulation({ arena, tops: [A, B] });
   A.launch({ tipPos: new Vec3(-0.06, arena.heightAtR(0.06), 0), axis: new Vec3(0, 1, 0), spin: -700, velocity: new Vec3(1.2, 0, 0.05) });
   B.launch({ tipPos: new Vec3(0.06, arena.heightAtR(0.06), 0.004), axis: new Vec3(0, 1, 0), spin: -650, velocity: new Vec3(-0.8, 0, 0) });
@@ -307,7 +308,7 @@ test('repeated collisions in a stadium never create energy and stay stable', () 
     worstGain = Math.max(worstGain, A.ledger.collision + B.ledger.collision - c0);
     impacts += sim.events.filter((e) => e.type === 'impact').length;
   }
-  assert.ok(impacts >= 5, `tops collided repeatedly (${impacts} impacts)`);
+  assert.ok(impacts >= 8, `tops collided repeatedly (${impacts} impacts)`);
   assert.ok(worstGain <= 1e-9, `no tick's collisions added energy (worst ${worstGain.toExponential(2)} J)`);
   assert.equal(sim.instabilityRecoveries, 0);
   assert.ok(A.isFiniteState() && B.isFiniteState());

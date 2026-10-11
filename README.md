@@ -157,13 +157,12 @@ story, modes), `src/data` (all game content), `src/render` (Three.js),
 
 ## Known limitations (honest list)
 
-- **Type balance is uneven in AI-vs-AI play.** On the Standard Stadium
-  (80 simulated battles between reference builds) Defense and Stamina win
-  about 70–75%, Attack about 35–45%, Burst about 40–50% and Balance only
-  about 15–30% — Balance builds lose long spin races against heavier or
-  longer-spinning tops. Stadiums shift this (Vortex Bowl has no ring-outs;
-  Edgebreaker and Skyfall are knock-out heavy). Player skill changes these
-  numbers, but they are not tuned for competitive balance.
+- **Type balance (AI vs AI, all seven stadiums, `npm run balance -- 8 all`):**
+  Attack about 53%, Defense 60%, Stamina 59%, Burst 49%, Balance only about
+  30%. The classic triangle holds (Attack beats Stamina, Stamina beats
+  Defense, Defense beats Attack); the Balance reference build still loses
+  long spin races to Defense and Stamina. Stadiums shift the numbers;
+  `npm run balance:check` guards against regressions.
 - The physics is a careful game model, not an engineering simulation: tops
   are treated as axisymmetric rigid bodies (blade asymmetry enters through
   the contact profile, not the inertia tensor), the stadium is a surface of

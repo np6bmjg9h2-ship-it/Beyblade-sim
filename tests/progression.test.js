@@ -192,9 +192,11 @@ test('item XP has a mastery cap and repeated opponents give diminishing rewards'
   const r2 = playerBattle(p, 51);
   const rw2 = processMatch(p, r2.result, { mode: 'quick', title: 'T', loot: null, opponentKey: 'same' }, r2.battle);
   const r3 = playerBattle(p, 52);
+  // the same result against a fresh opponent, for comparison (independent of who won)
+  const fresh = processMatch(structuredClone(p), r3.result, { mode: 'quick', title: 'T', loot: null, opponentKey: 'fresh' }, r3.battle);
   const rw3 = processMatch(p, r3.result, { mode: 'quick', title: 'T', loot: null, opponentKey: 'same' }, r3.battle);
-  assert.ok(rw3.notes.some((n) => n.includes('Repeated opponent')), 'repetition penalty applied');
-  assert.ok(rw3.playerXp <= rw2.playerXp * 1.4, 'no infinite XP loop from farming');
+  assert.ok(rw2.notes.some((n) => n.includes('Repeated opponent')) && rw3.notes.some((n) => n.includes('Repeated opponent')), 'repetition penalty applied');
+  assert.ok(rw3.playerXp < fresh.playerXp * 0.8, `farming the same opponent pays less (${rw3.playerXp} vs ${fresh.playerXp} XP)`);
 });
 
 test('workshop: repair, basic service, dismantle+undo, upgrades, reroll, transfer, crafting', () => {
