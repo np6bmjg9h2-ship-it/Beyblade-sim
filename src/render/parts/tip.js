@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MM, TAU, partGroup, toonMaterial, inked, tone, segs, canvasTexture, rarityGlow, extrudeShape } from './common.js';
+import { classicTipLooks } from './tipClassic.js';
 
 const DEG = Math.PI / 180;
 const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
@@ -724,6 +725,8 @@ const LOOKS = {
   tip_hybrid: { fn: hybrid, body: W, sig: '#ff2fa3', dc: '#ffffff', motif: 'diamond', tiles: 8,
     cap: { flange: 'body', tabs: 'trim', badge: '#ff2fa3', fg: '#ffffff', ring: INKC, glyph: 'hybrid' } },
 };
+
+Object.assign(LOOKS, classicTipLooks({ revolve, contactRuns, prism, notch, DEG, TAU, MM }));
 
 // Two-letter part code printed on the emblem (initials, or the first letters
 // of a one-word name).

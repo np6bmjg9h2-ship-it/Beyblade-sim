@@ -325,6 +325,16 @@ export function toggleFlag(profile, uid, field) {
   return { ok: true, value: it[field] };
 }
 
+// Turn a magnet disc over: N face up <-> S face up.
+export function flipMagnet(profile, uid) {
+  const it = profile.inventory[uid];
+  if (!it || !PART_INDEX[it.base]?.magnet) return fail('Only magnet discs can be flipped.');
+  const prev = it.pole ?? null;
+  it.pole = it.pole === 'S' ? 'N' : 'S';
+  pushUndo(profile, { type: 'field', uid, field: 'pole', prev, label: 'Flip magnet' });
+  return { ok: true, pole: it.pole };
+}
+
 export function equip(profile, loadoutIndex, slot, uid) {
   const L = profile.loadouts[loadoutIndex];
   if (!L) return fail('No loadout');

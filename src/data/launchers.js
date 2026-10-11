@@ -24,6 +24,27 @@ export const LAUNCHERS = [
   { id: 'launcher_titan', slot: 'launcher', name: 'Titan Grip', spinMech: 'dual', tier: 4, color: '#c7ccd6',
     drive: { force: 15.1 }, transfer: { efficiency: 0.86 }, trigger: { window: 0.03, jitter: 0.012 }, grip: { stability: 0.75 },
     chargeRate: 0.5, stabilizer: { tiltReduce: 0.15 }, desc: 'Heavy-duty two-hand grip. Huge, steady power; slow to wind.' },
+  // classic series. Optional fields: mods (launch mods like traits), speedMul
+  // (launch speed), fixedPower (a wound spring: charge stops at 100%, never
+  // overcharges), readout (HUD shows exact power and launch rpm).
+  { id: 'launcher_clip', slot: 'launcher', name: 'Clip Launcher', series: 'classic', spinMech: 'R', tier: 1, color: '#2fae56',
+    drive: { force: 12.2 }, transfer: { efficiency: 0.82 }, trigger: { window: 0.048, jitter: 0.009 }, grip: { stability: 0.62 },
+    chargeRate: 0.72, stabilizer: null, desc: 'Clips straight over the top. Quick to wind and forgiving to release, with a little less power.' },
+  { id: 'launcher_clipreverse', slot: 'launcher', name: 'Reverse Clip', series: 'classic', spinMech: 'L', tier: 1, color: '#ff9a2e',
+    drive: { force: 12.2 }, transfer: { efficiency: 0.82 }, trigger: { window: 0.048, jitter: 0.009 }, grip: { stability: 0.62 },
+    chargeRate: 0.72, stabilizer: null, desc: 'The left-spin clip launcher: quick and forgiving.' },
+  { id: 'launcher_windup', slot: 'launcher', name: 'Wind-Up Shooter', series: 'classic', spinMech: 'dual', tier: 2, color: '#9aa3ad',
+    drive: { force: 12.8 }, transfer: { efficiency: 0.85 }, trigger: { window: 0.05, jitter: 0.006 }, grip: { stability: 0.64 },
+    chargeRate: 0.58, stabilizer: null, fixedPower: true, desc: 'A wound spring does the work: charge stops at full tension, so it can never overcharge or misfire. Spin dial for either direction.' },
+  { id: 'launcher_digital', slot: 'launcher', name: 'Digital Shooter', series: 'classic', spinMech: 'R', tier: 3, color: '#e9ecf5',
+    drive: { force: 13.2 }, transfer: { efficiency: 0.86 }, trigger: { window: 0.04, jitter: 0.009 }, grip: { stability: 0.66 },
+    chargeRate: 0.62, stabilizer: null, readout: true, mods: { perfectBonus: 0.03 }, desc: 'An LCD counter reads out every launch: exact power and launch rpm. +3% energy on a perfect release.' },
+  { id: 'launcher_slide', slot: 'launcher', name: 'Slide Shooter', series: 'classic', spinMech: 'R', tier: 2, color: '#1f9d4a',
+    drive: { force: 13.4 }, transfer: { efficiency: 0.85 }, trigger: { window: 0.032, jitter: 0.011 }, grip: { stability: 0.78 },
+    chargeRate: 0.6, stabilizer: { tiltReduce: 0.2 }, desc: 'Pistol grip with a sliding rack: steady hands and upright launches.' },
+  { id: 'launcher_catapult', slot: 'launcher', name: 'Catapult Shooter', series: 'classic', spinMech: 'dual', tier: 3, color: '#3a3d44',
+    drive: { force: 13.8 }, transfer: { efficiency: 0.84 }, trigger: { window: 0.03, jitter: 0.013 }, grip: { stability: 0.6 },
+    chargeRate: 0.55, stabilizer: null, speedMul: 1.35, desc: 'A sprung arm throws the top forward as it lets go: fast, aggressive openings.' },
 ];
 
 export const CABLES = [

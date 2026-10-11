@@ -159,7 +159,8 @@ export function createItem(opts) {
 export function itemName(item) {
   const b = baseOf(item);
   if (!b) return 'Unknown';
-  return item.nickname ? `“${item.nickname}”` : b.name;
+  const pole = b.magnet ? ` · ${item.pole === 'S' ? 'S' : 'N'}` : ''; // magnet discs show which face is up
+  return (item.nickname ? `“${item.nickname}”` : b.name) + pole;
 }
 
 export function itemWearMultiplier(item) {

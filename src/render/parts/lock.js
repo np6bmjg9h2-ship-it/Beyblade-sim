@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MM, TAU, partGroup, toonMaterial, inked, tone, segs, canvasTexture, rarityGlow, extrudeShape } from './common.js';
+import { ROLLER_LOCKS, rollerBodyRadius, addRollers } from './lockClassic.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
@@ -311,6 +312,7 @@ const BUDGET = 4000; // triangles at quality 'high', decals included
 const trisOf = (geos) => geos.reduce((s, g) => s + (g.index ? g.index.count : g.attributes.position.count) / 3, 0);
 
 export function buildLock(part, ctx) {
+  if (ROLLER_LOCKS[part.id] && !part._rollerBody) return addRollers(buildLock({ ...part, _rollerBody: true, radius: rollerBodyRadius(part) }, ctx), part, ctx);
   const d = DESIGNS[part.id] || autoDesign(part);
   const C = palette(part, ctx, d);
   const R = part.radius || 10, H = ctx.geo?.lockH ?? part.height ?? 6, n = Math.max(1, Math.round(part.notches || 3));

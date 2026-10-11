@@ -512,6 +512,12 @@ export class Battle extends Emitter {
           break;
         }
         case 'recovered': this.emit('physicsRecovered', { fighter: this.fighterOf(e.top) }); break;
+        case 'mechanism': {
+          const f = this.fighterOf(e.top);
+          if (e.kind === 'clutch') f.stats.clutches = (f.stats.clutches || 0) + 1;
+          this.emit('mechanism', { fighter: f, kind: e.kind, mode: e.mode, energy: e.energy, impulse: e.impulse });
+          break;
+        }
         default:
       }
     }

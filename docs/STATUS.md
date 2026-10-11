@@ -20,10 +20,11 @@ current build; no install or server needed. WebGL required.
 | 4 Input/feel | 9ba8c0b | Non-standard controllers translated; audio never crashes; glance-aware impact sparks/sound; low-spin warning; real fps readout; two battle bugs fixed (early finish awarded the win to the eliminated top; ring-out text) |
 | Test infra | 79267f2 | Browser tests use the GPU: 11/11 in ~3 min (was 45 min) |
 | 5 Balance pass 1 | d9801eb | Attack/Defense/Stamina/Burst in the 40-60% band; PHYSICS coefficients; pressWhenBehind AI; balance:check |
-| 5 Fun grind | (this commit) | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
+| Classic parts | (this commit) | 14 classic-series parts + 6 launchers from the plastic-gen research and the user's reference photos; moving parts in the physics (`physics/mechanisms.js`: magnets, spring tips, clutches, auto shift, rollers); own 3D models; 2 AI archetypes; tests `tests/classic.test.js`, browser scenario `classic`. Balance A/B still running when pushed: Hit Clutch and Quad Spike were tuned once; Magna Guard ~66%, re-check |
+| 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low. Unit tests: 93/93. Browser tests: 12/12 (~3.5 min).
+outlines, ~80 fps on Low. Unit tests: 104/104. Browser tests: 13 scenarios (12/12 + classic passed separately).
 
 ## In progress: Phase 5
 

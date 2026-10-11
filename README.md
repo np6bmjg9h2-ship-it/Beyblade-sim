@@ -96,8 +96,8 @@ contacts (Coulomb friction cones, torsional tip friction, velocity-weakening
 friction, restitution, speculative tip contact). Blade profiles (face angle,
 slope, catch) are shared by the collision code and the renderer. Every joule is
 accounted for in an energy ledger (tip friction, landings, scrape,
-collisions, walls, air drag, steering, abilities, damping, numerical
-residual), visible in the battle telemetry panel. Lock damage accumulates
+collisions, walls, air drag, steering, abilities, part mechanisms, damping,
+numerical residual), visible in the battle telemetry panel. Lock damage accumulates
 from counter-rotational angular impulse and can Shatter (burst) a top.
 
 **Launching** (`src/game/launch.js`). Energy = launcher drive force × cord
@@ -105,13 +105,26 @@ length × transfer and cord efficiency × charge; spin = √(2E / I). Release
 timing against a gold window, overcharge and misfire, lean and aim, and seven
 techniques (four basic, three learned) change the initial state.
 
-**Equipment.** 49 parts across six slots plus 6 launchers and 5 cords, each a
+**Equipment.** 63 parts across six slots plus 12 launchers and 5 cords, each a
 unique item instance (seeded stats, up to three traits from 72, optional
 special trait, set membership across 6 sets, durability, XP and mastery,
 history and nicknames) in 7 rarities. Traits feed bounded modifier channels
 that the physics reads; there are no cosmetic-only stats. Durability degrades
 physical properties; repairs, a free basic service and restoration keep any
 build usable.
+
+**Classic series.** 14 parts and 6 launchers in the style of the first
+generation of tops, with moving parts that run in the physics
+(`src/physics/mechanisms.js`): die-cast weight disks (a compact hex plate, a
+wide octagonal rim on spokes, a five-lobe star and an N/S magnet disc you
+flip in the Workshop: opposite poles attract, matching poles repel, plain
+tops are pulled a little), thin stickered rings (a wide hoop on three
+spokes, free-spinning rollers, diamond spikes, upper wings), bases with a
+coil-spring jump tip, a steel ball, engine-gear clutches that store part of
+the launch and release it on the first hard hit or at low spin, an
+automatic tip shift and side rollers, and launchers from a forgiving clip
+grip to a wind-up spring, a catapult and a digital shooter with an LCD
+readout. Two AI opponents use them (Clutch Charger, Magna Guard).
 
 **AI** (`src/game/ai.js`). AIs use exactly the player's controls and
 physics, see a delayed snapshot of what the HUD shows, and differ by
@@ -123,7 +136,7 @@ tactics based on your recorded habits, and adjust between rounds.
 **Look** (`src/render/`). Cel-shaded toon materials with hard light bands,
 a specular band and rim light (`toon.js`), ink outlines drawn as inverted
 hulls on their own layer (Settings → Graphics → Ink outlines), and a single
-key light. Every one of the 49 parts is its own hand-designed procedural
+key light. Every one of the 63 parts is its own hand-designed procedural
 model (`src/render/parts/`): a top is assembled by stacking the part models
 at the heights the physics uses, and every part stays inside the space the
 physics gives it (ring silhouettes are the collision profile). Parts click
@@ -147,10 +160,11 @@ the same way.
 ## Development
 
 ```sh
-npm test               # 93 unit tests (physics, loot, progression, beasts,
-                       # tournaments, AI, story, modes, replays, render, rift)
+npm test               # 104 unit tests (physics, loot, progression, beasts,
+                       # tournaments, AI, story, modes, replays, render, rift,
+                       # classic parts)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (12 scenarios, ~3 min
+                       # a keyboard and a virtual gamepad (13 scenarios, ~4 min
                        # on a GPU; BROWSER_SOFTWARE=1 forces software rendering;
                        # first run: npx playwright install chromium)
 npm run balance -- 8 all   # simulated round robin of reference builds on

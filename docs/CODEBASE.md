@@ -141,6 +141,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `abilities.js` | 301 | Spirit meter, Bit-Beast abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
 | `humanController.js` | 163 | Turns input actions into the control frame. |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
+| `../physics/mechanisms.js` | 140 | Classic-series moving parts inside the simulation (spec.mech from assembly): magnet forces between tops (substep), spring tips (absorb when struck, hop), clutches (energy stored at launch, released on a hit or at low spin, tip change), automatic tip shifts. Booked to the `mechanism` ledger; emits `mechanism` events. TopBody keeps a live `tip` copy that these change. |
 | `riftEffects.js` | 122 | Rift Run in-battle effects, only when a participant carries a `rift` block: sweet-spot hits, Scorch/Static/Rust statuses as timed modifiers, status fusions (meltdown, flashover, brittle), Second Wind. Emits `riftStatus`, `riftFusion`, `sweetSpot`, `meltdownHit`, `secondWind`. |
 | `matchJob.js`, `matchSim.js`, `tournamentRunner.js` | ~290 | Headless AI-vs-AI matches for tournaments: Web Worker from an embedded Blob URL, with an inline time-sliced fallback. |
 
@@ -160,7 +161,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `riftBattle.js`, `riftLoot.js`, `riftNodes.js` | ~560 | Run effects (charms, resonance, boons) → battle participants and opponents (elite affixes, vault rules); counter-seeded loot, prices, forge jobs, shrine and event rolls; trader, forge, shrine, camp and event actions. Everything rolls from `runRng(run, label…)`, so a run replays from its seed. |
 
 ### data/ (content)
-Parts (49 across 6 slots), traits (72), sets (6), rarity (7), launchers (6) and
+Parts (63 across 6 slots, 14 of them the classic series), traits (72), sets (6), rarity (7), launchers (12) and
 cables (5), techniques, arenas (7), beasts (11) plus lore, AI profiles,
 opponents (8 archetypes), characters (10), story (6 chapters: ch1 11 nodes,
 ch2–6 5–7 nodes), tournaments (9 plus story events plus 5 league divisions),
@@ -178,6 +179,7 @@ physical (mm, g) and consumed by `assembly.js`.
 | `topMesh.js` | 205 | `TopVisual`: builds the six part models, stacks them at physics heights, interpolates pose, display spin, speed ring, explode, assemble animation, ghosting for Inspect, dispose. `meshes[slot]` = part groups (a Shatter detaches them). |
 | `parts/common.js` | 170 | **Part-builder contract** (read this first) and geometry helpers. |
 | `parts/index.js` | 72 | Builder registry, build context (`ctx`), stack placement, aux mount kinds. |
+| `parts/discClassic.js` · `ringClassic.js` · `tipClassic.js` · `lockClassic.js` | 120–330 each | Classic-series models: die-cast disc plates (dog-bone hole, spokes, lobes, N/S magnet print), stickered rings built from the physics outline (hoop, rollers as spinners, gem spikes, raked wings), tips (steel ball, coil spring, engine-gear clutches, auto shift) via the tip.js kit, and the roller lock (wheels on radial axles). Routed from the slot builders by part id. |
 | `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids. Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
 | `arenaMesh.js` | 1168 | Cel-shaded stadiums built from the same arena definition as the physics (floor lathe of the height profile, walls, exits, crowd, backdrop). |
 | `effects.js` | 483 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Shatter debris (detached part groups), ring-out bursts, wobble warnings, head-on vs graze impact sprays (`glance` from the impact event). Pools are rebuilt when quality changes their size. Hosts the `SpiritSystem`. |
@@ -258,9 +260,10 @@ context; the simulation worker entry.
 | `tests/tournament.test.js`, `story.test.js`, `modes.test.js` | Formats and standings; story integrity and once-only rewards; challenge, survival and league rules. |
 | `tests/replay.test.js` | Recorded match replays identically under different frame timing; a live AI match ends identically at 30/60/144 fps; replay storage. |
 | `tests/render.test.js` | Spirit forms for every beast (finite, stadium-sized, animate safely); camera wall framing. |
+| `tests/classic.test.js` | Classic series: every part assembles; magnets attract/repel/pull plain metal with momentum and energy books intact; spring tips absorb and hop; clutches store and release (hit, timed fallback, low spin); auto shift; rollers on locks and rings; classic launchers; magnet flip; a deterministic battle. |
 | `tests/rift.test.js` | Rift Run: seeded maps and constraints, rewards and skips, hearts and Second Wind, charms/resonance/boons into participants, forge, trader, shrine, camp, events, Locker, talents, statuses, fusions, sweet spots, a headless two-act run. |
 | `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
-| `tests/browser/run.js` | 12 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank). It uses the GPU when there is one (about 3 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
+| `tests/browser/run.js` | 13 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout). It uses the GPU when there is one (about 3 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. |
 | `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 

@@ -30,6 +30,7 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
   if (cable?.stats) Object.assign(C, structuredClone(cable.stats));
   const mods = { power: 0, window: 0, consistency: 0, chargeRate: 0, perfectBonus: 0, missPenalty: 0, techniqueVar: 0, controlledConsistency: 0, overcharge: 0, wear: 0, overchargeWear: 0 };
   const addLaunch = (o) => { if (o) for (const k in o) mods[k] = (mods[k] || 0) + o[k]; };
+  addLaunch(L.mods); // built into the launcher itself (classic series)
   for (const it of [launcher, cable]) {
     if (!it?.base) continue;
     const seen = new Map();
@@ -52,6 +53,9 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
     launcher: L, cable: C, mods,
     condition: { drive, trigger, grip, body, cable: cableC },
     spinMech: L.spinMech,
+    fixedPower: !!L.fixedPower, // wound spring: charge stops at 100%
+    speedMul: L.speedMul || 1,
+    readout: !!L.readout,
     // physical outputs
     energyMax: L.drive.force * C.length * L.transfer.efficiency * C.efficiency * (0.8 + 0.2 * drive) * (0.9 + 0.1 * cableC) * (1 + mods.power),
     chargeRate: L.chargeRate * (0.3 / C.length) * (1 + mods.chargeRate) * (0.85 + 0.15 * body),
@@ -60,7 +64,7 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
     // angle error (radians, 1 sigma)
     sigma: (5.5 * DEG) * (1.35 - L.grip.stability) * (1.35 - C.directional) * (1 + (1 - grip) * 1.2) * (1 + (1 - cableC) * 1.5)
       * Math.max(0.3, 1 - mods.consistency) * (L.stabilizer ? 1 - L.stabilizer.tiltReduce : 1),
-    misfire: BASE_MISFIRE + mods.overcharge,
+    misfire: L.fixedPower ? 1 : BASE_MISFIRE + mods.overcharge,
   };
 }
 
@@ -88,7 +92,7 @@ export class ChargeMeter {
     this.holding = holding;
     if (holding) {
       const rate = this.gear.chargeRate * (this.charge > 1 ? 0.55 : 1) * clamp(0.35 + 0.65 * triggerAmount, 0.35, 1);
-      this.charge = Math.min(this.gear.misfire + 0.05, this.charge + rate * dt);
+      this.charge = Math.min(this.gear.fixedPower ? 1 : this.gear.misfire + 0.05, this.charge + rate * dt);
     } else if (this.charge > 0) {
       // charge bleeds off if the player lets go of the trigger without releasing
       this.charge = Math.max(0, this.charge - 0.4 * dt);
@@ -106,7 +110,7 @@ export function judgeRelease(gear, techId, c) {
   const w = techniqueWindow(gear, techId);
   const dev = c - PERFECT_CENTER;
   let label, energyMul, varMul;
-  if (c >= gear.misfire) { label = 'Misfire'; energyMul = 0.45; varMul = 3.2; }
+  if (!gear.fixedPower && c >= gear.misfire) { label = 'Misfire'; energyMul = 0.45; varMul = 3.2; }
   else if (Math.abs(dev) <= w) { label = 'Perfect'; energyMul = c + 0.04 + gear.mods.perfectBonus; varMul = 0.35; }
   else if (c > 1) { label = 'Overcharge'; energyMul = 1 + (c - 1) * 1.25; varMul = 1 + (c - 1) * 9; }
   else if (c >= 0.75) { label = 'Good'; energyMul = c; varMul = 1 + gear.mods.missPenalty; }
@@ -121,7 +125,7 @@ export function computeLaunch({ gear, techId, charge, aim, spinDir, topSpec, rng
   const T = TECHNIQUE_INDEX[techId] || TECHNIQUE_INDEX.normal;
   const judge = judgeRelease(gear, techId, charge);
   // release jitter: the actual release point wobbles by trigger jitter
-  const cEff = clamp(charge + rng.gauss(0, gear.jitter * 0.5), 0, gear.misfire + 0.1);
+  const cEff = clamp(charge + rng.gauss(0, gear.jitter * 0.5), 0, gear.fixedPower ? 1 : gear.misfire + 0.1);
   let energy = gear.energyMax * T.power * judge.energyMul * (cEff / Math.max(0.01, charge));
   if (T.perfectOnly && judge.perfect) energy *= 1.0;
   if (T.perfectOnly && !judge.perfect) energy *= 0.85;
@@ -171,6 +175,8 @@ export function computeLaunch({ gear, techId, charge, aim, spinDir, topSpec, rng
     const s = 1.0;
     vx = (dx / d) * s; vz = (dz / d) * s;
   }
+  // a catapult launcher throws the top out faster
+  vx *= gear.speedMul || 1; vz *= gear.speedMul || 1;
   // angle error also kicks the release sideways
   vx += Math.sin(errMag) * Math.cos(errDir) * 0.8;
   vz += Math.sin(errMag) * Math.sin(errDir) * 0.8;

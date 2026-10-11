@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasTexture, makeCanvas } from './common.js';
 import { mix } from '../toon.js';
 import { sampleProfile } from '../../physics/profile.js';
+import { CLASSIC_RINGS, buildClassicRing } from './ringClassic.js';
 
 const UV_R = 28; // mm: the decal sheet spans [-UV_R, UV_R] top-down
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -530,6 +531,7 @@ const SHEET = { high: 1024, medium: 512, low: 256 };
 const TRI_BUDGET = { high: 8800, medium: 6500, low: 4800 };
 
 export function buildRing(part, ctx) {
+  if (CLASSIC_RINGS[part.id]) return buildClassicRing(part, ctx);
   const design = DESIGNS[part.id] || parametric(part);
   // many-bladed rings (unknown ids, traits) can run over the triangle
   // budget: rebuild the swept outline coarser until they fit

@@ -326,6 +326,7 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 2px soli
 .cm-zone.misfire { background: repeating-linear-gradient(135deg, rgba(255,51,85,0.6) 0 5px, rgba(255,51,85,0.35) 5px 10px); }
 .cm-fill { position: absolute; left: 0; top: 5px; bottom: 5px; background: linear-gradient(90deg, #2f7dff, var(--accent)); box-shadow: inset 0 2px 0 rgba(255,255,255,0.4); }
 .cm-mark { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; box-shadow: 0 0 0 1px var(--ink); z-index: 1; }
+.cm-lcd { position: absolute; right: 8px; top: 2px; z-index: 2; padding: 0 6px; transform: skewX(16deg); font: 700 14px/18px ui-monospace, 'Consolas', monospace; letter-spacing: .08em; color: #c6ff8f; background: #1b2a17; border: 1px solid #3f5a2f; text-shadow: 0 0 6px rgba(160, 255, 110, 0.6); }
 .cm-predict { position: absolute; top: -2px; bottom: -2px; width: 4px; background: #ff6ad5; box-shadow: 0 0 8px #ff6ad5; z-index: 1; }
 .cm-timeline { font-size: 12px; color: #d3dcf2; margin-bottom: 6px; }
 .launch-help { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #d3dcf2; align-items: center; }

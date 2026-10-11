@@ -11,6 +11,7 @@
 // v and L.
 
 import { Vec3, Quat, clamp } from '../core/math.js';
+import { initMechanisms } from './mechanisms.js';
 
 export const GRAVITY = 9.81;
 
@@ -92,6 +93,8 @@ export class TopBody {
     this.invI1 = 1 / spec.I1;
     this.invI3 = 1 / spec.I3;
     this.axisOffset = new Vec3().fromArray(spec.axisOffset || [0, 0, 0]);
+    this.tip = { ...spec.tip }; // live tip: clutches and shifts change it mid-battle
+    this.mech = null;
   }
 
   // Place the top: tip end resting at `tipPos`, axis direction `axis`,
@@ -113,8 +116,10 @@ export class TopBody {
     this.state = 'spinning';
     this.active = true;
     this.burstNotches = 0;
+    this.tip = { ...this.spec.tip };
+    this.mech = initMechanisms(this); // a clutch winds its gear from the launch spin
     this.initialSpinEnergy = Math.max(1e-6, this.spinEnergy());
-    this.maxSpinRate = Math.abs(spin);
+    this.maxSpinRate = this.mech?.clutchStored ? this.spinAbs : Math.abs(spin);
   }
 
   updateDerived() {

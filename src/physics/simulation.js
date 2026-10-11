@@ -10,13 +10,14 @@
 import { Vec3, clamp, smoothstep, UP } from '../core/math.js';
 import { GRAVITY } from './topBody.js';
 import { sampleProfile } from './profile.js';
+import { applyMagnets, struckRestitution, mechanismsPostTick } from './mechanisms.js';
 
 export const TICK = 1 / 120;
 export const DEFAULT_SUBSTEPS = 16;
 
 export const LEDGER_KEYS = [
   'tipFriction', 'floor', 'scrape', 'collision', 'wall', 'drag', 'control', 'ability',
-  'damping', 'clamp', 'numerical',
+  'mechanism', 'damping', 'clamp', 'numerical',
 ];
 
 const MAX_LIN_SPEED = 9; // m/s, safety clamp (tunnelling guard)
@@ -254,6 +255,7 @@ export class Simulation {
       E0.push(t.totalEnergy());
       this.applyBodyForces(t, dt);
     }
+    applyMagnets(tops, dt);
 
     // --- top vs top
     this._release();
@@ -528,7 +530,7 @@ export class Simulation {
   // ------------------------------------------------------------ generators
 
   genTip(t, dt) {
-    const tip = t.spec.tip;
+    const tip = t.tip; // per-top: clutches and shifts change it mid-battle
     const arena = this.arena;
     // rounded-disc tip: centre C on the axis, flat radius rf, edge radius rho
     t.axisPoint(tip.endZ + tip.ballRadius, _c);
@@ -566,7 +568,7 @@ export class Simulation {
   // Positional projection of the tip onto the floor after integration.
   correctTip(t) {
     if (!t.contactTip) return;
-    const tip = t.spec.tip;
+    const tip = t.tip;
     t.axisPoint(tip.endZ + tip.ballRadius, _c);
     this.arena.height(_c.x, _c.z, _n);
     _d.copy(_n).scale(-1);
@@ -749,6 +751,8 @@ export class Simulation {
     e *= Math.sqrt(A.mods.restitution * B.mods.restitution);
     // the top being hit (slower closer) gets its counter/absorb modifier
     e *= closingA ? B.mods.restitutionWhenHit : A.mods.restitutionWhenHit;
+    // a spring tip under the top being hit soaks up part of the blow
+    e *= struckRestitution(closingA ? B : A);
     // blade strikes deform the striking edge: less elastic than rim-on-rim contact
     e *= 1 - 0.45 * Math.max(best.faceA, best.faceB);
     c.e = clamp(e, 0.05, 0.92);
@@ -796,6 +800,8 @@ export class Simulation {
         point: agg.point.toArray(), normal: agg.normal.toArray(), layer: agg.layer, time: this.time,
       });
     }
+    // moving parts (springs, clutches, tip shifts)
+    if (this.tops.some((t) => t.mech)) this.events.push(...mechanismsPostTick(this, [...this.pairAgg.values()], TICK));
     // per-top state
     for (const t of this.tops) {
       if (!t.isFiniteState()) {

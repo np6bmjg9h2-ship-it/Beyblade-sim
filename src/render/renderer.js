@@ -332,6 +332,13 @@ export class GameRenderer {
       case 'sweetSpot': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.01, 0.06, 0.35, '#fff27a'); break; }
       case 'meltdownHit': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.015, 0.08, 0.5, '#ff8a3d'); this.rig.shake(0.008); break; }
       case 'secondWind': { const p = e.fighter.top.p; fx.ring([p.x, p.y, p.z], 0.01, 0.08, 0.7, '#7fe3a8'); fx.aura(p, '#7fe3a8', 20); break; }
+      case 'mechanism': {
+        const p = e.fighter.top.p;
+        if (e.kind === 'clutch') { fx.ring([p.x, p.y, p.z], 0.012, 0.085, 0.5, '#ffe14d'); fx.aura(p, '#ffb21e', 24); this.rig.shake(0.004); }
+        else if (e.kind === 'shift') fx.ring([p.x, p.y, p.z], 0.01, 0.045, 0.35, '#9fe8ff');
+        else if (e.kind === 'springHop') fx.ring([p.x, p.y - 0.01, p.z], 0.008, 0.035, 0.25, '#b6ff8a');
+        break;
+      }
       default:
     }
   }

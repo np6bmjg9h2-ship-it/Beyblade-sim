@@ -9,8 +9,8 @@ const D2R = Math.PI / 180;
 
 export const RIFT_ACTS = [
   { n: 1, id: 'harbor', name: 'Harbor Rift', tier: 1, color: '#9fd7ff', arenas: ['standard', 'vortex'], bosses: ['sora', 'juno', 'rook'], archetypes: ['striker', 'wall', 'drifter', 'all'] },
-  { n: 2, id: 'foundry', name: 'Foundry Rift', tier: 2, color: '#7fe3a8', arenas: ['vortex', 'edgebreaker', 'standard'], bosses: ['daichi', 'rook', 'mirelle'], archetypes: ['striker', 'wall', 'all', 'breaker', 'upper'] },
-  { n: 3, id: 'crater', name: 'Crater Rift', tier: 3, color: '#ffd84d', arenas: ['magma', 'crystal', 'edgebreaker'], bosses: ['kaela', 'theo', 'mirelle'], archetypes: ['breaker', 'upper', 'counter', 'all', 'wall'] },
+  { n: 2, id: 'foundry', name: 'Foundry Rift', tier: 2, color: '#7fe3a8', arenas: ['vortex', 'edgebreaker', 'standard'], bosses: ['daichi', 'rook', 'mirelle'], archetypes: ['striker', 'wall', 'all', 'breaker', 'upper', 'clutch'] },
+  { n: 3, id: 'crater', name: 'Crater Rift', tier: 3, color: '#ffd84d', arenas: ['magma', 'crystal', 'edgebreaker'], bosses: ['kaela', 'theo', 'mirelle'], archetypes: ['breaker', 'upper', 'counter', 'all', 'wall', 'magna'] },
   { n: 4, id: 'zero', name: 'Zero Rift', tier: 4, color: '#ff6ad5', arenas: ['skyfall', 'crystal', 'zero'], bosses: ['nyx', 'valen', 'aurelia'], archetypes: ['champion', 'counter', 'upper', 'breaker'] },
 ];
 

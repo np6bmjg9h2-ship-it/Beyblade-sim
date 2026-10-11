@@ -20,6 +20,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MM, TAU, partGroup, toonMaterial, inked, segs, canvasTexture, rarityGlow, extrudeShape } from './common.js';
+import { CLASSIC_DISCS, buildClassicDisc } from './discClassic.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -615,6 +616,7 @@ function decalMesh(deco, C, L, key) {
 // ------------------------------------------------------------ builder
 
 export function buildDisc(part, ctx = {}) {
+  if (CLASSIC_DISCS[part.id]) return buildClassicDisc(part, ctx);
   const d = DESIGNS[part.id] || autoDesign(part);
   const q = ctx.quality || 'high';
   const r0 = part.rIn ?? 6, T = part.thickness ?? 4;

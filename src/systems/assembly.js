@@ -245,7 +245,7 @@ export function assembleTop(build, opts = {}) {
     z: rel(zRingC), radius: P.ring.rOut * MM, baseRadius: (P.ring.blades > 0 ? P.ring.rBase : P.ring.rOut) * MM,
     blades: P.ring.blades, bladeWidth: P.ring.bladeWidth, hand: P.ring.spin === 'R' ? -1 : P.ring.spin === 'L' ? 1 : 0,
     faceAngle: (P.ring.faceAngle || 0) * DEG, slope: (P.ring.slope || 0) * DEG, thickness: P.ring.thickness * MM,
-    restitution: P.ring.restitution * damp, friction: P.ring.friction, catch: P.ring.catch, freeSpin: 0,
+    restitution: P.ring.restitution * damp, friction: P.ring.friction, catch: P.ring.catch, freeSpin: P.ring.freeSpin || 0,
   });
   if (P.disc.contact) {
     layers.push({
@@ -268,7 +268,7 @@ export function assembleTop(build, opts = {}) {
   // hull rims for body/floor scraping when tilted
   const hull = [
     { z: rel(tipLen * 0.85), radius: P.tip.bodyRadius * MM, friction: 0.45 },
-    { z: rel(zLock0), radius: P.lock.radius * MM, friction: 0.5 },
+    { z: rel(zLock0), radius: P.lock.radius * MM, friction: P.lock.hullFriction ?? 0.5 }, // rollers roll
     { z: rel(zDisc0), radius: P.disc.rOut * MM, friction: 0.5 },
     { z: rel(zRing0), radius: (P.ring.blades > 0 ? P.ring.rBase : P.ring.rOut) * MM, friction: 0.55 },
   ];
@@ -294,10 +294,28 @@ export function assembleTop(build, opts = {}) {
     aero, linDrag: 6e-4, radius, height: topZ * MM,
     comHeight: zCom, eccentricity: ecc,
     geometry: { tipLen, lockH, zLock0, zDisc0, zRing0, zRingC, zCore0, topZ },
+    mech: mechanisms(P),
   };
 
   const summary = summarize(spec, P);
   return { spec, summary, parts: P, validation: v };
+}
+
+// Moving parts of the classic series (physics/mechanisms.js), metres.
+const tipMm = (o) => {
+  const t = {};
+  if (o.mu != null) t.mu = o.mu;
+  for (const k of ['ballRadius', 'flatRadius', 'patchRadius']) if (o[k] != null) t[k] = o[k] * MM;
+  return t;
+};
+export function magnetPole(item) { return item?.pole === 'S' ? 'S' : 'N'; }
+function mechanisms(P) {
+  const m = {};
+  if (P.disc.magnet) m.magnet = { pole: magnetPole(P.disc._item) === 'S' ? -1 : 1, strength: P.disc.magnet.strength ?? 1 };
+  if (P.tip.spring) m.spring = { absorb: P.tip.spring.absorb ?? 0.25, hop: P.tip.spring.hop ?? 0.5, minImpulse: P.tip.spring.minImpulse ?? 0.012 };
+  if (P.tip.clutch) { const c = P.tip.clutch; m.clutch = { ...c, tip: c.tip ? tipMm(c.tip) : null }; }
+  if (P.tip.shift) m.shift = { below: P.tip.shift.below ?? 0.5, tip: tipMm(P.tip.shift.tip || {}) };
+  return Object.keys(m).length ? m : null;
 }
 
 // Physical summary for the UI. Every figure comes from the assembled spec.

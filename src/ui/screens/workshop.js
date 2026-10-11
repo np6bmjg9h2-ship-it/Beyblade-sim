@@ -332,6 +332,7 @@ export class WorkshopScreen {
     const choice = await this.ui.choose(itemName(it), [
       { label: `Equip to ${L.name}`, value: 'equip', disabled: equipped, desc: 'Quick-equip into the active loadout.' },
       ...(isPart ? [{ label: 'Inspect in 3D', value: 'inspect', desc: 'See this part on its own and fitted into your active top.' }] : []),
+      ...(PARTS.find((b) => b.id === it.base)?.magnet ? [{ label: `Flip magnet (${it.pole === 'S' ? 'S' : 'N'} face up → ${it.pole === 'S' ? 'N' : 'S'})`, value: 'flip', desc: 'Turn the disc over to swap its pole. Opposite poles attract, matching poles repel; plain tops are always pulled a little.' }] : []),
       { label: it.favourite ? 'Unfavourite' : 'Favourite ★', value: 'fav' },
       { label: it.locked ? 'Unlock' : 'Lock 🔒', value: 'lock' },
       { label: 'Nickname…', value: 'nick' },
@@ -345,6 +346,7 @@ export class WorkshopScreen {
       this.ui.toast(v.ok ? `Equipped ${itemName(it)}.` : `Equipped, but the loadout is now invalid: ${v.errors[0]}`, v.ok ? 'good' : 'warn', 4000);
     }
     if (choice === 'inspect') { this.inspectItem(it); return; }
+    if (choice === 'flip') { const r = WS.flipMagnet(P, it.uid); this.ui.toast(r.ok ? `${r.pole} face up.` : r.reason, r.ok ? 'good' : 'bad'); }
     if (choice === 'fav') WS.toggleFlag(P, it.uid, 'favourite');
     if (choice === 'lock') WS.toggleFlag(P, it.uid, 'locked');
     if (choice === 'nick') { this.ui.push(new TextPrompt('Nickname', it.nickname || '', 20, (v) => { WS.setNickname(P, it.uid, v); this.ui.refresh(this); })); return; }

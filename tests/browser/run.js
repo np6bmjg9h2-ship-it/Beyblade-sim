@@ -917,6 +917,69 @@ scenarios.rift = async () => {
   } finally { await h.close(); }
 };
 
+// Classic series in the real app: every classic part renders in Inspect,
+// a classic top battles a classic opponent, the clutch fires and is shown.
+scenarios.classic = async () => {
+  const h = await launch();
+  const equip = (parts) => h.eval((ps) => {
+    const P = window.__app.profile, L = P.loadouts[P.activeLoadout];
+    for (const [slot, base] of Object.entries(ps)) {
+      const uid = 'cl_' + base;
+      if (!P.inventory[uid]) {
+        P.inventory[uid] = { uid, base, slot, rarity: 'rare', level: 5, seed: 7, stats: {}, traits: [], special: null, set: null, durability: 110, maxDurability: 110, xp: 0, tuning: [], upgrades: [],
+          history: { battles: 0, wins: 0, knockouts: 0, bursts: 0, burstsSurvived: 0, highestImpact: 0, longestSpin: 0, tournamentWins: 0, moments: [], acquired: 'test', acquiredAt: 0 }, nickname: null, favourite: false, locked: false, visual: { color: null } };
+        if (slot === 'launcher') P.inventory[uid].parts = { drive: 100, trigger: 100, grip: 100 };
+      }
+      if (slot === 'launcher') L.launcher = uid; else L.parts[slot] = uid;
+    }
+  }, parts);
+  const inspect = async (label) => {
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.focusId('inspect3d'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'InspectScreen' && window.__app.renderer.inspectActive, 10000, 'inspect ' + label);
+    await h.waitFor(() => !window.__app.renderer.inspect.visual.assembling, 15000, 'assembled ' + label);
+    const r = await h.eval(() => { const v = window.__app.renderer.inspect.visual; return { parts: Object.keys(v.parts), spinners: v.spinners?.length || 0 }; });
+    await h.shot('c_' + label);
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'back to workshop');
+    await h.padButton(1);
+    return r;
+  };
+  try {
+    await newGame(h);
+    const looks = {};
+    for (const [label, parts] of Object.entries({
+      wing: { ring: 'ring_twinwing', disc: 'disc_octawide', tip: 'tip_springjump' },
+      roller: { ring: 'ring_rollerguard', disc: 'disc_starlobe', tip: 'tip_autoshift', lock: 'lock_roller' },
+      spike: { ring: 'ring_quadspike', disc: 'disc_hexheavy', tip: 'tip_steelball' },
+      final: { ring: 'ring_hoophalo', disc: 'disc_magna', tip: 'tip_clutchfinal' },
+    })) {
+      await equip(parts);
+      looks[label] = await inspect(label);
+      if (looks[label].parts.length < 5) throw new Error(`${label}: missing part models ${JSON.stringify(looks[label])}`);
+    }
+    if (!(looks.roller.spinners >= 4)) throw new Error('roller guard and twin roller should add spinning rollers: ' + looks.roller.spinners);
+    // a classic top (hit clutch, digital launcher) against the Magna Guard
+    await equip({ ring: 'ring_quadspike', disc: 'disc_magna', tip: 'tip_clutchhit', lock: 'lock_click3', launcher: 'launcher_digital' });
+    await openTile(h, 'quick', 'QuickBattleScreen');
+    await h.eval(() => { window.__app.ui.current.cfg.opponent = 'magna'; window.__testRoundTime = 30; window.__testSpeed = 3; });
+    await h.eval(() => window.__app.ui.current.start?.());
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 15000, 'battle');
+    await h.eval(() => { window.__mech = []; window.__app.ui.current.battle.on('mechanism', (e) => window.__mech.push(`${e.fighter.index}:${e.kind}`)); });
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await h.waitFor(() => [...document.querySelectorAll('.notif')].some((n) => n.textContent.includes('LCD')), 15000, 'digital launcher readout');
+    const lcd = true;
+    await h.waitFor(() => window.__mech.includes('0:clutch') || !window.__app.ui.current.battle?.fighters[0].top.active, 60000, 'clutch released');
+    await h.shot('c_battle');
+    const mech = await h.eval(() => window.__mech.slice());
+    await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+    await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+    return { looks: Object.fromEntries(Object.entries(looks).map(([k, v]) => [k, v.spinners])), mech, lcd, errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

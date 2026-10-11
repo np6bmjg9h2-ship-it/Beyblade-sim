@@ -29,6 +29,13 @@ export const ARCHETYPES = [
   { id: 'champion', name: 'Circuit Champion', ai: 'elite', color: '#e8f0ff', beast: 'pyrrhex', spin: 'R', technique: 'spiral',
     parts: { ring: 'ring_starlance', core: 'core_storm', disc: 'disc_heavyring', lock: 'lock_spring', tip: 'tip_semiflat' }, launcher: 'launcher_precision', cable: 'cable_carbon',
     desc: 'Elite all-rounder with perfect launches.' },
+  // classic series
+  { id: 'clutch', name: 'Clutch Charger', ai: 'aggressive', color: '#2f6bff', beast: 'zephyrax', spin: 'R', technique: 'bank',
+    parts: { ring: 'ring_quadspike', core: 'core_helix', disc: 'disc_hexheavy', lock: 'lock_click3', tip: 'tip_clutchhit' }, launcher: 'launcher_slide', cable: 'cable_standard',
+    desc: 'Classic spike attacker on an engine-gear clutch: the first big hit sets it off.' },
+  { id: 'magna', name: 'Magna Guard', ai: 'defensive', color: '#24262c', beast: 'ferrowulf', spin: 'R', technique: 'controlled',
+    parts: { ring: 'ring_rollerguard', core: 'core_quad', disc: 'disc_magna', lock: 'lock_ironclasp', tip: 'tip_steelball' }, launcher: 'launcher_windup', cable: 'cable_standard',
+    desc: 'Rollers, a magnet disc and a steel ball: pulls you in and rolls your hits away.' },
 ];
 
 export const ARCHETYPE_INDEX = Object.fromEntries(ARCHETYPES.map((a) => [a.id, a]));

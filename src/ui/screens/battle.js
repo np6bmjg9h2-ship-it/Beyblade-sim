@@ -18,7 +18,7 @@ import { beastImg, fmtTime, fmtRpm } from '../widgets.js';
 import { ResultsScreen, BattleScreenRef } from './results.js';
 import { SettingsScreen } from './settings.js';
 
-const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', damping: 'Wobble damping', clamp: 'Safety limits', numerical: 'Numerical' };
+const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', mechanism: 'Part mechanisms', damping: 'Wobble damping', clamp: 'Safety limits', numerical: 'Numerical' };
 
 export class BattleScreen {
   static screenName = 'BattleScreen';
@@ -193,6 +193,7 @@ export class BattleScreen {
           if (q.techniqueSuccess === true) this.notify(`${q.techniqueName} landed!`, 'gold');
           else if (q.techniqueSuccess === false) this.notify(`${q.techniqueName} failed`, 'bad');
           this.notify(`${fmtRpm(e.result.spin)} · ${e.result.energy.toFixed(2)} J`, 'info');
+          if (e.fighter.gear?.readout) this.notify(`LCD: ${Math.round(q.charge * 100)}% charge · ${fmtRpm(e.result.spin)}`, 'gold');
         }
         if (b.fighters.every((f) => f.launch.launched)) app.renderer.rig.override = null;
         break;
@@ -225,6 +226,13 @@ export class BattleScreen {
       case 'sweetSpot': this.notify(`${e.fighter.name}: SWEET SPOT!`, 'gold'); if (involvesHuman(e.fighter)) app.input.rumble(0.5, 0.8, 120); break;
       case 'meltdownHit': this.notify(`${e.fighter.name}: MELTDOWN HIT!`, 'crit'); break;
       case 'secondWind': app.audio.heal(); this.notify(`${e.fighter.name}: SECOND WIND!`, 'good'); break;
+      case 'mechanism':
+        if (e.kind === 'clutch') {
+          app.audio.burst();
+          this.notify(`${e.fighter.name}: ${e.mode === 'hit' ? 'HIT CLUTCH' : 'FINAL CLUTCH'}!`, 'gold');
+          if (involvesHuman(e.fighter)) app.input.rumble(0.7, 0.5, 220);
+        } else if (e.kind === 'shift') this.notify(`${e.fighter.name}: tip shift`, 'info');
+        break;
       case 'topFinished':
         if (e.how === 'burst') app.audio.burst();
         else if (e.how === 'out') app.audio.ringOut();
@@ -440,8 +448,9 @@ export class BattleScreen {
         h('div', {}, h('div', { class: 'muted' }, 'Lean'), h('b', {}, `${(L.aim.lean * 57.3).toFixed(1)}°`), h('div', { class: 'small' }, `Pos ${(Math.hypot(L.aim.x, L.aim.z) * 100).toFixed(1)} cm from centre`))),
       h('div', { class: 'charge-meter' },
         h('div', { class: 'cm-zone perfect', style: { left: scale(z.perfectLo), width: `calc(${scale(z.perfectHi)} - ${scale(z.perfectLo)})` } }),
-        h('div', { class: 'cm-zone over', style: { left: scale(1), width: `calc(${scale(z.misfire)} - ${scale(1)})` } }),
-        h('div', { class: 'cm-zone misfire', style: { left: scale(z.misfire), right: '0' } }),
+        f.gear.fixedPower ? null : h('div', { class: 'cm-zone over', style: { left: scale(1), width: `calc(${scale(z.misfire)} - ${scale(1)})` } }),
+        f.gear.fixedPower ? null : h('div', { class: 'cm-zone misfire', style: { left: scale(z.misfire), right: '0' } }),
+        f.gear.readout ? h('div', { class: 'cm-lcd' }, `${Math.round(charge * 100)}%`) : null,
         h('div', { class: 'cm-fill', style: { width: scale(Math.min(charge, z.misfire + 0.05)) } }),
         h('div', { class: 'cm-mark', style: { left: scale(PERFECT_CENTER) } }),
         b.phase === 'countdown' && L.meter.holding ? h('div', { class: 'cm-predict', style: { left: scale(Math.min(z.misfire + 0.04, charge + Math.max(0, 3 - b.phaseT) * f.gear.chargeRate * (charge > 1 ? 0.55 : 1))) }, title: 'Charge at IGNITE if you keep holding' }) : null),

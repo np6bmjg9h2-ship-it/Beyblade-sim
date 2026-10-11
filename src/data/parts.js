@@ -11,6 +11,17 @@
 //
 // Spin naming: 'R' = clockwise seen from above (simulation spin sign -1),
 // 'L' = counter-clockwise (+1), 'dual' = symmetric blades.
+//
+// Classic series (series: 'classic'): parts in the style of the first
+// generation of tops (die-cast weight disks, thin stickered rings, bases
+// with moving parts). Their mechanisms are physical and run in the
+// simulation (physics/mechanisms.js):
+//   ring.freeSpin     : contact surface on free-spinning rollers (no grinding)
+//   lock.hullFriction : rollers on the body: a leaning top rolls, not scrapes
+//   disc.magnet       : { strength }, pole N/S per item (flip it in the Workshop)
+//   tip.spring        : { absorb, hop, minImpulse } coil spring round the tip
+//   tip.clutch        : { mode 'hit'|'low', store, below?, dash, minImpulse?, fallback?, tip? }
+//   tip.shift         : { below, tip } automatic tip change at low spin
 
 export const SLOTS = ['ring', 'core', 'disc', 'lock', 'tip', 'aux'];
 export const SLOT_NAMES = {
@@ -44,6 +55,10 @@ export const PARTS = [
   ring({ id: 'ring_cometarc', name: 'Comet Arc', arch: ['helix', 'apex', 'quad'], spin: 'dual', mass: 15, rIn: 11, rOut: 25, rBase: 22.5, blades: 3, bladeWidth: 0.55, faceAngle: 13, thickness: 6, restitution: 0.52, friction: 0.22, catch: 0.5, aero: 0.014, role: 'balance', tier: 2, color: '#ffd84d', desc: 'Symmetric arcs that strike in either spin direction.' }),
   ring({ id: 'ring_aegisprism', name: 'Aegis Prism', arch: ['quad', 'helix'], spin: 'dual', mass: 19, rIn: 10, rOut: 24.5, rBase: 23, blades: 3, bladeWidth: 0.8, faceAngle: 3, slope: -10, thickness: 7, restitution: 0.45, friction: 0.19, catch: 0.2, aero: 0.012, massDist: 0.4, role: 'defense', tier: 3, color: '#7fe3ff', desc: 'Three broad prisms with downward-raked faces that press attackers into the floor.' }),
   ring({ id: 'ring_voidmaw', name: 'Void Maw', arch: ['quad', 'helix'], spin: 'L', mass: 17, rIn: 11, rOut: 26, rBase: 21.5, blades: 3, bladeWidth: 0.45, faceAngle: 16, thickness: 6.5, restitution: 0.53, friction: 0.26, catch: 0.8, aero: 0.026, role: 'burst', tier: 4, color: '#3c2a5e', desc: 'Left-spin jaws with deep hooks for lock-wrenching counter-spin battles.' }),
+  ring({ id: 'ring_hoophalo', name: 'Hoop Halo', series: 'classic', arch: ['helix', 'quad'], spin: 'dual', mass: 13, rIn: 11, rOut: 26.5, rBase: 26.5, blades: 0, faceAngle: 0, thickness: 5, restitution: 0.36, friction: 0.14, catch: 0.1, aero: 0.021, massDist: 0.85, role: 'stamina', tier: 2, color: '#ffd21f', desc: 'A wide, thin hoop on three spokes with nearly all its mass at the very edge: long spins and a round wall that turns attacks aside. The open hoop catches the air.' }),
+  ring({ id: 'ring_rollerguard', name: 'Roller Guard', series: 'classic', arch: ['helix', 'quad'], spin: 'dual', mass: 18, rIn: 10, rOut: 25, rBase: 23, blades: 2, bladeWidth: 0.24, faceAngle: 0, thickness: 6.5, restitution: 0.4, friction: 0.2, catch: 0.1, aero: 0.012, massDist: 0.4, freeSpin: 0.7, role: 'defense', tier: 3, color: '#2a2f3a', desc: 'Two free-spinning rollers stand out from a round guard. Hits on the rollers roll off instead of grinding spin away.' }),
+  ring({ id: 'ring_quadspike', name: 'Quad Spike', series: 'classic', arch: ['helix', 'quad', 'apex'], spin: 'dual', mass: 16, rIn: 11, rOut: 25.5, rBase: 22, blades: 4, bladeWidth: 0.3, faceAngle: 14, thickness: 6, restitution: 0.56, friction: 0.22, catch: 0.5, aero: 0.022, massDist: 0.25, role: 'attack', tier: 1, color: '#2fa84f', desc: 'Four diamond spikes that strike in either spin. Hard, springy hits: big knockback for both tops.' }),
+  ring({ id: 'ring_twinwing', name: 'Twin Wing', series: 'classic', arch: ['helix', 'quad'], spin: 'R', mass: 15, rIn: 11, rOut: 26, rBase: 20, blades: 2, bladeWidth: 0.5, faceAngle: 9, slope: 18, thickness: 6, restitution: 0.5, friction: 0.24, catch: 0.55, aero: 0.024, massDist: 0.2, role: 'upper', tier: 2, color: '#e8402a', desc: 'Two broad swept wings with steep upward slopes. Hits lift the opponent off its tip.' }),
   ring({ id: 'ring_starlance', name: 'Star Lance', arch: ['helix', 'quad', 'apex'], spin: 'R', mass: 14, rIn: 11, rOut: 26.5, rBase: 21, blades: 5, bladeWidth: 0.35, faceAngle: 18, thickness: 5.5, restitution: 0.57, friction: 0.24, catch: 0.5, aero: 0.028, role: 'attack', tier: 4, color: '#e8f0ff', desc: 'Five lance points at the widest legal radius. Devastating reach, fragile spin economy.' }),
 
   // ------------------------------------------------------------------ cores
@@ -64,6 +79,10 @@ export const PARTS = [
   disc({ id: 'disc_counter', name: 'Counterweight Disc', mass: 20, rIn: 6, rOut: 19.5, thickness: 5, massDist: 0.3, ecc: 0.18, tier: 2, color: '#9c8f7a', desc: 'Asymmetric weighting that makes the top walk and vibrate.' }),
   disc({ id: 'disc_orbit', name: 'Orbit Disc', mass: 19, rIn: 6, rOut: 20, thickness: 4.5, massDist: 0.6, auxPort: true, tier: 2, color: '#a8b8c8', desc: 'Rim-weighted disc with a skirt mount for auxiliary modules.' }),
   disc({ id: 'disc_compact', name: 'Compact Disc', mass: 15, rIn: 6, rOut: 19, thickness: 3.2, massDist: 0.35, tier: 2, color: '#c9ced6', desc: 'Dense and slim. Fits the Apex frame.' }),
+  disc({ id: 'disc_hexheavy', name: 'Hex Heavy', series: 'classic', mass: 24, rIn: 6, rOut: 18.5, thickness: 4.5, massDist: 0.15, tier: 1, color: '#9aa1aa', desc: 'A compact six-sided slab of die-cast metal: the most mass for its size. Keeps the top low, heavy and hard to shift.' }),
+  disc({ id: 'disc_octawide', name: 'Octa Wide', series: 'classic', mass: 17, rIn: 6, rOut: 22.5, thickness: 3.6, massDist: 0.85, contact: true, contactRestitution: 0.42, contactFriction: 0.2, tier: 2, color: '#aab2bd', desc: 'A thin eight-sided rim on four spokes. Almost all its mass sits at the edge: big spin inertia for its weight, and the rim takes low hits.' }),
+  disc({ id: 'disc_starlobe', name: 'Star Lobe', series: 'classic', mass: 20, rIn: 6, rOut: 21, thickness: 4, massDist: 0.6, tier: 2, color: '#a3a9b3', desc: 'Five lobes with a bolt hole at each point. The mass out in the lobes puts more swing behind every hit.' }),
+  disc({ id: 'disc_magna', name: 'Magna Disc', series: 'classic', mass: 19, rIn: 6, rOut: 19.5, thickness: 4.5, massDist: 0.3, magnet: { strength: 1 }, tier: 3, color: '#24262c', desc: "A magnet sealed in black resin, N on one face and S on the other (flip it in the Workshop). It pulls on the other top's metal; opposite poles snap together and matching poles push apart." }),
   disc({ id: 'disc_titan', name: 'Titan Disc', mass: 29, rIn: 6, rOut: 21, thickness: 5.5, massDist: 0.6, tier: 4, color: '#6f7682', desc: 'The heaviest legal disc. Enormous inertia, punishing to launch.' }),
 
   // ------------------------------------------------------------------ locks
@@ -72,6 +91,7 @@ export const PARTS = [
   lock({ id: 'lock_snap', name: 'Snap Lock', arch: ['helix', 'apex'], mass: 3, radius: 9.5, height: 5, notches: 2, threshold: 1.68, recovery: 0.4, tier: 1, color: '#eef1f5', desc: 'Light two-notch lock. Saves weight; shatters easily.' }),
   lock({ id: 'lock_spring', name: 'Spring Lock', arch: ['helix', 'quad'], mass: 4.5, radius: 10, height: 6, notches: 3, threshold: 1.80, recovery: 1.1, tier: 2, color: '#c7f0d8', desc: 'Spring-loaded teeth reseat partial slips quickly.' }),
   lock({ id: 'lock_stabilizer', name: 'Stabilizer Lock', arch: ['helix', 'quad'], mass: 5, radius: 10.5, height: 6, notches: 3, threshold: 1.98, auxPort: true, tier: 2, color: '#b9c9da', desc: 'Lock with a band mount for stabilising modules.' }),
+  lock({ id: 'lock_roller', name: 'Twin Roller', series: 'classic', arch: ['helix', 'quad'], mass: 5, radius: 12, height: 6, notches: 3, threshold: 1.86, hullFriction: 0.08, tier: 2, color: '#5d7a3a', desc: 'Two free-spinning rollers on the sides. A leaning top rolls on them instead of scraping, so it lasts longer at low spin and recovers from hard hits.' }),
   lock({ id: 'lock_widesocket', name: 'Wide-Socket Lock', arch: ['helix', 'quad'], mass: 4.5, radius: 10.5, height: 6, notches: 3, threshold: 1.86, tipSocket: 'wide', tier: 2, color: '#d6cfc1', desc: 'Accepts wide-socket performance tips.' }),
 
   // ------------------------------------------------------------------ tips
@@ -84,6 +104,11 @@ export const PARTS = [
   tip({ id: 'tip_bearing', name: 'Bearing Spike', mass: 4, length: 11, bodyRadius: 6.5, ballRadius: 0.5, flatRadius: 0, mu: 0.12, patchRadius: 0.24, compliance: 0.12, wear: 'sharp', tier: 3, color: '#c9d4e2', desc: 'A free-rotating spike on a micro bearing. Spin drag nearly vanishes.' }),
   tip({ id: 'tip_griphold', name: 'Grip Hold', mass: 3.5, length: 9.5, bodyRadius: 7, ballRadius: 1.4, flatRadius: 1.2, mu: 0.45, patchRadius: 0.9, compliance: 0.16, restitution: 0.6, wear: 'rubber', tier: 2, color: '#3a3330', desc: 'Rubber semi-flat that bites the floor and resists being pushed.' }),
   tip({ id: 'tip_orbit', name: 'Orbit Flat', mass: 3.5, length: 9, bodyRadius: 8, ballRadius: 0.8, flatRadius: 3.6, mu: 0.24, patchRadius: 0.8, compliance: 0.12, socket: 'wide', wear: 'flat', tier: 3, color: '#f6f9ff', desc: 'Wide plastic flat (wide socket). Sweeping orbits around the stadium.' }),
+  tip({ id: 'tip_steelball', name: 'Steel Ball', series: 'classic', mass: 5, length: 9.5, bodyRadius: 7, ballRadius: 2.4, flatRadius: 0, mu: 0.12, patchRadius: 0.9, compliance: 0.12, restitution: 0.85, wear: 'ball', tier: 2, color: '#c9d1dc', desc: 'A heavy steel ball in a wide cup. Very low friction and a low centre of mass: hard to push, slides around attacks.' }),
+  tip({ id: 'tip_springjump', name: 'Spring Jump', series: 'classic', mass: 3.5, length: 10.5, bodyRadius: 6.5, ballRadius: 1.2, flatRadius: 0.6, mu: 0.2, patchRadius: 0.5, compliance: 0.14, wear: 'ball', spring: { absorb: 0.28, hop: 0.55, minImpulse: 0.012 }, tier: 2, color: '#3be05a', desc: 'A coil spring round the tip soaks up hard hits (less knockback) and kicks the top into a hop.' }),
+  tip({ id: 'tip_clutchhit', name: 'Hit Clutch', series: 'classic', mass: 4.5, length: 10.5, bodyRadius: 7, ballRadius: 0.9, flatRadius: 1.6, mu: 0.22, patchRadius: 0.55, compliance: 0.12, wear: 'flat', clutch: { mode: 'hit', store: 0.12, dash: 1.1, minImpulse: 0.01, fallback: 8, tip: { mu: 0.27, flatRadius: 2.1, patchRadius: 0.65 } }, tier: 3, color: '#f4f6fb', desc: 'An engine gear wound at launch. The first hard hit trips the clutch: the stored spin comes back, the top lunges at its opponent and drops onto its wide attack flat.' }),
+  tip({ id: 'tip_clutchfinal', name: 'Final Clutch', series: 'classic', mass: 4.5, length: 10.5, bodyRadius: 7, ballRadius: 0.5, flatRadius: 0, mu: 0.18, patchRadius: 0.38, compliance: 0.12, wear: 'sharp', clutch: { mode: 'low', store: 0.2, below: 0.35, dash: 0.5, tip: { mu: 0.3, flatRadius: 1.8, patchRadius: 0.7, ballRadius: 0.9 } }, tier: 3, color: '#2b6cff', desc: 'Holds part of the launch in a wound spring. When spin runs low the clutch lets go: a burst of spin and a flat tip for one last charge.' }),
+  tip({ id: 'tip_autoshift', name: 'Auto Shift', series: 'classic', mass: 3.5, length: 10.5, bodyRadius: 6.5, ballRadius: 0.5, flatRadius: 0, mu: 0.19, patchRadius: 0.36, compliance: 0.12, wear: 'sharp', shift: { below: 0.5, tip: { ballRadius: 2.2, patchRadius: 1.0, mu: 0.2 } }, tier: 2, color: '#1f5fd6', desc: 'A sharp point for the opening. When spin falls below half, weights inside slide out and a wide ball drops into place to hold the top steady.' }),
   tip({ id: 'tip_hybrid', name: 'Hybrid Spike', mass: 3, length: 10.5, bodyRadius: 6.5, ballRadius: 0.9, flatRadius: 0.8, mu: 0.22, patchRadius: 0.6, compliance: 0.12, wear: 'sharp', tier: 3, color: '#eaeaea', desc: 'Sharp centre with a narrow flat collar: endurance until tilted, then movement.' }),
 
   // ------------------------------------------------------------------ aux
