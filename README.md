@@ -84,6 +84,11 @@ options. Unplugging a controller mid-battle pauses the game.
   over) and **League** (five divisions, promotion and relegation).
 - **Workshop** — loadouts, inventory, repair, upgrades, trait reroll and
   transfer, tuning, crafting, the collection log.
+- **Shop** — spend CR on booster packs (Starter, Street, Pro, Champion,
+  Classic, Launch Gear) with guaranteed rarities, mystery capsules, themed
+  bundles (Attack, Defense, Stamina), a materials crate and three daily deals
+  (exact parts at 20% off, one each per day). Every sealed offer prints its
+  odds, taken from the same rarity weights as battle drops.
 - **Bit-Beasts**, **Skills** (five paths, respec), **Statistics** (records,
   charts, history and **replays**).
 

@@ -675,3 +675,31 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 @media (prefers-reduced-motion: reduce) {
   .btn.loot-btn, .loot-card.rarity-legendary, .loot-card.rarity-mythic, .loot-card.rarity-relic { animation: none; }
 }
+
+/* ---------------------------------------------------------------- shop */
+.shop-cr { font: 400 26px var(--display); letter-spacing: .05em; color: var(--gold); text-shadow: var(--ol2); }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; padding: 6px 4px 12px; }
+.btn.shop-btn { padding: 0; text-align: left; height: 100%; }
+.btn.shop-btn::before { display: none; }
+.btn.shop-btn.focused::after { display: none; }
+.shop-card { position: relative; height: 100%; display: flex; flex-direction: column; gap: 7px; padding: 0 14px 12px; color: var(--text); background: linear-gradient(180deg, color-mix(in srgb, var(--sc) 22%, #19204a), #121838 70%); border: 3px solid var(--ink); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sc) 65%, transparent), 6px 6px 0 var(--shadow); font-size: 13px; transition: transform .1s; }
+.btn.shop-btn.focused .shop-card, .btn.shop-btn:hover .shop-card { transform: translateY(-4px); box-shadow: inset 0 0 0 2px var(--sc), 0 0 0 3px var(--focus), 0 0 26px color-mix(in srgb, var(--sc) 50%, transparent), 7px 7px 0 var(--hot); }
+.sc-art { position: relative; margin: 0 -14px; height: 92px; display: grid; place-items: center; overflow: hidden; background: repeating-conic-gradient(from 0deg at 50% 60%, color-mix(in srgb, var(--sc) 40%, transparent) 0deg 4deg, transparent 4deg 12deg), linear-gradient(160deg, color-mix(in srgb, var(--sc) 70%, #000), color-mix(in srgb, var(--sc) 30%, #0b0f24)); border-bottom: 3px solid var(--ink); }
+.sc-glyph { font: 400 54px/1 var(--display); color: #fff; text-shadow: var(--ol3, var(--ol2)), 4px 4px 0 var(--ink); }
+.sc-kind { position: absolute; top: 8px; left: 10px; font: 700 11px var(--ui); letter-spacing: .14em; text-transform: uppercase; color: #fff; background: rgba(0,0,0,.45); padding: 1px 8px; }
+.sc-name { font: 400 24px/1.1 var(--display); letter-spacing: .05em; color: #fff; text-shadow: var(--ol2); }
+.sc-desc { color: #dfe6f7; }
+.sc-odds { font-size: 12px; color: var(--muted, #a8b3cf); display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.sc-odds .odd { font-weight: 700; }
+.sc-price { margin-top: auto; align-self: flex-end; font: 400 22px var(--display); letter-spacing: .05em; color: var(--gold); text-shadow: var(--ol2); }
+.sc-price.short { color: var(--bad); }
+.shop-note { margin-top: 6px; }
+.deal-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 8px 4px; }
+.deal.sold { opacity: .55; }
+.deal .item-card { flex: 1; }
+.deal-price { align-items: baseline; font-size: 18px; }
+.reveal-row { justify-content: center; }
+.reveal-card { width: 300px; animation: lootIn .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+.reveal-card .item-card { height: 100%; }
+.mats-card { display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+@media (prefers-reduced-motion: reduce) { .reveal-card { animation: none; } }

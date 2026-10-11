@@ -984,6 +984,43 @@ scenarios.classic = async () => {
   } finally { await h.close(); }
 };
 
+// Shop: buy a pack (confirm, reveal), then a daily deal.
+scenarios.store = async () => {
+  const h = await launch();
+  const confirmBuy = async () => {
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'buy confirm');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent.startsWith('Buy for'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'StoreRevealScreen', 10000, 'reveal');
+  };
+  try {
+    await newGame(h);
+    await h.eval(() => { window.__app.profile.currency.credits = 5000; });
+    const inv0 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
+    await openTile(h, 'store', 'StoreScreen');
+    await h.shot('s01_packs');
+    await h.focusId('offer-pack_street'); await h.padButton(0);
+    await confirmBuy();
+    await h.page.waitForTimeout(1600);
+    await h.shot('s02_reveal');
+    const got = await h.eval(() => window.__app.ui.current.result.items.map((it) => it.rarity));
+    if (got.length !== 4) throw new Error('street pack should open 4 items: ' + got);
+    await h.focusId('reveal-done'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'StoreScreen', 5000, 'back to shop');
+    await h.padButton(5); await h.padButton(5);
+    await h.waitFor(() => !!document.querySelector('[data-id="deal-0"]'), 5000, 'deals tab');
+    await h.shot('s03_deals');
+    await h.focusId('deal-0'); await h.padButton(0);
+    await confirmBuy();
+    await h.focusId('reveal-done'); await h.padButton(0);
+    const after = await h.eval(() => ({ cr: window.__app.profile.currency.credits, inv: Object.keys(window.__app.profile.inventory).length, sold: !!document.querySelector('[data-id="deal-0"][disabled]') }));
+    if (after.inv !== inv0 + 5) throw new Error(`inventory ${inv0} -> ${after.inv}`);
+    if (!(after.cr < 5000 - 500)) throw new Error('credits not spent: ' + after.cr);
+    if (!after.sold) throw new Error('deal not marked sold');
+    return { got, credits: after.cr, errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {
