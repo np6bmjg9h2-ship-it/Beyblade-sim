@@ -496,7 +496,7 @@ export class BattleScreen {
     const el = h('div', { class: 'notif ' + kind }, text);
     this.refs.notif.prepend(el);
     this.notifs.push({ el, t: performance.now() });
-    while (this.notifs.length > 6) this.notifs.shift().el.remove();
+    while (this.notifs.length > 4) this.notifs.shift().el.remove();
   }
 
   bigText(text, kind) {

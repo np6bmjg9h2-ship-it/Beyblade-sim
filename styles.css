@@ -278,11 +278,11 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 2px soli
 .hud-score { display: flex; justify-content: center; gap: 14px; align-items: baseline; }
 .sc { font: 400 30px/1 var(--display); color: #fff; text-shadow: var(--ol2); }
 .sc-sep { font: italic 700 11px var(--ui); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.hud-notifs { position: absolute; top: 172px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.notif { position: relative; isolation: isolate; font: 400 26px/1.1 var(--display); letter-spacing: 0.06em; padding: 4px 22px; white-space: nowrap; text-shadow: var(--ol2), 3px 3px 0 var(--ink); transition: opacity .5s; animation: pop .25s ease-out; }
+.hud-notifs { position: absolute; top: 196px; right: 26px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 34vw; pointer-events: none; } /* side feed, clear of the stadium */
+.notif { position: relative; isolation: isolate; font: 400 19px/1.1 var(--display); letter-spacing: 0.05em; padding: 3px 16px; white-space: nowrap; text-shadow: var(--ol2), 3px 3px 0 var(--ink); transition: opacity .5s; animation: pop .25s ease-out; }
 .notif::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(4,5,11,0.82); border-top: 3px solid currentColor; transform: skewX(-16deg); }
 .notif.fade { opacity: 0; }
-.notif.gold { color: var(--gold); } .notif.good { color: var(--good); } .notif.bad { color: var(--bad); } .notif.crit { color: #ff8a4a; font-size: 32px; } .notif.ability { color: #cdb0ff; } .notif.round { color: var(--accent); font-size: 34px; } .notif.info { color: #dce4f7; font: italic 700 15px var(--ui); letter-spacing: 0.04em; text-shadow: none; }
+.notif.gold { color: var(--gold); } .notif.good { color: var(--good); } .notif.bad { color: var(--bad); } .notif.crit { color: #ff8a4a; font-size: 22px; } .notif.ability { color: #cdb0ff; } .notif.round { color: var(--accent); font-size: 24px; } .notif.info { color: #dce4f7; font: italic 700 13px var(--ui); letter-spacing: 0.04em; text-shadow: none; }
 @keyframes pop { from { transform: scale(1.4); opacity: 0; } to { transform: none; opacity: 1; } }
 /* Countdown / IGNITE / finish shouts with a radial speed-line burst. */
 .big-text { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font: 400 150px/1 var(--display); letter-spacing: 0.06em; white-space: nowrap; color: #fff; pointer-events: none; animation: bigpop 1.2s ease-out forwards; text-shadow: var(--ol5), 9px 9px 0 var(--hot), 13px 13px 0 var(--ink); }
