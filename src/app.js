@@ -17,6 +17,7 @@ import { TitleScreen } from './ui/screens/title.js';
 import { processMatch } from './systems/progression.js';
 import { TournamentRunner } from './game/tournamentRunner.js';
 import { Telemetry } from './systems/telemetry.js';
+import { TouchControls } from './input/touch.js';
 
 export class App {
   constructor(root) {
@@ -37,6 +38,8 @@ export class App {
     this.saves = await SaveManager.create();
     const gs = await this.saves.globalSettings().catch(() => null);
     this.settings = gs ? mergeSettings(gs) : defaultSettings();
+    // phones and tablets start on Medium graphics (battery, heat, small GPUs)
+    if (!gs && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) this.settings.graphics.quality = 'medium';
     this.input = new InputManager({ settings: this.settings.input, bindings: this.settings.bindings || buildBindings(this.settings.input.preset) });
     this.audio = new AudioEngine(this.settings.audio);
     try {
@@ -47,14 +50,21 @@ export class App {
       throw e;
     }
     this.ui = new UI(this, this.uiRoot);
+    this.touch = new TouchControls(this, this.root);
+    // the menus are laid out for 1180x620 and up: smaller screens (phones held
+    // sideways) zoom them; held upright, a hint asks to turn the phone
+    const fit = () => this.root.style.setProperty('--ui-zoom', Math.max(0.45, Math.min(1, innerWidth / 1180, innerHeight / 620)).toFixed(3));
+    fit();
+    window.addEventListener('resize', fit);
+    this.root.insertAdjacentHTML('beforeend', '<div class="rotate-hint"><div><b>Turn sideways</b>Chaos Spin plays with the phone held sideways.</div></div>');
     this.tournaments = new TournamentRunner(this);
     // opt-in play data, only when running as the shared claude.ai artifact
     this.telemetry = new Telemetry(this);
     this.telemetry.init().then((ok) => { if (ok) setTimeout(() => this.telemetry.askConsent(), 1500); });
     // audio needs a user gesture
     const unlock = () => { this.audio.unlock(); if (this.sceneMode === 'showcase') this.audio.playMusic('menu'); };
-    window.addEventListener('pointerdown', unlock, { once: true });
-    window.addEventListener('keydown', unlock, { once: true });
+    // (iOS only lets audio start from the end of a touch or a click)
+    for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { once: true });
     this.input.on('padConnected', (e) => { this.ui.toast(`Controller connected (${e.type === 'playstation' ? 'PlayStation' : e.type === 'xbox' ? 'Xbox' : e.type === 'nintendo' ? 'Nintendo' : 'Generic'})`, 'good'); unlock(); });
     this.input.on('padNonStandard', () => {
       this.ui.toast('This controller reports a non-standard layout. If buttons feel wrong, check Settings → Controls → Controller calibration and remap.', 'warn', 6000);
@@ -192,6 +202,7 @@ export class App {
     const dt = Math.min(0.1, frameTime);
     this.last = t;
     try {
+      this.touch.update();
       this.input.poll(dt);
       this.ui.update(dt);
       if (this.sceneMode === 'showcase') this.updateShowcase(dt);

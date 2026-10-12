@@ -13,7 +13,7 @@ relic* is the existing `relic` rarity, now reserved for handcrafted relics.
 | Item instances | `systems/items.js` `createItem` | Seeded, reproducible: base id, rarity, level, rolled tolerances (`stats`), traits `{id, mag}`, special trait, set, durability, XP/mastery, tuning, upgrades, history, provenance (`history.acquired`, `gen`). Generated prototypes carry their own `def` (copied, never shared). |
 | Definitions | `data/parts.js`, `data/launchers.js` | Immutable global bases (`PART_INDEX`); assembly clones before applying anything. |
 | Rarity | `data/rarity.js` | Common, Uncommon, Rare, Epic, Legendary, Mythic, plus Relic. Rarity sets trait count and magnitude range, never base physics. |
-| Traits (affixes) | `data/traits.js` | 55 traits in kinds `physical` (change the part at assembly), `conditional` (modifier channels while a battle condition holds), `launch`, `item`. Families offense/defense/endurance/mobility/technical/risk. Exclusion groups, special (legendary+) traits. Descriptions are hand-written functions, separate from the effect. |
+| Traits (affixes) | `data/traits.js` | 72 traits in kinds `physical` (change the part at assembly), `conditional` (modifier channels while a battle condition holds), `launch`, `item`. Families offense/defense/endurance/mobility/technical/risk. Exclusion groups, special (legendary+) traits. Descriptions are hand-written functions, separate from the effect. |
 | Modifier channels | `systems/modifiers.js`, `CHANNEL_LIMITS` | Bounded channels the physics reads every tick; duplicate traits never stack; conditions evaluated per tick; timed effects. |
 | Sets | `data/sets.js` | 6 sets, bonuses at 2/3/5 pieces, some with drawbacks. |
 | Physics link | `systems/assembly.js` | Tolerances, physical traits, tuning, upgrades and wear change mass, inertia, contact layers, tip and lock before the simulation runs. `summarize()` gives estimated free spin, stability threshold, reach and more. |
@@ -136,10 +136,10 @@ artifact and patch notes updated, and a log entry below.
 - Files: `src/data/channels.js` (new: channel limits and conditions),
   `src/systems/effectSpec.js` (new: spec compiler and generated
   descriptions), `src/data/traits.js` (rewritten as 99 declarative specs: the
-  55 originals bit-identical, plus 12 reactive, 3 elemental, 3 mastery, 4
+  72 originals bit-identical, plus 12 reactive, 3 elemental, 3 mastery, 4
   part-synergy and 5 curse traits), `src/game/itemEffects.js` (new: reactive
   engine), `src/data/synergies.js` + `src/systems/synergy.js` (new: 19 rules,
-  8 of them hidden), `src/systems/itemGen.js` + `src/systems/itemValidate.js`
+  7 of them hidden), `src/systems/itemGen.js` + `src/systems/itemValidate.js`
   (new), `src/systems/loot.js` (v2 generation, bad-luck protection,
   validated adds), `src/systems/riftLoot.js` (Rift parts through v2),
   `src/systems/loadout.js` and `src/systems/riftBattle.js` (synergies and

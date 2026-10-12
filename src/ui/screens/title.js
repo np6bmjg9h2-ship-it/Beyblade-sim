@@ -20,7 +20,7 @@ export class TitleScreen {
     if (this.stage === 'press') {
       const start = btn('Press to Begin', () => this.toSlots(), { class: 'primary big pulse' });
       start.dataset.autofocus = '';
-      return h('div', { class: 'title-screen' }, logo, h('div', { class: 'title-press' }, start), h('div', { class: 'title-foot' }, 'Keyboard, mouse or any standard controller. Chrome recommended.'));
+      return h('div', { class: 'title-screen' }, logo, h('div', { class: 'title-press' }, start), h('div', { class: 'title-foot' }, this.app.input.lastDevice.type === 'touch' ? 'Touch controls, or pair a controller. Best with the phone held sideways.' : 'Keyboard, mouse or any standard controller. Chrome recommended.'));
     }
     const list = h('div', { class: 'col gap slot-list', 'data-wrap': '' });
     if (!this.slots) list.append(h('div', { class: 'muted' }, 'Reading saves…'));
@@ -149,7 +149,7 @@ export class NameEntryScreen {
   render() {
     const osk = textEntry({ value: '', max: 14, onChange: (v) => { this.name = v; }, onDone: (v) => this.finish(v), suggestions: NAME_SUGGESTIONS });
     this.osk = osk;
-    return h('div', { class: 'center-screen' }, h('div', { class: 'panel name-panel' }, h('h2', {}, 'What should the stadium call you?'), h('p', { class: 'muted' }, 'Type with the keyboard, or use the on-screen keys with a controller.'), osk));
+    return h('div', { class: 'center-screen' }, h('div', { class: 'panel name-panel' }, h('h2', {}, 'What should the stadium call you?'), h('p', { class: 'muted' }, this.app.input.lastDevice.type === 'touch' ? 'Tap the keys below.' : 'Type with the keyboard, or use the on-screen keys with a controller.'), osk));
   }
   onEnter() { this.handler = (e) => this.osk._keyHandler(e); window.addEventListener('keydown', this.handler, true); this.app.input.textEntry = true; }
   onExit() { window.removeEventListener('keydown', this.handler, true); this.app.input.textEntry = false; }

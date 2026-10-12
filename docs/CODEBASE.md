@@ -56,7 +56,7 @@ src/
   render/parts/       one builder per part slot (ring, core, disc, lock, tip, auxModule) + shared contract
   ui/                 DOM UI framework (screen stack, focus nav), widgets, charts
   ui/screens/         every screen (title, menu, battle HUD, workshop, story, tournaments, …)
-  input/              action-based input (keyboard, mouse, gamepad), bindings and presets
+  input/              action-based input (keyboard, mouse, gamepad, touch), bindings and presets
   audio/              procedural Web Audio music and sound effects
   workers/            Web Worker entry for background AI-vs-AI matches
 tests/                Node unit tests + tests/browser (Playwright end-to-end)
@@ -220,6 +220,12 @@ Action contexts (`menu`, `launch`, `battle`) with remappable bindings and
 presets (Classic, Competitive, Advanced), dead zones, curves and calibration;
 `padLayouts.js` presents non-standard (DirectInput) controllers in the
 standard layout, including hat-switch d-pads, and the player is told once.
+`touch.js` is the phone and tablet layer: on-screen floating sticks and
+buttons that join the input manager as a virtual standard gamepad (so every
+binding preset works by touch), shown per battle phase (launch, battle,
+continue, watching); menus are tapped directly, prompts become buttons
+(`InputManager.inject`), and pressing and holding an item does its
+secondary action. Small screens zoom the menu UI (`--ui-zoom`).
 Procedural Web Audio that degrades to silence if the browser refuses a
 context; the simulation worker entry.
 

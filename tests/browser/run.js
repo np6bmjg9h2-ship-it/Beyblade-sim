@@ -1230,6 +1230,97 @@ scenarios.career = async () => {
   } finally { await h.close(); }
 };
 
+// Phone held sideways with touch only: menus by tapping, the on-screen sticks
+// and buttons for a whole round, pause, press-and-hold for an item's second
+// action, Back from the tappable prompts. Also checks a mouse click on a
+// desktop menu (the UI layers once swallowed clicks).
+scenarios.touch = async () => {
+  const d = await launch();
+  try {
+    await d.open();
+    const [mx, my] = await d.eval(() => { const r = document.querySelector('.title-press .btn').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+    await d.page.mouse.click(mx, my);
+    await d.waitFor(() => window.__app.ui.current?.stage === 'slots', 5000, 'mouse click on Begin');
+    if (d.errors.length) throw new Error('desktop page errors: ' + d.errors.join(' | '));
+  } finally { await d.close(); }
+  const h = await launch({ phone: true });
+  try {
+    await h.open();
+    const env = await h.eval(() => ({ device: window.__app.input.lastDevice.type, zoom: +getComputedStyle(document.querySelector('#app')).getPropertyValue('--ui-zoom'), quality: window.__app.settings.graphics.quality }));
+    if (env.device !== 'touch' || !(env.zoom < 1) || env.quality !== 'medium') throw new Error('phone setup: ' + JSON.stringify(env));
+    await h.tap('.title-press .btn');
+    await h.waitFor(() => window.__app.ui.current?.stage === 'slots', 5000, 'slots');
+    await h.tap('[data-id="slot1"]');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'NameEntryScreen', 8000, 'name');
+    for (const k of ['R', 'E', 'N']) await h.tap(`.osk-key >> text="${k}"`);
+    await h.tap('.osk-key >> text=Done');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 8000, 'menu');
+    if ((await h.eval(() => window.__app.profile.player.name)) !== 'REN') throw new Error('typed name not set');
+    await h.shot('t01_menu');
+    await h.tap('[data-id="quick"]');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 8000, 'quick');
+    await h.eval(() => { window.__testRoundTime = 30; window.__app.ui.current.cfg.format = 'single'; });
+    await h.tap('[data-id="start"]');
+    await h.waitFor(() => window.__app.ui.current?.battle?.phase === 'setup' && window.__app.touch.layout === 'launch', 15000, 'launch controls');
+    // left stick moves the launcher
+    const aim0 = await h.eval(() => ({ ...window.__app.ui.current.battle.fighters[0].launch.aim }));
+    await h.drag([150, 300], [214, 300]);
+    await h.touch('touchEnd', []);
+    const aim1 = await h.eval(() => ({ ...window.__app.ui.current.battle.fighters[0].launch.aim }));
+    if (Math.hypot(aim1.x - aim0.x, aim1.z - aim0.z) < 0.002) throw new Error('left stick did not move the launcher');
+    await h.shot('t02_setup');
+    // READY, then hold LAUNCH and let go in the window
+    await h.tap('.tc-btn.launch');
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'countdown', 8000, 'countdown');
+    const rate = await h.eval(() => window.__app.ui.current.battle.fighters[0].gear.chargeRate);
+    await h.waitFor((t) => window.__app.ui.current.battle.phaseT >= t, 15000, 'charge start', 3.0 - 0.92 / rate);
+    const lp = await h.centre('.tc-btn.launch');
+    await h.touch('touchStart', [lp]);
+    await h.waitFor(() => { const b = window.__app.ui.current.battle; return b.phaseT >= 2.95 || b.fighters[0].launch.meter.charge >= 0.92; }, 15000, 'charged');
+    await h.touch('touchEnd', []);
+    await h.waitFor(() => window.__app.ui.current.battle.fighters[0].launch.released, 8000, 'released by letting go');
+    const quality = await h.eval(() => window.__app.ui.current.battle.fighters[0].launch.result.quality.label);
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle' && window.__app.touch.layout === 'battle', 15000, 'battle controls');
+    // steer with the stick while pressing DASH with the other thumb
+    await h.drag([160, 290], [118, 248], 6, 40);
+    const steer = await h.eval(() => { const c = window.__app.ui.current.humans[0].controls.steer; return Math.hypot(c.x, c.z); });
+    if (steer < 0.5) throw new Error('stick did not steer: ' + steer);
+    await h.touch('touchStart', [[118, 248], await h.centre('.tc-btn.dash')]);
+    await h.frames(3);
+    await h.touch('touchEnd', []);
+    await h.shot('t03_battle');
+    // pause and resume by touch
+    await h.tap('.tc-btn.pause');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'PauseOverlay', 5000, 'pause');
+    await h.tap('.pause-panel .btn');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen' && !window.__app.ui.current.paused, 5000, 'resume');
+    await h.eval(() => window.__app.ui.current.battle.debugFinish(1, 'out'));
+    await h.waitFor(() => window.__app.touch.layout === 'continue', 20000, 'continue button');
+    await h.tap('.tc-btn.continue');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    await h.shot('t04_results');
+    // back to the menu with taps (Continue, then Back from the prompts), then
+    // the Workshop: hold an item to favourite it
+    await h.tap('.screen .btn >> text=Continue');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'QuickBattleScreen', 15000, 'quick battle again');
+    await h.tap('.prompt.tap >> text=Back');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 15000, 'menu again');
+    await h.tap('[data-id="workshop"]');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 8000, 'workshop');
+    await h.tap('.tabbar .tab >> text=Inventory');
+    await h.waitFor(() => window.__app.ui.current.tab === 'inventory', 5000, 'inventory tab');
+    const it = await h.centre('.item-list [data-focus]');
+    await h.touch('touchStart', [it]); await h.page.waitForTimeout(750); await h.touch('touchEnd', []);
+    await h.frames(3);
+    const favs = await h.eval(() => Object.values(window.__app.profile.inventory).filter((i) => i.favourite).length);
+    if (favs !== 1) throw new Error('press and hold did not favourite: ' + favs);
+    if (await h.eval(() => !!window.__app.ui.modal)) throw new Error('the long press also opened the item');
+    await h.tap('.prompt.tap >> text=Back');
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 5000, 'back by prompt');
+    return { quality, steer: +steer.toFixed(2), errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

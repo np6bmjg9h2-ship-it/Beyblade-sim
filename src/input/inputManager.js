@@ -2,7 +2,8 @@
 // class resolves them from keyboard events and the Gamepad API every frame,
 // applying dead zones, sensitivity curves, trigger thresholds, menu
 // auto-repeat, device tracking (for button prompts), rumble, connection
-// handling and capture-based remapping.
+// handling and capture-based remapping. Touch controls (input/touch.js)
+// join as a virtual standard gamepad, so every action works by touch too.
 
 import { Emitter } from '../core/events.js';
 import { buildBindings, presetReleaseMode, detectPadType, PAD_GLYPHS, AXIS_GLYPHS, keyGlyph } from './bindings.js';
@@ -23,6 +24,13 @@ export const DEFAULT_INPUT_SETTINGS = {
 };
 
 const NAV_DIRS = ['nav_up', 'nav_down', 'nav_left', 'nav_right'];
+
+// Prompt labels for touch play: the on-screen control that does the action.
+const TOUCH_GLYPHS = {
+  menu: { confirm: 'Tap', back: '◀', tab_prev: '◀ Tab', tab_next: 'Tab ▶', alt: 'Hold', alt2: '⋯', pause: '❚❚', scroll: 'Swipe', nav_up: '▲', nav_down: '▼', nav_left: '◀', nav_right: '▶' },
+  launch: { aim_x: 'Left stick', aim_y: 'Left stick', lean_x: 'Right stick', lean_y: 'Right stick', charge: 'LAUNCH', release: 'LAUNCH', technique: 'TECH', switch_config: 'SPIN', confirm: 'LAUNCH', back: '◀', pause: '❚❚' },
+  battle: { steer_x: 'Stick', steer_y: 'Stick', dash: 'DASH', brace: 'GRIP', counter: 'CNTR', ability1: 'SKILL', ability2: 'SKILL 2', tactical1: 'GUARD', tactical2: 'SURGE', ultimate: 'ULT', focus: 'CAM', telemetry: 'DATA', pause: '❚❚', cam_x: 'Drag', cam_y: 'Drag' },
+};
 const REPEAT_DELAY = 0.36;
 const REPEAT_RATE = 0.085;
 
@@ -48,6 +56,8 @@ export class InputManager extends Emitter {
     this.enabled = true;
     this.textEntry = false;
     this.lastPadId = '';
+    this.virtualPads = []; // functions returning a gamepad-shaped object or null
+    this.injected = []; // [ctx, action] presses from on-screen prompts
     this._listeners = [];
     if (this.win) this.attach();
   }
@@ -57,8 +67,10 @@ export class InputManager extends Emitter {
     on(this.win, 'keydown', (e) => this.onKeyDown(e));
     on(this.win, 'keyup', (e) => this.onKeyUp(e));
     on(this.win, 'blur', () => { this.keysDown.clear(); });
-    on(this.win, 'mousemove', () => this.setDevice('keyboard'), { passive: true });
-    on(this.win, 'mousedown', () => this.setDevice('keyboard'), { passive: true });
+    // pointer events tell a mouse from a finger (phones also send emulated
+    // mouse events after a tap, which must not switch the prompts back)
+    on(this.win, 'pointermove', (e) => { if (e.pointerType === 'mouse') this.setDevice('keyboard'); }, { passive: true });
+    on(this.win, 'pointerdown', (e) => this.setDevice(e.pointerType === 'mouse' ? 'keyboard' : 'touch'), { passive: true, capture: true });
     on(this.win, 'gamepadconnected', (e) => {
       this.emit('padConnected', { index: e.gamepad.index, id: e.gamepad.id, type: detectPadType(e.gamepad.id) });
     });
@@ -82,6 +94,7 @@ export class InputManager extends Emitter {
   setBindings(b) { this.bindings = b; this.emit('bindingsChanged'); }
 
   releaseOnChargeUp() {
+    if (this.lastDevice.type === 'touch') return true; // hold LAUNCH, let go to launch
     if (this.settings.releaseOnChargeUp != null) return this.settings.releaseOnChargeUp;
     if (this.lastDevice.type === 'keyboard' && this.settings.keyboardReleaseOnKeyUp) return true;
     return presetReleaseMode(this.settings.preset);
@@ -130,9 +143,17 @@ export class InputManager extends Emitter {
       pads.push(normalizePad(p));
       if (!this.warnedPads.has(p.id)) { this.warnedPads.add(p.id); this.emit('padNonStandard', { index: p.index, id: p.id }); }
     }
+    for (const vp of this.virtualPads) { const p = vp(); if (p) pads.push(p); }
     this.pads = pads;
     return pads;
   }
+
+  // A virtual gamepad (touch controls): fn() returns a standard-mapping pad
+  // object, or null while it isn't in use.
+  addVirtualPad(fn) { this.virtualPads.push(fn); }
+
+  // Press an action as if its key had been tapped (on-screen prompts).
+  inject(action, ctx = 'menu') { this.injected.push([ctx, action]); }
 
   // ---------------------------------------------------------------- shaping
 
@@ -196,7 +217,10 @@ export class InputManager extends Emitter {
           cap.resolve({ axis: idx, dir: Math.sign(axes[idx]) });
         }
       }
-      if (active) { this.lastPadId = p.id; this.setDevice('gamepad', detectPadType(p.id)); }
+      if (active) {
+        if (p.touch) this.setDevice('touch');
+        else { this.lastPadId = p.id; this.setDevice('gamepad', detectPadType(p.id)); }
+      }
       this.padPrev.set(p.index, cur);
       p._shapedAxes = axes;
       p._shapedButtons = cur;
@@ -217,6 +241,11 @@ export class InputManager extends Emitter {
         }
       }
     }
+    for (const [ctx, action] of this.injected) {
+      const st = this.state[ctx]?.[action];
+      if (st) { st.pressedKey = true; st.pressCount += 1; }
+    }
+    this.injected.length = 0;
     this.keysPressedQ.clear();
     this.keysReleasedQ.clear();
     this.updateNav(dt);
@@ -300,6 +329,7 @@ export class InputManager extends Emitter {
   glyph(action, ctx) {
     const bind = this.bindings[ctx || this.context]?.[action];
     if (!bind) return '?';
+    if (this.lastDevice.type === 'touch') return TOUCH_GLYPHS[ctx || this.context]?.[action] || TOUCH_GLYPHS.menu[action] || '▢';
     if (this.lastDevice.type === 'gamepad') {
       const g = PAD_GLYPHS[this.lastDevice.padType] || PAD_GLYPHS.generic;
       const pb = (bind.pad || []).find((x) => x.button != null) || (bind.pad || [])[0];

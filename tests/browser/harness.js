@@ -25,11 +25,14 @@ const GL_ARGS = SOFTWARE
   : ['--use-angle=' + (process.platform === 'win32' ? 'd3d11' : 'default'), '--ignore-gpu-blocklist', '--enable-gpu', '--enable-unsafe-swiftshader'];
 let reportedRenderer = false;
 
-export async function launch({ width = 1600, height = 900, outDir } = {}) {
+// phone: a touch phone held sideways (iPhone 13 size, coarse pointer); the
+// h.touch* helpers send real touch events through the DevTools protocol.
+export async function launch({ width = 1600, height = 900, outDir, phone = false } = {}) {
   const { chromium } = loadPlaywright();
   const browser = await chromium.launch({ args: [...GL_ARGS, '--autoplay-policy=no-user-gesture-required'] });
-  const context = await browser.newContext({ viewport: { width, height } });
+  const context = await browser.newContext(phone ? { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width, height } });
   const page = await context.newPage();
+  const cdp = phone ? await context.newCDPSession(page) : null;
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -85,6 +88,14 @@ export async function launch({ width = 1600, height = 900, outDir } = {}) {
     },
     async padHold(i, v = 1) { await page.evaluate(([b, val]) => { window.__pad.buttons[b] = val; }, [i, v]); },
     async padAxes(a) { await page.evaluate((ax) => { window.__pad.axes = ax; }, a); },
+    // touch helpers (phone contexts): points are [x, y] in CSS pixels
+    touch(type, points) { return cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y], id) => ({ x, y, id })) }); },
+    async centre(sel) { const b = await page.locator(sel).first().boundingBox(); if (!b) throw new Error('nothing to tap: ' + sel); return [b.x + b.width / 2, b.y + b.height / 2]; },
+    async tap(sel) { const [x, y] = await h.centre(sel); await page.touchscreen.tap(x, y); await h.frames(2); },
+    async drag(from, to, steps = 8, ms = 50) {
+      await h.touch('touchStart', [from]);
+      for (let i = 1; i <= steps; i++) { await h.touch('touchMove', [[from[0] + ((to[0] - from[0]) * i) / steps, from[1] + ((to[1] - from[1]) * i) / steps]]); await page.waitForTimeout(ms); }
+    },
     async close() { await browser.close(); },
   };
   return h;

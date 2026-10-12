@@ -1,6 +1,7 @@
 // UI core: screen stack, spatial focus navigation (controller/keyboard),
-// mouse support, prompt bar with device-specific glyphs, toasts and modal
-// dialogs. Screens are plain objects/classes with render() returning an
+// mouse and touch support, prompt bar with device-specific glyphs (tappable
+// on touch screens; press and hold an item for its secondary action),
+// toasts and modal dialogs. Screens are plain objects/classes with render() returning an
 // element plus optional lifecycle hooks.
 
 export const h = (tag, attrs = {}, ...children) => {
@@ -64,6 +65,33 @@ export class UI {
     });
     app.input.on('deviceChanged', () => this.refreshPrompts());
     app.input.on('bindingsChanged', () => this.refreshPrompts());
+    this.longPress(root);
+  }
+
+  // Touch: press and hold a focusable item for its secondary action (what X
+  // or the Alt key does), instead of tapping it.
+  longPress(root) {
+    let timer = null, start = null, fired = false;
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    root.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      const f = e.target.closest?.('[data-focus]');
+      const screen = this.modal || this.current;
+      fired = false;
+      if (!f || !this.inActiveScope(f) || f.disabled || !screen?.onAlt) return;
+      start = [e.clientX, e.clientY];
+      timer = setTimeout(() => {
+        timer = null; fired = true;
+        this.focus(f, { silent: true });
+        this.app.audio.ui('tab');
+        screen.onAlt(f);
+      }, 550);
+    });
+    root.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - start[0], e.clientY - start[1]) > 12) cancel(); });
+    root.addEventListener('pointerup', cancel);
+    root.addEventListener('pointercancel', cancel);
+    // the tap that ends a long press must not also activate the item
+    root.addEventListener('click', (e) => { if (fired) { fired = false; e.stopPropagation(); e.preventDefault(); } }, true);
   }
 
   get current() { return this.stack[this.stack.length - 1] || null; }
@@ -293,12 +321,20 @@ export class UI {
     const screen = this.modal || this.current;
     const items = screen?.prompts?.() ?? [['confirm', 'Select'], ['back', 'Back']];
     this.prompts.innerHTML = '';
+    // touch: the prompts are buttons (tapping one presses that action); a
+    // plain "Select" needs no button, tapping the item does it
+    const touch = this.app.input.lastDevice.type === 'touch';
     for (const [action, label, ctx] of items) {
-      if (!label) continue;
+      if (!label || (touch && action === 'confirm' && label === 'Select')) continue;
       const g = this.app.input.glyph(action, ctx || 'menu');
-      this.prompts.append(h('span', { class: 'prompt' }, h('kbd', {}, g), ' ', label));
+      const p = h('span', { class: 'prompt' }, h('kbd', {}, g), ' ', label);
+      if (touch) {
+        p.classList.add('tap');
+        p.addEventListener('click', (e) => { e.preventDefault(); this.app.input.inject(action, ctx || 'menu'); });
+      }
+      this.prompts.append(p);
     }
-    if (this.hasScroll && !this.modal && !screen?.noScrollPrompt) this.prompts.append(h('span', { class: 'prompt' }, h('kbd', {}, this.app.input.glyph('scroll', 'menu')), ' Scroll'));
+    if (!touch && this.hasScroll && !this.modal && !screen?.noScrollPrompt) this.prompts.append(h('span', { class: 'prompt' }, h('kbd', {}, this.app.input.glyph('scroll', 'menu')), ' Scroll'));
   }
 
   glyph(action, ctx = 'menu') { return this.app.input.glyph(action, ctx); }

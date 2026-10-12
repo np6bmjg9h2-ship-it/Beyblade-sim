@@ -59,6 +59,8 @@ export class BattleScreen {
     R.objectives = mk('hud-objectives');
     R.lab = mk('hud-lab');
     const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives, R.lab);
+    // tapping or clicking the round result continues, like Confirm
+    R.banner.addEventListener('click', () => this.app.input.inject('confirm', 'menu'));
     return el;
   }
 
@@ -146,7 +148,7 @@ export class BattleScreen {
       const el = h('div', { class: 'ab' }, h('kbd', {}, this.app.input.glyph(action, ctx)), h('div', { class: 'ab-name' }, name), h('div', { class: 'ab-cd' }));
       el.title = desc;
       bar.append(el);
-      this.abilityRefs.push({ el, getState });
+      this.abilityRefs.push({ el, getState, key });
     };
     const A = f.ability;
     for (const [slot, action] of [['signature', 'ability1'], ['secondary', 'ability2'], ['ultimate', 'ultimate']]) {

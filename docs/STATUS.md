@@ -8,7 +8,11 @@ Detailed evidence for every item: `docs/audit-phase1.md`.
 ## Play it
 
 Open `index.html` in Chrome (or Edge). The committed bundle in `dist/` is the
-current build; no install or server needed. WebGL required.
+current build; no install or server needed. WebGL required. On a phone or
+tablet, open the shared artifact link and hold the phone sideways: touch
+controls appear in battles (sticks float under your thumbs; hold LAUNCH and
+let go in the gold window), menus are tapped, and pressing and holding an
+item gives its second action (favourite, slot options).
 
 ## Done
 
@@ -28,6 +32,7 @@ current build; no install or server needed. WebGL required.
 | 5 Balance pass 2, career loop, final QA | 70aaa89 | Every type 40-60%: AI reads the spin race (`readRace`), Pivot Ball / Comet Arc / Semi-Flat / Quad Spike tuned (Clutch Charger 29% -> 47%); career loop played end to end (browser scenario `career`); gaps fixed (upgrade/reroll feedback, prize launchers for the other spin offer a spin switch, squashed panels, newer-version saves warn); per-tick physics allocations removed (bit-identical results); findings register closed except the "Bit-Beast" name |
 | Loot engine M3 | 03f76b5, 086f67e | Realistic art style (PBR materials, arena environment, bloom), opt-in play data to the shared artifact's database, item finishes on the 3D parts, Blender-rendered hall panorama and crowd |
 | Safety nets | (this commit) | From the tool audit (report: claude.ai artifact "SPINFORGE Tool Audit"): fast-check property tests (`tests/properties-*.test.js`: any two legal loot tops never gain energy from a collision and stay finite; same seed, same simulation and same full battle; generated items stay valid, in budget and rebuild exactly; bad-luck protection; every trait finite at any magnitude; channels always within limits; synergies consistent; saves round-trip). They found that one damaged item made a whole save unreadable: saves now set damaged items aside, repair damaged loadouts, Bit-Beasts and fields, fall back to the backup and else salvage what can be read (30,000 fuzzed damaged saves load). tinybench perf gate (`npm run perf`, `npm run perf:check`, baseline per CPU in `tools/perf-baseline.json`), `npm run test:deep` (1,000 runs per property) |
+| iPhone and touch | (this commit) | On-screen controls as a virtual gamepad (floating aim/steer and lean/camera sticks; LAUNCH hold-and-release; DASH, GRIP, CNTR, SKILL, SKILL 2, GUARD, SURGE, ULT mirroring each ability's ready/cooldown/locked state; CAM, pause, Continue); tappable prompt buttons; press-and-hold for secondary actions; phones zoom the menus to fit and ask to be turned sideways; phones start on Medium graphics; iOS audio unlock on touch end; fixed mouse clicks in menus (a UI layer swallowed them); browser scenario `touch` (iPhone-sized, real touch events) |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
@@ -46,7 +51,7 @@ Guard: `npm run balance:check` (25-70% band). Experiments:
 
 ## Next steps (after the plan)
 
-Current work: iPhone support (touch controls, phone layout), then the loot-engine milestones in `docs/loot-engine.md` (next: M4 relics, drop tables, journal, targeted crafting; then Daily Seed, Rift integration, tools, story).
+Current work: the loot-engine milestones in `docs/loot-engine.md` (next: M4 relics, drop tables, journal, targeted crafting; then Daily Seed, Rift integration, tools, story).
 
 1. Playtest and tune Rift Run's economy and difficulty, the Store prices and
    the Daily Store prototypes (all first estimates).
