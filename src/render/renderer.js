@@ -11,7 +11,7 @@ import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
 import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree, toonMaterial, inked, setRenderStyle, renderStyle, setMaterialContext } from './toon.js';
 import { createLights, TONE, TONE_REAL, styleLights } from './lighting.js';
-import { arenaEnvironment } from './environment.js';
+import { arenaEnvironment, loadHallPanorama, loadCrowdSprite, crowdSpriteNow } from './environment.js';
 import { PostFX } from './post.js';
 import { InspectStage } from './inspect.js';
 import { Arena } from '../physics/arena.js';
@@ -142,7 +142,21 @@ export class GameRenderer {
       this.scene.backgroundIntensity = 0.5;
       this.scene.environmentIntensity = 0.85;
       this.scene.fog = new THREE.Fog(def.theme.fog, 2.2, 7);
+      // the stands get the Blender-rendered crowd once it has decoded
+      if (!crowdSpriteNow()) loadCrowdSprite().then((img) => { if (img && this.realistic && this.arenaDef === def) this.setArena(def); });
+      // upgrade to the Blender-rendered hall once its panorama has decoded
+      const token = this._envToken = {};
+      loadHallPanorama().then((pano) => {
+        if (!pano || this._envToken !== token || !this.realistic) return;
+        this.env?.dispose();
+        this.env = arenaEnvironment(this.renderer, def.theme, pano);
+        this.scene.environment = this.env.texture;
+        this.scene.background = pano;
+        this.scene.backgroundBlurriness = 0.03;
+        this.scene.backgroundIntensity = 0.8;
+      });
     } else {
+      this._envToken = null;
       this.scene.environment = null;
       this.scene.background = new THREE.Color(def.theme.sky);
       this.scene.fog = new THREE.Fog(def.theme.fog, 1.4, 4.5);

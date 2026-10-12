@@ -53,8 +53,9 @@ export function resolvePart(entry) {
       if (ud && ud.apply) { ud.apply(def); notes.push(ud.name); }
     }
   }
-  // the item's visual variant tints its model (cosmetic only, never physics)
+  // the item's visual variant tints and finishes its model (cosmetic only, never physics)
   if (isItem && entry.visual?.color) def.color = entry.visual.color;
+  if (isItem && entry.visual?.finish) def.itemFinish = entry.visual.finish;
   const c = isItem ? conditionOf(entry) : 1;
   applyWear(def, c);
   def._condition = c;

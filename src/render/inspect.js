@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { TopVisual } from './topMesh.js';
 import { createLights, styleLights } from './lighting.js';
-import { arenaEnvironment } from './environment.js';
+import { arenaEnvironment, loadHallPanorama } from './environment.js';
 import { INK_LAYER, toonMaterial, inked, disposeTree } from './toon.js';
 
 export class InspectStage {
@@ -44,8 +44,15 @@ export class InspectStage {
     this.style = style;
     styleLights(this.lights, style);
     this.env?.dispose();
-    this.env = style === 'realistic' ? arenaEnvironment(renderer, { sky: '#151a30', accent: '#4fc3ff', ring: '#b07cff' }) : null;
+    const theme = { sky: '#151a30', accent: '#4fc3ff', ring: '#b07cff' };
+    this.env = style === 'realistic' ? arenaEnvironment(renderer, theme) : null;
     this.scene.environment = this.env?.texture || null;
+    if (style === 'realistic') loadHallPanorama().then((pano) => {
+      if (!pano || this.style !== 'realistic') return;
+      this.env?.dispose();
+      this.env = arenaEnvironment(renderer, theme, pano);
+      this.scene.environment = this.env.texture;
+    });
   }
 
   show(assembly, opts = {}) {

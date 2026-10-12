@@ -48,6 +48,13 @@ export { MM, toonMaterial, inked, addInk, tone, inkFor, segs, canvasTexture };
 export const TAU = Math.PI * 2;
 
 // Rarity trim for an item instance (null for commons / plain definitions).
+// An item's finish (systems/itemGen.js visual variant) as a material finish
+// for the part's main plastic shell or its metal body.
+const SHELL_FINISH = { matte: 'matte', satin: 'plastic', gloss: 'gloss', metallic: 'metal', pearl: 'gloss', prism: 'gem' };
+const METAL_FINISH = { matte: 'metal', satin: 'metal', gloss: 'chrome', metallic: 'metal', pearl: 'chrome', prism: 'gem' };
+export const shellFinish = (part, fallback) => SHELL_FINISH[part?.itemFinish] || fallback;
+export const metalFinish = (part, fallback) => METAL_FINISH[part?.itemFinish] || fallback;
+
 export function rarityTrim(part) {
   const r = part?._item?.rarity;
   const R = r ? RARITY_INDEX[r] : null;

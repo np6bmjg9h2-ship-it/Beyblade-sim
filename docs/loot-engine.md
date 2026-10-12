@@ -201,3 +201,23 @@ artifact and patch notes updated, and a log entry below.
   and editors.
 - Tests: 137/137 unit, 15/15 browser (screens switches to Realistic and
   back).
+
+### M3b: Item finishes and Blender assets (2026-10-12)
+
+- Files: `src/render/parts/common.js` (`shellFinish`, `metalFinish`),
+  `src/render/parts/ring.js`, `src/render/parts/disc.js` (an item's finish
+  picks the shell / body material), `src/systems/assembly.js` (variant
+  colour and finish on the resolved part, cosmetic only),
+  `src/render/environment.js` (Blender hall panorama as backdrop and
+  reflections; Blender crowd sprite loader), `src/render/arenaMesh.js`
+  (realistic stands use the rendered crowd), `src/render/renderer.js`,
+  `src/render/inspect.js`, `src/render/assets/hallPanorama.js` +
+  `crowdStrip.js` (generated data-URI modules, 193 KB + 44 KB),
+  `tools/blender/hall_panorama.py`, `crowd_strip.py`, `pano-to-module.mjs`
+  (new: headless Blender renders and the module wrapper),
+  `tools/preview/entry.js` + `shoot.js` (`--style realistic`, build
+  `finish`/`tint`).
+- Blender 4.5.9 LTS renders headless: the 2048×1024 hall panorama in about
+  75 s, the 17-seat crowd row in about 5 s (CPU, Cycles, denoised).
+- Frame rate unchanged within noise (Realistic High 38-40 fps on the UHD 620).
+- Tests: 137/137 unit, 15/15 browser.

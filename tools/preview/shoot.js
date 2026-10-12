@@ -29,6 +29,7 @@ if (opt('explode')) cfg.explode = +opt('explode');
 if (opt('quality')) cfg.quality = opt('quality');
 if (opt('color')) cfg.color = opt('color');
 if (opt('beast')) cfg.beast = opt('beast');
+if (opt('style')) cfg.style = opt('style');
 if (opt('builds')) cfg.builds = JSON.parse(opt('builds'));
 if (mode === 'arena') cfg.arena = argv[1] && !argv[1].startsWith('--') ? argv[1] : 'standard';
 if (opt('fx')) cfg.fx = opt('fx').split(',');

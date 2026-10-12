@@ -7,8 +7,9 @@ import { assembleTop } from '../../src/systems/assembly.js';
 import { PART_INDEX, partsForSlot } from '../../src/data/parts.js';
 import { PART_BUILDERS, partContext } from '../../src/render/parts/index.js';
 import { TopVisual } from '../../src/render/topMesh.js';
-import { INK_LAYER, setInkResolution } from '../../src/render/toon.js';
-import { createLights, TONE } from '../../src/render/lighting.js';
+import { INK_LAYER, setInkResolution, setRenderStyle, toonMaterial } from '../../src/render/toon.js';
+import { createLights, TONE, TONE_REAL, styleLights } from '../../src/render/lighting.js';
+import { arenaEnvironment } from '../../src/render/environment.js';
 import { BEASTS } from '../../src/data/beasts.js';
 import { ARENA_INDEX } from '../../src/data/arenas.js';
 import { buildArena } from '../../src/render/arenaMesh.js';
@@ -70,6 +71,8 @@ function stats(obj) {
 }
 
 const C = window.PREVIEW || {};
+// --style realistic: physically based materials and environment lighting
+if (C.style === 'realistic') setRenderStyle('realistic');
 const cell = C.size || 320;
 const BASE = { ring: 'ring_galefang', core: 'core_helix', disc: 'disc_ten', lock: 'lock_click3', tip: 'tip_flatstrike' };
 const ARCH_BASE = {
@@ -88,7 +91,12 @@ const REF = [
   { ring: 'ring_starlance', core: 'core_storm', disc: 'disc_counter', lock: 'lock_widesocket', tip: 'tip_orbit', aux: 'aux_damper' },
 ];
 
-function resolve(ids) { return Object.fromEntries(Object.entries(ids).map(([s, id]) => [s, PART_INDEX[id]])); }
+// ids may carry `finish` and `tint` (an item's visual variant) for ring and disc
+function resolve(ids) {
+  const parts = Object.fromEntries(Object.entries(ids).filter(([s]) => PART_INDEX[ids[s]]).map(([s, id]) => [s, PART_INDEX[id]]));
+  if (ids.finish || ids.tint) for (const s of ['ring', 'disc']) if (parts[s]) parts[s] = { ...parts[s], itemFinish: ids.finish, color: s === 'ring' && ids.tint ? ids.tint : parts[s].color };
+  return parts;
+}
 
 // A build that hosts `part` in its slot (compatible architecture where possible).
 function hostBuild(part) {
@@ -104,15 +112,20 @@ function hostBuild(part) {
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = TONE.mapping;
-renderer.toneMappingExposure = TONE.exposure;
+const T = C.style === 'realistic' ? TONE_REAL : TONE;
+renderer.toneMapping = T.mapping;
+renderer.toneMappingExposure = T.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const lights = createLights(scene);
+if (C.style === 'realistic') {
+  styleLights(lights, 'realistic');
+  scene.environment = arenaEnvironment(renderer, { sky: '#151a30', accent: '#4fc3ff', ring: '#b07cff' }).texture;
+}
 lights.key.castShadow = true;
 lights.key.shadow.mapSize.set(1024, 1024);
-const floorMat = new THREE.MeshToonMaterial({ color: C.floor || '#2a3352' });
+const floorMat = C.style === 'realistic' ? toonMaterial(C.floor || '#2a3352', { finish: 'matte' }) : new THREE.MeshToonMaterial({ color: C.floor || '#2a3352' });
 const floor = new THREE.Mesh(new THREE.CircleGeometry(0.06, 48), floorMat);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;

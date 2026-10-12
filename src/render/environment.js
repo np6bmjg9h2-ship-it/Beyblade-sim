@@ -1,15 +1,51 @@
-// Image-based lighting for the realistic style: a small procedural arena
-// hall (dark walls, a ring of overhead light panels, accent strips in the
-// stadium's colours, a warm floor bounce) prefiltered into an environment
-// map. Tops and stadium reflect it and it lights them; blurred, it is also
-// the backdrop. Built once per stadium, no image files needed.
+// Image-based lighting for the realistic style: an arena hall (a 360-degree
+// panorama rendered in Blender, tools/blender/hall_panorama.py, or a
+// procedural gradient until it has loaded), a ring of overhead softboxes
+// (the bright highlights a low-range image can't hold), accent strips in the
+// stadium's colours and a floor bounce, prefiltered into an environment map.
+// Tops and stadium reflect it and it lights them; the panorama is also the
+// backdrop. Built once per stadium.
 
 import * as THREE from 'three';
+import { HALL_PANORAMA } from './assets/hallPanorama.js';
+import { CROWD_STRIP } from './assets/crowdStrip.js';
 
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
 
-export function arenaEnvironment(renderer, theme = {}) {
+let panoPromise = null;
+// The hall panorama as an equirectangular texture (decoded once, shared).
+export function loadHallPanorama() {
+  if (!panoPromise) {
+    panoPromise = new THREE.TextureLoader().loadAsync(HALL_PANORAMA).then((t) => {
+      t.mapping = THREE.EquirectangularReflectionMapping;
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.userData.shared = true;
+      return t;
+    }).catch(() => null);
+  }
+  return panoPromise;
+}
+
+// One row of spectators rendered in Blender (tools/blender/crowd_strip.py),
+// painted onto the stand risers in the realistic style.
+let crowdImg = null, crowdPromise = null;
+export function loadCrowdSprite() {
+  if (!crowdPromise) {
+    crowdPromise = new Promise((resolve) => {
+      if (typeof Image === 'undefined') { resolve(null); return; }
+      const im = new Image();
+      im.onload = () => { crowdImg = im; resolve(im); };
+      im.onerror = () => resolve(null);
+      im.src = CROWD_STRIP;
+    });
+  }
+  return crowdPromise;
+}
+export const crowdSpriteNow = () => crowdImg;
+
+export function arenaEnvironment(renderer, theme = {}, pano = null) {
   const scene = new THREE.Scene();
+  if (pano) scene.background = pano;
   const disposables = [];
   const add = (geo, mat, setup) => {
     const m = new THREE.Mesh(geo, mat);
@@ -29,7 +65,8 @@ export function arenaEnvironment(renderer, theme = {}) {
     col.push(c.r, c.g, c.b);
   }
   hall.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  add(hall, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }));
+  if (!pano) add(hall, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }));
+  else hall.dispose();
   // a ring of overhead softboxes (the key reflections on plastic and metal)
   const panelGeo = new THREE.PlaneGeometry(1.6, 0.6);
   const panelMat = new THREE.MeshBasicMaterial({ color: hdr('#fff4e6', 9), side: THREE.DoubleSide });

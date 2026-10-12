@@ -19,7 +19,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { MM, TAU, partGroup, toonMaterial, inked, segs, canvasTexture, rarityGlow, extrudeShape } from './common.js';
+import { MM, TAU, partGroup, toonMaterial, inked, segs, canvasTexture, rarityGlow, extrudeShape, metalFinish } from './common.js';
 import { CLASSIC_DISCS, buildClassicDisc } from './discClassic.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -635,7 +635,7 @@ export function buildDisc(part, ctx = {}) {
 
   const g = partGroup('disc');
   const mats = {
-    main: () => toonMaterial(C.main, { finish: 'metal', ...rarityGlow(ctx.rarity) }),
+    main: () => toonMaterial(C.main, { finish: metalFinish(part, 'metal'), ...rarityGlow(ctx.rarity) }),
     dark: () => toonMaterial(C.dark, { finish: 'metal', spec: 0.6 }),
     alt: () => toonMaterial(C.alt, { finish: 'chrome' }),
     accent: () => toonMaterial(C.accent, { finish: 'gloss' }),

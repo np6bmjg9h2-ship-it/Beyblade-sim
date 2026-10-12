@@ -10,7 +10,7 @@
 // so the silhouette is exactly what collides; slope shows as an inward taper.
 
 import * as THREE from 'three';
-import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasTexture, makeCanvas } from './common.js';
+import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasTexture, makeCanvas, shellFinish } from './common.js';
 import { mix } from '../toon.js';
 import { sampleProfile } from '../../physics/profile.js';
 import { CLASSIC_RINGS, buildClassicRing } from './ringClassic.js';
@@ -569,7 +569,7 @@ export function buildRing(part, ctx) {
   // flat tops: a near-mirror spec edge, so a whole flat face only flashes at
   // a true reflection angle instead of whitening the print in overhead views
   add(E.frame, toonMaterial(C.frame, { finish: 'plastic', specEdge: 0.985, rimColor: tone(C.frame, 0.25) }), { px: 2, maxMm: 0.7 }, 'frame');
-  const shellMat = toonMaterial('#ffffff', { finish: design.finish || 'gloss', spec: 0.5, specEdge: 0.985, map: canvasTexture(sheet), ink: C.line, rimColor: C.light, ...glowTrim });
+  const shellMat = toonMaterial('#ffffff', { finish: shellFinish(part, design.finish || 'gloss'), spec: 0.5, specEdge: 0.985, map: canvasTexture(sheet), ink: C.line, rimColor: C.light, ...glowTrim });
   if (glowTrim.emissive) glows.push(shellMat);
   add(E.soups.shell, shellMat, { px: 2, maxMm: 0.7 }, 'shell');
   add(E.soups.metal, toonMaterial(C.metal, { finish: design.metalFinish || 'metal', ink: inkFor(C.metal, 0.8) }), { px: 1.5, maxMm: 0.45 }, 'metal');

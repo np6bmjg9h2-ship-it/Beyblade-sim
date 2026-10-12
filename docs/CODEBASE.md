@@ -179,6 +179,12 @@ talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons). Part
 physical (mm, g) and consumed by `assembly.js`.
 
 ### render/
+Art styles: `toon.js` builds cel materials (Anime ink) or physically based
+ones (Realistic, `setRenderStyle`); `environment.js` (procedural hall or the
+Blender panorama → PMREM environment, crowd sprite loader), `post.js`
+(bloom/FXAA/MSAA composer for Realistic), `assets/` (generated data-URI
+modules from `tools/blender/`: never hand-edit; regenerate with Blender and
+`tools/blender/pano-to-module.mjs`).
 | File | Lines | Purpose |
 |---|---|---|
 | `renderer.js` | 368 | Owns the WebGLRenderer, lights, camera rig, arena, top visuals, launchers, the battle-event → effects mapping, pooled physics debug overlay, ink-layer toggle, the inspect stage switch. Preloads both battlers' spirits at round start. |

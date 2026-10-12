@@ -13,7 +13,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Arena } from '../physics/arena.js';
-import { toonMaterial, addInk, tone, inkFor, mix, canvasTexture, segs, gradientRamp } from './toon.js';
+import { toonMaterial, addInk, tone, inkFor, mix, canvasTexture, segs, gradientRamp, renderStyle } from './toon.js';
+import { crowdSpriteNow } from './environment.js';
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -657,6 +658,13 @@ function crowdTexture(pal, kind, f, size, rand) {
     }
     g.fillStyle = pal.accent;
     for (let x = 0; x < W; x += W / 16) g.fillRect(x + W / 64, yEdge + band * 0.45, W / 32, lw * 1.5);
+  } else if (renderStyle() === 'realistic' && crowdSpriteNow()) {
+    // realistic style: a row of spectators rendered in Blender (17 seats, it
+    // wraps), dimmed toward the riser colour so it stays a backdrop
+    const img = crowdSpriteNow();
+    const h = (W * img.height) / img.width;
+    g.drawImage(img, 0, yEdge + band - h * 0.98, W, h);
+    g.fillStyle = rgba(riser, 0.28); g.fillRect(0, yEdge, W, band);
   } else {
     // muted, so the crowd reads as a backdrop and never competes with the tops
     const shirts = [pal.accent, pal.ring, pal.wall, '#ffffff', '#ff5a7a', '#ffd23f', '#5ad1ff', '#7dff9a', '#ff9a3c'].map((x) => mix(x, riser, 0.55));
