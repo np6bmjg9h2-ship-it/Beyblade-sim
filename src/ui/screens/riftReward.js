@@ -3,7 +3,9 @@
 // the end-of-run summary with the Locker.
 
 import { h, btn } from '../ui.js';
-import { rarityChip, diffRow, statRow } from '../widgets.js';
+import { rarityChip, statRow } from '../widgets.js';
+import { compareBuildSwap } from '../../systems/compare.js';
+import { compareMini } from '../compare.js';
 import { RARITY_INDEX } from '../../data/rarity.js';
 import { SLOTS, SLOT_NAMES } from '../../data/parts.js';
 import { TRAIT_INDEX } from '../../data/traits.js';
@@ -12,7 +14,7 @@ import { CHARM_INDEX, CHARM_RARITIES, FAMILIES, RESONANCE_COUNT, charmK } from '
 import { BOON_INDEX } from '../../data/riftBoons.js';
 import { STATUSES, RIFT_ACTS, RING_ELEMENT_CHANCE, FORGE_BONUS, BAG_SIZE } from '../../data/rift.js';
 import { baseOf } from '../../systems/items.js';
-import { assembleTop, validateBuild } from '../../systems/assembly.js';
+import { validateBuild } from '../../systems/assembly.js';
 import { resolveLaunchGear } from '../../game/launch.js';
 import { riftState, pickReward, equipFromBag, dropFromBag, unequipAux, keepableParts, lockerSize, finishRun, maxHearts, sendHome, homeBound, lockerChoices } from '../../systems/rift.js';
 import { familyCounts } from '../../systems/riftBattle.js';
@@ -37,21 +39,13 @@ export function validator(profile, run) {
   return (build) => validateBuild(build, { spin: run.spin, launcher: { spinMech: gear.spinMech } });
 }
 
-const summaryOf = (run, build) => { try { return assembleTop(build, { force: true, spin: run.spin }).summary; } catch { return null; } };
-
-// How a part would change the top if swapped in.
-function compareRows(run, item) {
+// How a part would change the top if swapped in (systems/compare.js).
+function compareRows(profile, run, item) {
   const cur = run.equipped[item.slot];
   if (cur?.uid === item.uid) return h('div', { class: 'lc-equipped' }, 'Equipped');
-  const a = summaryOf(run, run.equipped), b = summaryOf(run, { ...run.equipped, [item.slot]: item });
-  if (!a || !b) return null;
-  const rows = [diffRow('Est. spin time (s)', a.estSpinTime, b.estSpinTime, (x) => x.toFixed(0))];
-  if (item.slot === 'ring') rows.push(diffRow('Reach (mm)', a.reachMm, b.reachMm, (x) => x.toFixed(1)), diffRow('Blade face (°)', a.faceDeg, b.faceDeg, (x) => x.toFixed(1)));
-  else if (item.slot === 'lock') rows.push(diffRow('Lock notches', a.lockNotches, b.lockNotches, (x) => x.toFixed(0)), diffRow('Lock strength', a.lockThreshold * 1e4, b.lockThreshold * 1e4, (x) => x.toFixed(2)));
-  else if (item.slot === 'disc' || item.slot === 'aux') rows.push(diffRow('Spin inertia (g·cm²)', a.I3gcm2, b.I3gcm2, (x) => x.toFixed(1)));
-  else rows.push(diffRow('Stability threshold', a.critSpin, b.critSpin, (x) => x.toFixed(0), false));
-  rows.push(diffRow('Mass (g)', a.massG, b.massG, (x) => x.toFixed(1), false));
-  return h('div', { class: 'lc-compare' }, h('div', { class: 'lc-cmp-title' }, cur ? `vs your ${baseOf(cur)?.name}` : 'vs empty slot'), ...rows);
+  let cmp;
+  try { cmp = compareBuildSwap({ parts: run.equipped, launcher: profile.inventory[run.launcher], cable: profile.inventory[run.cable], spin: run.spin }, item.slot, item); } catch { return null; }
+  return h('div', { class: 'lc-compare' }, h('div', { class: 'lc-cmp-title' }, cur ? `vs your ${baseOf(cur)?.name}` : 'vs empty slot'), compareMini(cmp));
 }
 
 const priceTag = (price, short) => (price != null ? h('div', { class: 'lc-price' + (short ? ' short' : '') }, `${price} shards`) : null);
@@ -70,7 +64,7 @@ export function partCard(profile, run, item, { price = null, short = false, comp
     item.forge && FORGE_BONUS[item.slot] ? h('div', { class: 'lc-desc' }, `Forge +${item.forge}: ${FORGE_BONUS[item.slot].desc(item.forge)}`) : null,
     traits.length ? h('div', { class: 'lc-traits' }, traits.map((t) => h('div', { class: 'lc-trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ' ', TRAIT_INDEX[t.id]?.desc(t.mag) || ''))) : h('div', { class: 'lc-desc muted' }, 'No traits.'),
     set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null,
-    compare && fits ? compareRows(run, item) : null,
+    compare && fits ? compareRows(profile, run, item) : null,
     !fits ? h('div', { class: 'lc-warn' }, 'Does not fit your current top.') : null,
     priceTag(price, short));
 }

@@ -232,7 +232,13 @@ scenarios.workshop = async () => {
     await h.focusId('slot-ring'); await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ItemPicker', 10000, 'picker');
     const before = await h.eval(() => window.__app.profile.loadouts[0].parts.ring);
-    await h.padButton(13); await h.padButton(13); await h.padButton(0);
+    await h.padButton(13); await h.padButton(13);
+    // the focused candidate is compared with what the loadout has: verdict, finished-top rows, per-row role tags
+    await h.waitFor(() => document.querySelector('.item-detail .cmp .cmp-verdict .vd') && document.querySelectorAll('.item-detail .cmp .cmp-row').length >= 3, 5000, 'swap comparison');
+    const cmp = await h.eval(() => ({ verdicts: document.querySelectorAll('.item-row .ir-verdict').length, rows: document.querySelectorAll('.item-detail .cmp .cmp-row').length, head: document.querySelector('.item-detail .cmp-head b')?.textContent }));
+    if (!cmp.verdicts || !/Instead of your/.test(cmp.head || '')) throw new Error('comparison incomplete ' + JSON.stringify(cmp));
+    await h.shot('ws_compare');
+    await h.padButton(0);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'picked');
     const after = await h.eval(() => window.__app.profile.loadouts[0].parts.ring);
     if (before === after) throw new Error('ring did not change');

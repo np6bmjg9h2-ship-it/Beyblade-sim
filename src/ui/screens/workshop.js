@@ -3,7 +3,7 @@
 // favourites, Y compares/locks, A selects, B backs out.
 
 import { h, btn, selector, toggle } from '../ui.js';
-import { itemCard, rarityChip, condChip, beastImg, statRow, diffRow, textEntry, resourceBar, costChips, RESOURCE_NAMES } from '../widgets.js';
+import { itemCard, rarityChip, condChip, beastImg, statRow, textEntry, resourceBar, costChips, RESOURCE_NAMES } from '../widgets.js';
 import { SLOTS, SLOT_NAMES, PARTS } from '../../data/parts.js';
 import { LAUNCHERS, CABLES, TECHNIQUE_INDEX } from '../../data/launchers.js';
 import { RARITIES, RARITY_INDEX, rarityRank } from '../../data/rarity.js';
@@ -19,6 +19,8 @@ import { resolveLaunchGear } from '../../game/launch.js';
 import * as WS from '../../systems/workshop.js';
 import { rollLoot } from '../../systems/loot.js';
 import { InspectScreen } from './inspect.js';
+import { compareSwap, verdictLine } from '../../systems/compare.js';
+import { compareBlock } from '../compare.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -252,12 +254,19 @@ export class WorkshopScreen {
     }
   }
 
-  itemDetail(it, compareTo = undefined) {
+  // opts.loadout: loadout index to compare against (default: active);
+  // opts.compare === false leaves the comparison out
+  itemDetail(it, opts = {}) {
     const P = this.p;
     const base = baseOf(it);
     const m = masteryOf(it.xp || 0);
     const H = it.history || {};
-    const out = h('div', { class: 'col' }, itemCard(it));
+    const out = h('div', { class: 'col' });
+    const L = P.loadouts[opts.loadout ?? P.activeLoadout];
+    if (opts.compare !== false && L && [...SLOTS, 'launcher', 'cable'].includes(it.slot)) {
+      try { out.append(compareBlock(compareSwap(P, L, it.slot, it), { loadoutName: L.name })); } catch { /* incomplete loadout */ }
+    }
+    out.append(itemCard(it));
     out.append(h('div', { class: 'small muted', style: { margin: '6px 0' } }, base.desc));
     out.append(h('h3', {}, 'Mastery'), h('div', { class: 'small' }, `${m.name} — ${Math.round(it.xp || 0)} XP${m.next ? ` (next: ${m.next.name} at ${m.next.xp})` : ' (max)'} · tuning slots ${it.tuning.length}/${tuningSlots(it.xp || 0)}`));
     if (it.tuning.length) out.append(h('div', { class: 'small' }, 'Tuning: ' + it.tuning.map((t) => TUNING_INDEX[t]?.name).join(', ')));
@@ -267,24 +276,6 @@ export class WorkshopScreen {
       h('div', { class: 'small' }, `Highest impact ${(H.highestImpact || 0).toFixed(3)} N·s · longest spin ${(H.longestSpin || 0).toFixed(1)} s · tournament wins ${H.tournamentWins || 0}`),
       h('div', { class: 'small muted' }, `Acquired: ${H.acquired || '?'}${it.gen ? ` (seed ${it.seed})` : ''} · repairs ${it.repairs || 0}${it.fatigue ? ` · fatigue ${(it.fatigue * 100).toFixed(0)}%` : ''}`));
     for (const mo of H.moments || []) out.append(h('div', { class: 'small gold' }, '★ ' + mo));
-    // comparison with the equipped item in the same slot
-    const L = P.loadouts[P.activeLoadout];
-    const eqUid = it.slot === 'launcher' ? L.launcher : it.slot === 'cable' ? L.cable : L.parts[it.slot];
-    const eq = eqUid ? P.inventory[eqUid] : null;
-    if (eq && eq.uid !== it.uid && SLOTS.includes(it.slot)) {
-      const { parts } = loadoutItems(P, L);
-      try {
-        const a = assembleTop(parts, { force: true }).summary;
-        const b = assembleTop({ ...parts, [it.slot]: it }, { force: true }).summary;
-        out.append(h('h3', {}, `Compared with equipped ${itemName(eq)}`),
-          diffRow('Mass (g)', a.massG, b.massG, (x) => x.toFixed(1), false), diffRow('Spin inertia (g·cm²)', a.I3gcm2, b.I3gcm2, (x) => x.toFixed(1)),
-          diffRow('COM height (mm)', a.comMm, b.comMm, (x) => x.toFixed(1), false), diffRow('Reach (mm)', a.reachMm, b.reachMm, (x) => x.toFixed(1)),
-          diffRow('Blade face (°)', a.faceDeg, b.faceDeg, (x) => x.toFixed(1)), diffRow('Stability threshold', a.critSpin, b.critSpin, (x) => x.toFixed(0), false),
-          diffRow('Est. free spin (s)', a.estSpinTime, b.estSpinTime, (x) => x.toFixed(0)));
-        const v = validateBuild({ ...parts, [it.slot]: it }, { spin: L.spin });
-        if (!v.ok) out.append(h('div', { class: 'warn-box' }, 'Not compatible with the active loadout: ' + v.errors.join(' ')));
-      } catch { /* incomplete loadout */ }
-    }
     return out;
   }
 
@@ -577,7 +568,7 @@ class ItemPicker {
     const list = h('div', { class: 'item-list', 'data-wrap': '', 'data-scroll': 'pick' });
     if (this.slot === 'aux') list.append(this.row(null, L, parts, current));
     for (const it of cands) list.append(this.row(it, L, parts, current));
-    this.detail = h('div', { class: 'panel scroll item-detail' }, current ? this.ws.itemDetail(current) : h('div', { class: 'muted' }, 'Nothing equipped.'));
+    this.detail = h('div', { class: 'panel scroll item-detail', 'data-scroll': 'pick-detail' }, current ? this.ws.itemDetail(current, { loadout: this.ws.loadoutIndex }) : h('div', { class: 'muted' }, 'Nothing equipped.'));
     return h('div', { class: 'std-screen' }, h('div', { class: 'screen-head' }, h('h1', {}, `Choose ${SLOT_NAMES[this.slot]}`), h('span', { class: 'muted' }, `for ${L.name}`)),
       h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel' }, list), this.detail));
   }
@@ -594,18 +585,30 @@ class ItemPicker {
     }
     const el = h('div', { class: 'item-row pick-' + status + (current?.uid === it?.uid ? ' sel' : ''), 'data-focus': '', 'data-id': it ? it.uid : 'none', style: { '--rarity': it ? RARITY_INDEX[it.rarity].color : '#666' } },
       it ? h('span', { class: 'swatch', style: { background: it.visual?.color || baseOf(it)?.color } }) : null,
-      h('span', { class: 'ir-name' }, it ? itemName(it) : '— None —', it && WS.isEquipped(P, it.uid) ? ' ⚙' : ''),
+      h('span', { class: 'ir-name' }, it ? itemName(it) : '— None —', it && WS.isEquipped(P, it.uid) ? ' ⚙' : '', this.verdict(it, L)),
       it ? rarityChip(it.rarity) : null, it ? condChip(it) : null,
       h('span', { class: 'pick-status' }, status === 'ok' ? '✓' : status === 'warn' ? '⚠' : '✖'));
     el.dataset.desc = msg || (it ? baseOf(it).desc : 'Leave the auxiliary slot empty.');
     el.addEventListener('click', () => this.pick(it, status, msg));
     return el;
   }
+  // ▲/▼ roles under each candidate: how it would change the finished top
+  verdict(it, L) {
+    let cmp;
+    try { cmp = compareSwap(this.app.profile, L, this.slot, it); } catch { return null; }
+    if (cmp.same) return h('span', { class: 'ir-verdict' }, 'Equipped');
+    const v = cmp.verdict;
+    return h('span', { class: 'ir-verdict' }, v.better.slice(0, 2).map((x) => h('i', { class: 'good' }, '▲' + x)), v.worse.slice(0, 2).map((x) => h('i', { class: 'bad' }, '▼' + x)), !v.better.length && !v.worse.length ? verdictLine(cmp) : null);
+  }
   onFocus(el) {
     if (!el?.closest('.item-list')) return; // keep the detail while a dialog is open
     const uid = el.dataset.id;
     const it = this.app.profile.inventory[uid];
-    if (this.detail) { this.detail.innerHTML = ''; if (it) this.detail.append(this.ws.itemDetail(it)); }
+    const L = this.app.profile.loadouts[this.ws.loadoutIndex];
+    if (!this.detail) return;
+    this.detail.innerHTML = '';
+    if (it) this.detail.append(this.ws.itemDetail(it, { loadout: this.ws.loadoutIndex }));
+    else if (uid === 'none') { try { this.detail.append(compareBlock(compareSwap(this.app.profile, L, this.slot, null))); } catch { /* nothing to compare */ } }
   }
   async pick(it, status, msg) {
     const L = this.app.profile.loadouts[this.ws.loadoutIndex];
