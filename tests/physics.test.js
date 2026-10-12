@@ -301,8 +301,13 @@ test('repeated collisions in a stadium never create energy and stay stable', () 
   const sim = new Simulation({ arena, tops: [A, B] });
   A.launch({ tipPos: new Vec3(-0.06, arena.heightAtR(0.06), 0), axis: new Vec3(0, 1, 0), spin: -700, velocity: new Vec3(1.2, 0, 0.05) });
   B.launch({ tipPos: new Vec3(0.06, arena.heightAtR(0.06), 0.004), axis: new Vec3(0, 1, 0), spin: -650, velocity: new Vec3(-0.8, 0, 0) });
-  let impacts = 0, worstGain = -Infinity;
+  let impacts = 0, worstGain = -Infinity, k = 0;
   while (sim.time < 10 && A.active && B.active) {
+    // every half second, send them at each other again (like two players steering in)
+    if (++k % 60 === 0) {
+      const dx = B.p.x - A.p.x, dz = B.p.z - A.p.z, d = Math.hypot(dx, dz) || 1;
+      if (d > 0.06) { A.v.x += (dx / d) * 0.8; A.v.z += (dz / d) * 0.8; B.v.x -= (dx / d) * 0.6; B.v.z -= (dz / d) * 0.6; }
+    }
     const c0 = A.ledger.collision + B.ledger.collision;
     sim.tick();
     worstGain = Math.max(worstGain, A.ledger.collision + B.ledger.collision - c0);

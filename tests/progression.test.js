@@ -268,6 +268,15 @@ test('save schema: migration from v1, validation, backup recovery', async () => 
   const text = saves.exportString(p);
   const imp = saves.importString(text);
   assert.equal(Object.keys(imp.inventory).length, Object.keys(p.inventory).length);
+  assert.ok(!imp.importedFromNewer);
+  // a save from a newer version loads, and says so (audit #9)
+  const future = structuredClone(p);
+  future.version = 99;
+  assert.equal(migrate(structuredClone(future)).newer, 99);
+  assert.equal(saves.importString(JSON.stringify(future)).importedFromNewer, 99);
+  await saves.store.set('slot3', future);
+  const rf = await saves.load('slot3');
+  assert.ok(rf.ok && rf.newer === 99, 'newer save flagged on load');
 });
 
 test('starter loadouts are valid and assemble', () => {

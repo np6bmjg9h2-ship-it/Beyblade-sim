@@ -236,6 +236,25 @@ scenarios.workshop = async () => {
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'picked');
     const after = await h.eval(() => window.__app.profile.loadouts[0].parts.ring);
     if (before === after) throw new Error('ring did not change');
+    // a left-spin-only launcher offers to switch the loadout's spin with it
+    const lefty = await h.eval(() => {
+      const P = window.__app.profile;
+      const it = structuredClone(P.inventory[P.loadouts[0].launcher]);
+      it.uid = 'test_lefty'; it.base = 'launcher_clipreverse';
+      P.inventory[it.uid] = it;
+      window.__app.ui.refresh(window.__app.ui.current);
+      return { uid: it.uid, was: P.loadouts[0].launcher };
+    });
+    await h.focusId('slot-launcher'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ItemPicker', 10000, 'launcher picker');
+    await h.focusId(lefty.uid); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.modal?.el.textContent.includes('left spin only'), 5000, 'spin choice');
+    await h.shot('ws_spin_choice');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'launcher picked');
+    const L0 = await h.eval(() => { const L = window.__app.profile.loadouts[0]; return { spin: L.spin, launcher: L.launcher }; });
+    if (L0.spin !== 'L' || L0.launcher !== lefty.uid) throw new Error('spin switch with a left-spin launcher failed ' + JSON.stringify(L0));
+    await h.eval((was) => { const L = window.__app.profile.loadouts[0]; L.spin = 'R'; L.launcher = was; }, lefty.was);
     // inventory: favourite with X, lock with Y
     await h.padButton(5);
     await h.eval(() => window.__app.ui.focus(document.querySelector('.item-row')));
@@ -1048,6 +1067,139 @@ scenarios.store = async () => {
     if (!(after.cr < 30000 - 500)) throw new Error('credits not spent: ' + after.cr);
     if (!sold) throw new Error('deal not marked sold');
     return { got, credits: after.cr, errors: h.errors };
+  } finally { await h.close(); }
+};
+
+// Career loop end to end: build and inspect, win a whole tournament, collect
+// the prizes, spend CR in the Store, upgrade a part, equip a prize, spend a
+// skill point, save and reload, then battle with the new top.
+scenarios.career = async () => {
+  const h = await launch();
+  const cur = () => h.eval(() => window.__app.ui.current?.constructor.screenName);
+  const playMatch = async () => {
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 15000, 'battle');
+    for (let round = 0; round < 5; round++) {
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      await forcePlayerRound(h);
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+  };
+  const snap = () => h.eval(() => { const p = window.__app.profile; return { cr: p.currency.credits, xp: p.player.xp, level: p.player.level, sp: p.player.skillPoints, inv: Object.keys(p.inventory).length, hist: p.tournaments.history.length }; });
+  try {
+    await newGame(h);
+    const s0 = await snap();
+    // build: swap the ring, then inspect the top
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.focusId('slot-ring'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ItemPicker', 10000, 'picker');
+    await h.padButton(13); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'picked');
+    await h.focusId('inspect3d'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'InspectScreen' && window.__app.renderer.inspectActive, 10000, 'inspect');
+    await h.padButton(1);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'WorkshopScreen', 10000, 'back to workshop');
+    await h.padButton(1);
+    // a whole tournament: the Rookie Cup, three matches to the title
+    await openTile(h, 'tournaments', 'TournamentsScreen');
+    await h.focusId('tour-rookie_cup'); await h.padButton(0);
+    await h.focusId('enter'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'enter confirm');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 10000, 'hub');
+    await h.eval(() => { window.__testRoundTime = 20; window.__testSpeed = 3; });
+    let played = 0;
+    for (let match = 0; match < 5; match++) {
+      await h.waitFor(() => { const b = document.querySelector('[data-id="hub-play"]'); return (b && !b.disabled) || !!document.querySelector('[data-id="collect"]'); }, 120000, 'next match ready');
+      if (await h.eval(() => !!document.querySelector('[data-id="collect"]'))) break;
+      await h.focusId('hub-play'); await h.padButton(0);
+      for (let i = 0; i < 10 && (await cur()) === 'DialogueScreen'; i++) await h.padButton(0);
+      await playMatch();
+      played++;
+      await h.padButton(1);
+      await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentHubScreen', 15000, 'after match');
+    }
+    await h.focusId('collect'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'CeremonyScreen', 10000, 'ceremony');
+    await h.shot('cr01_ceremony');
+    await h.focusId('cer-continue'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'TournamentsScreen', 10000, 'board');
+    await h.padButton(1);
+    const s1 = await snap();
+    const hist = await h.eval(() => window.__app.profile.tournaments.history[0]);
+    if (played !== 3 || hist?.place !== 1) throw new Error(`did not win the cup: played ${played}, ${JSON.stringify(hist)}`);
+    if (!(s1.cr > s0.cr && s1.inv >= s0.inv + 2 && (s1.level > s0.level || s1.xp > s0.xp))) throw new Error('prizes missing ' + JSON.stringify({ s0, s1 }));
+    // store: a materials crate pays for an upgrade
+    await openTile(h, 'store', 'StoreScreen');
+    await h.focusId('offer-crate_materials'); await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'crate confirm');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent.startsWith('Buy for'))));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'StoreRevealScreen', 10000, 'crate opened');
+    await h.focusId('reveal-done'); await h.padButton(0);
+    await h.padButton(1);
+    // upgrade the equipped ring
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.padButton(5); await h.padButton(5); await h.padButton(5);
+    await h.waitFor(() => window.__app.ui.current.tab === 'upgrade', 5000, 'upgrade tab');
+    const ringUid = await h.eval(() => window.__app.profile.loadouts[window.__app.profile.activeLoadout].parts.ring);
+    await h.eval((uid) => document.querySelector(`[data-id="up-${uid}"]`).click(), ringUid);
+    await h.eval(() => window.__app.ui.focus(document.querySelector('[data-id="upg-ring_balance"]')));
+    await h.padButton(0);
+    const upgraded = await h.eval((uid) => window.__app.profile.inventory[uid].upgrades.slice(), ringUid);
+    if (!upgraded.includes('ring_balance')) throw new Error('upgrade not applied: ' + JSON.stringify(upgraded));
+    // equip a prize (the launcher or cord from the cup)
+    await h.padButton(4); await h.padButton(4);
+    await h.waitFor(() => window.__app.ui.current.tab === 'inventory', 5000, 'inventory tab');
+    const prize = await h.eval(() => Object.values(window.__app.profile.inventory).find((it) => it.gen?.source?.includes('Rookie') && ['launcher', 'cable'].includes(it.slot))?.uid || null);
+    if (!prize) throw new Error('no launcher/cord prize from the cup');
+    await h.eval((uid) => window.__app.ui.focus(document.querySelector(`[data-id="${uid}"]`)), prize);
+    await h.padButton(0);
+    await h.waitFor(() => !!window.__app.ui.modal, 5000, 'item actions');
+    await h.eval(() => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent.startsWith('Equip to'))));
+    await h.padButton(0);
+    // a prize launcher for the other spin direction asks first; take the switch
+    await h.page.waitForTimeout(300);
+    if (await h.eval(() => !!window.__app.ui.modal?.el.textContent.includes('spin only'))) await h.padButton(0);
+    const equipped = await h.eval((uid) => { const L = window.__app.profile.loadouts[window.__app.profile.activeLoadout]; return L.launcher === uid || L.cable === uid; }, prize);
+    if (!equipped) throw new Error('prize not equipped');
+    await h.padButton(1);
+    // skills: spend a point if the cup levelled us up
+    let skilled = false;
+    if ((await snap()).sp > 0) {
+      await openTile(h, 'skills', 'SkillsScreen');
+      await h.eval(() => window.__app.ui.focus(document.querySelector('.skill-btn.can')));
+      await h.padButton(0);
+      skilled = (await snap()).sp < s1.sp;
+      await h.padButton(1);
+    }
+    // save, reload, and everything is still there
+    const before = await h.eval(() => { const p = window.__app.profile; const L = p.loadouts[p.activeLoadout]; return JSON.stringify({ cr: p.currency.credits, inv: Object.keys(p.inventory).length, L: [L.parts.ring, L.launcher, L.cable], up: p.inventory[L.parts.ring].upgrades, hist: p.tournaments.history.length, sp: p.player.skillPoints }); });
+    await h.focusId('save'); await h.padButton(0);
+    await h.page.waitForTimeout(800);
+    await h.page.reload();
+    await h.waitFor(() => !!window.__app?.ui?.current, 20000, 'reloaded');
+    await h.padNeutral();
+    await h.padButton(0);
+    await h.waitFor(() => document.querySelector('.slot-list .btn'), 10000, 'slots again');
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'menu after reload');
+    const after = await h.eval(() => { const p = window.__app.profile; const L = p.loadouts[p.activeLoadout]; return JSON.stringify({ cr: p.currency.credits, inv: Object.keys(p.inventory).length, L: [L.parts.ring, L.launcher, L.cable], up: p.inventory[L.parts.ring].upgrades, hist: p.tournaments.history.length, sp: p.player.skillPoints }); });
+    if (after !== before) throw new Error(`save/reload lost progress:\n${before}\n${after}`);
+    // and the new top battles
+    await openTile(h, 'quick', 'QuickBattleScreen');
+    await h.eval(() => { window.__testRoundTime = 20; window.__testSpeed = 3; window.__app.ui.current.cfg.format = 'single'; });
+    const invalid = await h.eval(() => document.querySelector('.warn-box')?.textContent || null);
+    if (invalid) throw new Error('loadout cannot battle after the loop: ' + invalid);
+    await h.eval(() => window.__app.ui.current.start?.());
+    await playMatch();
+    await h.shot('cr02_after');
+    return { played, place: hist.place, credits: [s0.cr, s1.cr], level: [s0.level, s1.level], skilled, errors: h.errors };
   } finally { await h.close(); }
 };
 

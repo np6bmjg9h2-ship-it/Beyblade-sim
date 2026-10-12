@@ -334,6 +334,7 @@ test('Second Wind restores spin once per round when the top runs low', () => {
 
 test('a Rift run plays through two acts headless', () => {
   const { p, run } = freshRun(2025);
+  run.hearts = 12; // the AI pilot may lose a few: this test is about the run moving through acts
   let guard = 0;
   while (run.status === 'active' && run.act < 2 && guard++ < 40) {
     while (run.pending.length) {

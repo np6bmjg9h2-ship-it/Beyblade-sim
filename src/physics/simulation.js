@@ -71,6 +71,7 @@ class Contact {
 const _t = new Vec3(), _t2 = new Vec3(), _t3 = new Vec3(), _t4 = new Vec3();
 const _va = new Vec3(), _vb = new Vec3(), _vb2 = new Vec3();
 const _n = new Vec3(), _c = new Vec3(), _d = new Vec3(), _u = new Vec3(), _e = new Vec3();
+const _sp = new Vec3(), _sn = new Vec3(); // deepest scrape point and normal
 const _prof = { radius: 0, face: 0 };
 const _prof2 = { radius: 0, face: 0 };
 
@@ -199,6 +200,7 @@ export class Simulation {
     this.wallAgg = new Map();
     this.debug = { contacts: [], enabled: false };
     this.instabilityRecoveries = 0;
+    this._E0 = []; this._E = []; // per-top energy scratch: substep start, solve pass start
     for (const t of tops) this.initLedger(t);
   }
 
@@ -235,7 +237,7 @@ export class Simulation {
       t._tickSupport = 0;
       t._tickTip = false;
       t._tickScrape = false;
-      t._safe = t.snapshot();
+      t._safe = t.snapshot(t._safe);
     }
     if (this.debug.enabled) this.debug.contacts.length = 0;
     for (let s = 0; s < this.substeps; s++) this.substep(this.dt, s === this.substeps - 1);
@@ -248,11 +250,12 @@ export class Simulation {
   substep(dt, last) {
     const arena = this.arena;
     const tops = this.tops;
-    const E0 = [];
+    const E0 = this._E0;
+    E0.length = tops.length;
     for (let i = 0; i < tops.length; i++) {
       const t = tops[i];
-      if (!t.active) { E0.push(0); continue; }
-      E0.push(t.totalEnergy());
+      if (!t.active) { E0[i] = 0; continue; }
+      E0[i] = t.totalEnergy();
       this.applyBodyForces(t, dt);
     }
     applyMagnets(tops, dt);
@@ -421,7 +424,9 @@ export class Simulation {
 
   solvePass(category, iterations, dt) {
     const tops = this.tops;
-    const E = tops.map((t) => (t.active ? t.totalEnergy() : 0));
+    const E = this._E;
+    E.length = tops.length;
+    for (let i = 0; i < tops.length; i++) E[i] = tops[i].active ? tops[i].totalEnergy() : 0;
     _dt = dt;
     for (const c of this.contacts) prepare(c);
     for (let it = 0; it < iterations; it++) for (const c of this.contacts) solveOne(c);
@@ -590,21 +595,22 @@ export class Simulation {
     const ul = _u.length();
     if (ul < 1e-6) return;
     _u.scale(1 / ul);
-    let best = null;
+    let bestDepth = -Infinity, bestMu = 0;
     for (const h of t.spec.hull) {
       t.axisPoint(h.z, _c);
       _e.copy(_c).addScaled(_u, h.radius);
       const fy = arena.height(_e.x, _e.z, _n);
       const depth = (fy - _e.y) * _n.y;
-      if (depth > -0.0002 && (!best || depth > best.depth)) {
-        best = { depth, p: _e.clone(), n: _n.clone(), mu: h.friction ?? 0.5 };
+      if (depth > -0.0002 && depth > bestDepth) {
+        bestDepth = depth; bestMu = h.friction ?? 0.5;
+        _sp.copy(_e); _sn.copy(_n);
       }
     }
-    if (!best) return;
+    if (bestDepth === -Infinity) return;
     const c = this._contact();
     c.type = 'scrape'; c.A = null; c.B = t;
-    c.point.copy(best.p); c.n.copy(best.n); c.depth = best.depth;
-    c.mu = best.mu * arena.frictionAt(best.p.x, best.p.z);
+    c.point.copy(_sp); c.n.copy(_sn); c.depth = bestDepth;
+    c.mu = bestMu * arena.frictionAt(_sp.x, _sp.z);
     c.e = 0.15;
     this.contacts.push(c);
     t.scraping = true;

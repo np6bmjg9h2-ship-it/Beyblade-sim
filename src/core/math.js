@@ -42,7 +42,7 @@ export class Vec3 {
     return this;
   }
   isFinite() { return Number.isFinite(this.x) && Number.isFinite(this.y) && Number.isFinite(this.z); }
-  toArray() { return [this.x, this.y, this.z]; }
+  toArray(out = []) { out[0] = this.x; out[1] = this.y; out[2] = this.z; return out; }
   fromArray(a) { this.x = a[0]; this.y = a[1]; this.z = a[2]; return this; }
 }
 
@@ -106,7 +106,7 @@ export class Quat {
     return this.normalize();
   }
   isFinite() { return Number.isFinite(this.x) && Number.isFinite(this.y) && Number.isFinite(this.z) && Number.isFinite(this.w); }
-  toArray() { return [this.x, this.y, this.z, this.w]; }
+  toArray(out = []) { out[0] = this.x; out[1] = this.y; out[2] = this.z; out[3] = this.w; return out; }
   fromArray(a) { this.x = a[0]; this.y = a[1]; this.z = a[2]; this.w = a[3]; return this; }
 }
 

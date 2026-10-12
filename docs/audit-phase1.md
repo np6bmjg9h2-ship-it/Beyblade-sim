@@ -130,3 +130,113 @@ Changes (physics-honest; each measured on all 7 stadiums):
 | Burst | 42% | 52% | ~49% |
 
 Triangle restored: attack beats stamina 46:10, defense beats attack 37:19, stamina beats defense 56:0 (unseen seeds). Remaining: Balance ~30% (loses spin races to defense and stamina; rim-weighting its ring and a calmer AI did not help). Regression guard: `npm run balance:check` (25-70% band) PASS. Unit tests 72/72 (two tests re-based: the repeated-collision scenario now uses the closed Vortex bowl; the XP farming test compares the same result against a fresh opponent instead of across a win and a loss). Browser suite 11/11.
+
+## Phase 5 results (balance pass 2, career loop, final QA)
+
+### Balance pass 2
+
+Pass 1 left the Balance reference build (All-Rounder: Comet Arc ring,
+Semi-Flat tip, Balanced Rival AI) near 30%: its AI could not tell a spin race
+it would win from one it would lose, so it traded hits with Defense and
+Stamina builds until it ran out of spin. Defense won by out-spinning
+everything rather than by defending.
+
+- AI `readRace` (Balanced Rival and the defensive personality): projects the
+  spin race from both tops' spin fraction times their build's estimated spin
+  time (`assembly.summary.estSpinTime`). A top that will outlast its opponent
+  stops attacking and holds the centre; one that will lose presses for a
+  knock-out (`pressWhenBehind`), easing off when its last exchanges went badly.
+- The defensive personality now leaves its centre to press a top that would
+  outlast it, instead of waiting to lose on spin.
+- Pivot Ball (Defense tip): friction 0.20 -> 0.19, contact patch 1.0 -> 0.8 mm.
+- Comet Arc (Balance ring): 15 -> 16 g, friction 0.22 -> 0.17, drag 0.014 ->
+  0.011, mass toward the rim (0.4).
+- Semi-Flat: friction 0.19 -> 0.17, contact patch 0.32 -> 0.28 mm.
+- Quad Spike (classic attack ring): face angle 14 -> 17 deg, catch 0.5 -> 0.6,
+  drag 0.022 -> 0.016. The AI changes left the Clutch Charger opponent (Quad
+  Spike + Hit Clutch) at 29% against the eight original opponents on all
+  stadiums; now 47% (45% and 48% on unseen seeds). Magna Guard: 58%.
+
+Match win rates over all seven stadiums (`npm run balance -- 8 all`, 224
+matches per build; pass 1 re-measured at d9801eb):
+
+| Build | Phase 1 baseline | Pass 1 | Final |
+|---|---|---|---|
+| Attack | 31% | 53% | 50% |
+| Defense | 72% | 60% | 46% |
+| Stamina | 77% | 59% | 58% |
+| Balance | 26% | 30% | 46% |
+| Burst | 45% | 49% | 51% |
+
+Per stadium (32 matches per build each, so about +/-17 points):
+
+| Stadium | Attack | Defense | Stamina | Balance | Burst |
+|---|---|---|---|---|---|
+| standard | 72% | 38% | 66% | 38% | 38% |
+| vortex | 34% | 50% | 56% | 63% | 47% |
+| edgebreaker | 63% | 47% | 56% | 34% | 50% |
+| crystal | 59% | 28% | 47% | 28% | 88% |
+| magma | 38% | 50% | 69% | 63% | 31% |
+| skyfall | 34% | 59% | 50% | 56% | 50% |
+| zero | 47% | 47% | 59% | 44% | 53% |
+
+Stadiums still favour types (Burst on Crystal, Attack on Standard), which
+gives the stadium choice meaning; the overall numbers are what the plan's
+40-60% target is about.
+
+Every type is inside the plan's 40-60% band (Phase 1 acceptance). On unseen
+seeds (`tools/balance-tune.js 6 all`, `SEED_OFFSET` 500 / 900): Attack 54 / 54%,
+Defense 42 / 41%, Stamina 56 / 55%, Balance 55 / 47%, Burst 44 / 53%.
+`npm run balance:check` (25-70% guard) PASS: 50 / 46 / 57 / 46 / 51%.
+
+### Career loop
+
+New browser scenario `career` plays the loop with a virtual gamepad: new
+game -> Workshop ring swap -> Inspect in 3D -> enter the Rookie Cup -> three
+matches to the title -> ceremony and prizes (CR, items, XP) -> Store
+materials crate -> upgrade the equipped ring -> equip the cup's launcher or
+cord prize -> spend a skill point -> save -> reload the page -> identical
+profile (credits, inventory, loadout, upgrades, history, skill points) ->
+a quick battle with the new top. PASS, no page errors. One full-suite run
+timed out starting that last battle; the cause was not captured (most likely
+a left-spin prize launcher, see below), so the scenario now reports why a
+loadout cannot battle. The six runs since all passed.
+
+Gaps found on the way and fixed:
+
+- Material upgrades and trait rerolls were greyed out when unaffordable, so
+  pressing them did nothing (the same complaint as the old crafting tab). They
+  now show cost chips (green covered, red short) and say what is missing.
+- Content in long scrolling panels was squashed instead of scrolling.
+- A cup prize can be a launcher for the other spin direction (Reverse Clip);
+  equipping it made the loadout unable to battle. Equipping one now offers to
+  switch the loadout's spin with it (Workshop quick-equip and the picker).
+- #9: saves from a newer game version (below).
+
+### Findings register: final status
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| 1 | Outcome depends on frame rate | FIXED (Phase 2) | 12/12 seeds identical at 30/60/144 fps; unit test |
+| 2 | Debug overlay GPU leak | FIXED (Phase 3) | Geometries flat at 100 with the overlay on |
+| 3 | Trail materials not disposed | FIXED (Phase 3) | Disposed with their geometry |
+| 4 | Particle pools ignore quality changes | FIXED (Phase 3) | Pools resize on quality change |
+| 5 | Per-tick allocations | FIXED (Phase 4 audio, Phase 5 physics) | Energy scratch arrays reused, the per-tick safety snapshot refilled in place, the scrape contact search no longer clones vectors. 16 seeded matches hash bit-identical before and after; 0.18 ms per tick in that run. Remaining garbage comes from events and the battle layer and is collected in short minor GCs |
+| 6 | Clamp losses booked as numerical | FIXED (Phase 2) | `clamp` ledger key; unit test |
+| 7 | Non-standard controllers | FIXED (Phase 4) | Synthetic pads; real hardware not available |
+| 8 | Ink outlines double draw calls | MEASURED (Phase 3/4) | ~200 vs 144 calls at High; frame time within noise on an Intel UHD 620; outlines stay a Settings toggle |
+| 9 | Newer-version saves accepted silently | FIXED (Phase 5) | Loading one warns that unknown data may be lost when it saves; importing one asks first; unit test |
+| 10 | Windows paths in the browser harness | FIXED (Phase 2) | Browser suite runs on Windows |
+| 11 | "Bit-Beast" is a franchise term | OPEN (naming) | Rename before any commercial release |
+
+### Against the Phase 1 baseline
+
+| Test | Phase 1 | Final |
+|---|---|---|
+| Unit tests | 54/54 | 114/114 |
+| Production build | PASS, 1.4 MB | PASS, 1.5 MB |
+| Browser tests | BLOCKED | 15/15 PASS on the GPU in 4 min 12 s |
+| Same seed at 30 / 60 / 144 fps | FAIL (10 of 12 differ) | PASS (12 of 12 identical) |
+| Simulation cost (20 seeded matches, the 8 original builds) | 0.29 ms per tick | 0.20 ms per tick |
+| Console errors | NOT TESTED | None: any page error fails a browser scenario |
+| GPU frame time | NOT TESTED | 60-65 fps High with outlines, ~80 fps Low (UHD 620, 1080p) |

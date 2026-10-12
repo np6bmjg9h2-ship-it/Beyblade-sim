@@ -86,7 +86,9 @@ export function migrate(data) {
     applied.push(v);
     v = d.version;
   }
-  return { data: d, applied };
+  // a save written by a newer version of the game: readable, but anything this
+  // version does not know about may be dropped when it saves (audit #9)
+  return { data: d, applied, newer: v > SCHEMA_VERSION ? v : null };
 }
 
 export function validate(d) {
@@ -141,10 +143,10 @@ export class SaveManager {
       const raw = await this.store.get(key);
       if (!raw) return { ok: false, reason: 'empty' };
       try {
-        const { data, applied } = migrate(structuredClone(raw));
+        const { data, applied, newer } = migrate(structuredClone(raw));
         const problems = validate(data);
         if (problems.length) return { ok: false, reason: problems.join('; ') };
-        return { ok: true, data: normalizeProfile(data), migrated: applied };
+        return { ok: true, data: normalizeProfile(data), migrated: applied, newer };
       } catch (e) { return { ok: false, reason: e.message }; }
     };
     const main = await tryParse(slot);
@@ -223,10 +225,12 @@ export class SaveManager {
   importString(text) {
     const obj = JSON.parse(text);
     const raw = obj.format === 'chaos-spin-save' ? obj.data : obj;
-    const { data } = migrate(raw);
+    const { data, newer } = migrate(raw);
     const problems = validate(data);
     if (problems.length) throw new Error(problems.join('; '));
-    return normalizeProfile(data);
+    const profile = normalizeProfile(data);
+    if (newer) Object.defineProperty(profile, 'importedFromNewer', { value: newer, enumerable: false });
+    return profile;
   }
 
   // Global (pre-profile) settings so options apply on the title screen.

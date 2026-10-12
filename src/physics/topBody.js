@@ -232,11 +232,12 @@ export class TopBody {
     return this.maxSpinRate > 0 ? clamp(this.spinAbs / this.maxSpinRate, 0, 1.5) : 0;
   }
 
-  snapshot() {
-    return {
-      p: this.p.toArray(), v: this.v.toArray(), q: this.q.toArray(), L: this.L.toArray(),
-      state: this.state, burstNotches: this.burstNotches, active: this.active,
-    };
+  // Pass an earlier snapshot to refill it in place (the simulation takes one per top every tick).
+  snapshot(out = null) {
+    const s = out || { p: [], v: [], q: [], L: [] };
+    this.p.toArray(s.p); this.v.toArray(s.v); this.q.toArray(s.q); this.L.toArray(s.L);
+    s.state = this.state; s.burstNotches = this.burstNotches; s.active = this.active;
+    return s;
   }
 
   restore(s) {

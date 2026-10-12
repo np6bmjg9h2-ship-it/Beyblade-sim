@@ -818,3 +818,5 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 @media (prefers-reduced-motion: reduce) {
   .screen, .screen *, .modal, .modal-backdrop { animation: none !important; }
 }
+/* content inside a scrolling panel scrolls instead of being squashed */
+.panel.scroll > :not(.item-list):not([data-scroll]):not(.scroll) { flex-shrink: 0; }

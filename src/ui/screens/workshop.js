@@ -341,6 +341,12 @@ export class WorkshopScreen {
       { label: 'Dismantle', value: 'dismantle', disabled: it.locked || equipped, desc: Object.entries(WS.dismantleYield(it)).map(([k, v]) => `${k} +${v}`).join(', ') },
     ]);
     if (choice === 'equip') {
+      const mech = it.slot === 'launcher' ? resolveLaunchGear(it, null).spinMech : 'dual';
+      if (mech !== 'dual' && mech !== L.spin) {
+        const how = await this.spinChoice(L, it, mech);
+        if (!how) return;
+        if (how === 'switch') L.spin = mech;
+      }
       WS.equip(P, P.activeLoadout, it.slot, it.uid);
       const v = validateLoadout(P, L);
       this.ui.toast(v.ok ? `Equipped ${itemName(it)}.` : `Equipped, but the loadout is now invalid: ${v.errors[0]}`, v.ok ? 'good' : 'warn', 4000);
@@ -358,6 +364,17 @@ export class WorkshopScreen {
       this.ui.toast(r.ok ? 'Dismantled: ' + Object.entries(r.yield).map(([k, v]) => `${k} +${v}`).join(', ') : r.reason, r.ok ? 'good' : 'bad');
     }
     this.ui.refresh(this);
+  }
+
+  // A launcher that only launches the other spin (a cup prize can be one): offer to
+  // switch the loadout's spin with it rather than leave the loadout unable to battle.
+  spinChoice(L, it, mech) {
+    const dir = mech === 'R' ? 'right' : 'left';
+    const warn = validateBuild(loadoutItems(this.p, L).parts, { spin: mech }).warnings.find((w) => w.includes('designed for'));
+    return this.ui.choose(`${itemName(it)} launches ${dir} spin only`, [
+      { label: `Equip and switch ${L.name} to ${dir} spin`, value: 'switch', desc: warn || `${L.name} will launch ${dir} spin.` },
+      { label: 'Equip anyway', value: 'keep', desc: `${L.name} cannot battle until its spin direction matches the launcher.` },
+    ]);
   }
 
   async bulkDismantle() {
@@ -427,17 +444,22 @@ export class WorkshopScreen {
       panel.append(itemCard(it));
       // upgrades
       panel.append(h('h3', {}, `Material upgrades (${it.upgrades.length}/${WS.maxUpgrades(it)})`));
+      const full = it.upgrades.length >= WS.maxUpgrades(it);
       for (const up of upgradesForSlot(it.slot)) {
         const applied = it.upgrades.includes(up.id);
         const cost = WS.upgradeCost(P, up, it);
-        panel.append(btn(h('div', {}, h('b', {}, up.name + (applied ? ' ✓' : '')), h('div', { class: 'small muted' }, `${up.desc} — ${WS.costText(cost)}`)), () => this.act(() => WS.applyUpgrade(P, it.uid, up.id)), { disabled: applied || it.upgrades.length >= WS.maxUpgrades(it) || !WS.canAfford(P, cost) }));
+        const ok = !applied && !full && WS.canAfford(P, cost);
+        panel.append(btn(h('div', { class: 'col' }, h('b', {}, up.name + (applied ? ' ✓' : '')), h('div', { class: 'small muted' }, up.desc), applied ? null : costChips(P, cost)),
+          () => (applied ? this.ui.toast('Already applied.', 'info') : full ? this.ui.toast(`This item has all ${WS.maxUpgrades(it)} upgrades it can take.`, 'bad') : this.craft(() => WS.applyUpgrade(P, it.uid, up.id), cost, () => `${up.name} applied.`)),
+          { class: 'craft-btn' + (ok ? '' : ' cant'), id: 'upg-' + up.id, desc: applied ? 'Applied.' : full ? 'No upgrade slots left.' : WS.canAfford(P, cost) ? up.desc : `Missing ${this.missingText(cost)}.` }));
       }
       // traits
       panel.append(h('h3', {}, 'Traits'));
       const rc = WS.rerollCost(P, it);
-      it.traits.forEach((t, i) => panel.append(btn(h('div', {}, h('b', {}, `Reroll ${TRAIT_INDEX[t.id].name}`), h('div', { class: 'small muted' }, `${TRAIT_INDEX[t.id].desc(t.mag)} — ${WS.costText(rc)}`)), async () => {
+      it.traits.forEach((t, i) => panel.append(btn(h('div', { class: 'col' }, h('b', {}, `Reroll ${TRAIT_INDEX[t.id].name}`), h('div', { class: 'small muted' }, TRAIT_INDEX[t.id].desc(t.mag)), costChips(P, rc)), async () => {
+        if (!WS.canAfford(P, rc)) { this.ui.toast(`Not enough: you still need ${this.missingText(rc)}.`, 'bad', 3600); this.app.audio.ui('error'); return; }
         if (await this.ui.confirm('Reroll trait?', `${TRAIT_INDEX[t.id].name} will be replaced by a random eligible trait. Other traits are kept.`, { yes: 'Reroll' })) this.act(() => WS.rerollTrait(P, it.uid, i));
-      }, { disabled: !WS.canAfford(P, rc) })));
+      }, { class: 'craft-btn' + (WS.canAfford(P, rc) ? '' : ' cant'), id: 'reroll-' + i })));
       if (!it.traits.length) panel.append(h('div', { class: 'small muted' }, 'This item has no traits to reroll.'));
       const donors = Object.values(P.inventory).filter((d) => d.uid !== it.uid && d.slot === it.slot && d.traits.length && !d.locked && !WS.isEquipped(P, d.uid));
       if (donors.length) panel.append(btn(`Transfer a trait from another ${SLOT_NAMES[it.slot]}… (donor is consumed)`, () => this.transferFlow(it, donors), { desc: `Capacity ${it.traits.length}/${WS.traitCapacity(it)}. Transferred traits keep 85% of their strength.` }));
@@ -580,12 +602,19 @@ class ItemPicker {
     return el;
   }
   onFocus(el) {
-    const uid = el?.dataset?.id;
+    if (!el?.closest('.item-list')) return; // keep the detail while a dialog is open
+    const uid = el.dataset.id;
     const it = this.app.profile.inventory[uid];
     if (this.detail) { this.detail.innerHTML = ''; if (it) this.detail.append(this.ws.itemDetail(it)); }
   }
   async pick(it, status, msg) {
-    if (status === 'bad' && !(await this.ui.confirm('Incompatible part', `${msg} Equip anyway? The loadout will be invalid until fixed.`, { yes: 'Equip anyway' }))) return;
+    const L = this.app.profile.loadouts[this.ws.loadoutIndex];
+    const mech = it && this.slot === 'launcher' ? resolveLaunchGear(it, null).spinMech : 'dual';
+    if (mech !== 'dual' && mech !== L.spin) {
+      const how = await this.ws.spinChoice(L, it, mech);
+      if (!how) return;
+      if (how === 'switch') L.spin = mech;
+    } else if (status === 'bad' && !(await this.ui.confirm('Incompatible part', `${msg} Equip anyway? The loadout will be invalid until fixed.`, { yes: 'Equip anyway' }))) return;
     WS.equip(this.app.profile, this.ws.loadoutIndex, this.slot, it ? it.uid : null);
     this.app.audio.ui('confirm');
     this.ui.pop();

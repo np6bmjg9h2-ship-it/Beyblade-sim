@@ -172,11 +172,11 @@ the same way.
 ## Development
 
 ```sh
-npm test               # 104 unit tests (physics, loot, progression, beasts,
+npm test               # 114 unit tests (physics, loot, progression, beasts,
                        # tournaments, AI, story, modes, replays, render, rift,
-                       # classic parts)
+                       # classic parts, store, prototype parts)
 npm run test:browser   # builds, then plays the game in headless Chromium with
-                       # a keyboard and a virtual gamepad (13 scenarios, ~4 min
+                       # a keyboard and a virtual gamepad (15 scenarios, ~5 min
                        # on a GPU; BROWSER_SOFTWARE=1 forces software rendering;
                        # first run: npx playwright install chromium)
 npm run balance -- 8 all   # simulated round robin of reference builds on
@@ -192,11 +192,11 @@ story, modes, rift), `src/data` (all game content), `src/render` (Three.js),
 ## Known limitations (honest list)
 
 - **Type balance (AI vs AI, all seven stadiums, `npm run balance -- 8 all`):**
-  Attack about 53%, Defense 60%, Stamina 59%, Burst 49%, Balance only about
-  30%. The classic triangle holds (Attack beats Stamina, Stamina beats
-  Defense, Defense beats Attack); the Balance reference build still loses
-  long spin races to Defense and Stamina. Stadiums shift the numbers;
-  `npm run balance:check` guards against regressions.
+  Attack 50%, Defense 46%, Stamina 58%, Balance 46%, Burst 51%: every type
+  inside the 40-60% target. These are AI-against-AI numbers for one reference
+  build per type; stadiums shift them, and a human player's steering and
+  launches matter more than the build. `npm run balance:check` guards against
+  regressions.
 - The physics is a careful game model, not an engineering simulation: tops
   are treated as axisymmetric rigid bodies (blade asymmetry enters through
   the contact profile, not the inertia tensor), the stadium is a surface of

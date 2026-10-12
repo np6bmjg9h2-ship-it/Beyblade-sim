@@ -148,7 +148,7 @@ export class AIController {
 
     if (time >= this.nextDecision) {
       this.nextDecision = time + P.decisionInterval * this.rng.range(0.8, 1.2);
-      this.decide({ dist, closing, myR, oppR, mySpin, oppSpin, snap, me, arena, ability, oppAbility });
+      this.decide({ dist, closing, myR, oppR, mySpin, oppSpin, snap, me, oppF: opp, arena, ability, oppAbility });
     }
 
     // steering target per plan
@@ -234,13 +234,31 @@ export class AIController {
     const rng = this.rng;
     const { dist, closing, myR, oppR, mySpin, oppSpin, me, ability, oppAbility } = s;
     const spinLead = mySpin - oppSpin;
+    // readRace: judge the spin race by who would stop first if nobody touched
+    // anybody: the share of launch spin each top has left times how long that
+    // top can spin (its build's free-spin estimate, which a player reads off
+    // the part cards). A top that would outlast its opponent keeps away from
+    // it; one that would not, presses for a knock-out.
+    let proj = null;
+    if (P.readRace) {
+      const est = this.est || (this.est = { my: me.assembly?.summary?.estSpinTime || 0, opp: s.oppF?.assembly?.summary?.estSpinTime || 0 });
+      if (est.my > 0 && est.opp > 0) {
+        const myLeft = mySpin * est.my, oppLeft = oppSpin * est.opp;
+        proj = clamp((myLeft - oppLeft) / Math.max(myLeft, oppLeft, 1), -1, 1);
+      }
+    }
     // pressWhenBehind (0..1): a top losing the spin race can only win by a
     // knock-out or shatter, so pressing personalities attack harder when behind
     // instead of retreating (0 keeps the classic "retreat when behind").
     const press = P.pressWhenBehind || 0;
-    const behind = Math.max(0, -spinLead);
+    const behind = Math.max(0, -(proj ?? spinLead));
     const u = {};
-    u.attack = P.aggression * (1 + spinLead * 1.5) + press * behind * 2 + (dist < 0.12 ? 0.15 : 0);
+    // contacts that cost more spin than they take (0..1)
+    const bad = clamp((this.exchange || 0) * 18, 0, 1);
+    // a race-reader stops pressing when its hits are losing the exchange:
+    // more contact would only lose the race faster
+    const pressK = P.readRace ? (1 - bad) * (1 - bad) : 1;
+    u.attack = P.aggression * (1 + spinLead * 1.5) + press * behind * 2 * pressK + (dist < 0.12 ? 0.15 : 0);
     u.koPush = oppR > 0.5 ? P.aggression * 0.8 + P.risk * 0.6 + (oppR - 0.5) * 2 : 0;
     u.evade = (spinLead < -0.08 ? (1 - P.aggression) * 0.9 * (1 - press) : 0) + (closing > 0.5 && dist < 0.1 ? (1 - P.aggression) * 0.6 : 0);
     u.center = P.centerPref * (1 - P.aggression) + 0.1;
@@ -254,13 +272,16 @@ export class AIController {
     u.recover = predR > edgeLine ? P.edgeCaution * 1.6 + (predR - edgeLine) * 3 : 0;
     u.circle = P.aggression > 0.4 && P.aggression < 0.85 ? 0.25 : 0;
     // contacts that cost more spin than they take: back off (less so for brawlers)
-    const bad = clamp((this.exchange || 0) * 18, 0, 1);
     if (bad > 0) {
       u.attack *= 1 - bad * (1 - 0.6 * P.aggression);
       u.evade += bad * 0.6 * (1 - P.aggression);
     }
     // late battle: whoever is ahead on spin plays safe
     if (spinLead > 0.15 && mySpin < 0.35) { u.evade += 0.4; u.attack *= 0.6; }
+    // a race-reader that will outlast its opponent stops trading hits
+    if (proj != null && proj > 0.12) { u.attack *= 0.35; u.koPush *= 0.5; u.center += 0.45 + proj; }
+    // ...and one that would be outlasted leaves its comfortable spot to fight
+    if (proj != null && proj < -0.15) u.center *= 0.5;
     // hysteresis
     u[this.plan] = (u[this.plan] || 0) + 0.12;
     let best = 'center', bv = -1;

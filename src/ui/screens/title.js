@@ -93,6 +93,7 @@ export class TitleScreen {
     }
     if (r.recovered) this.ui.toast('The latest save was damaged — restored the previous backup.', 'warn', 5000);
     if (r.migrated?.length) this.ui.toast(`Save upgraded from version ${r.migrated[0]}.`, 'info');
+    if (r.newer) this.ui.toast(`This save comes from a newer version of the game (save format ${r.newer}). It loads, but anything this version doesn't know about may be lost when it saves.`, 'warn', 7000);
     this.app.setProfile(r.data, slot);
     this.enterGame();
   }
@@ -123,6 +124,7 @@ export class TitleScreen {
     try {
       const text = await file.text();
       const profile = this.app.saves.importString(text);
+      if (profile.importedFromNewer && !(await this.ui.confirm('Save from a newer version', `This save was made by a newer version of the game (save format ${profile.importedFromNewer}). It can be imported, but anything this version doesn't know about may be lost. Import anyway?`, { yes: 'Import anyway' }))) return;
       const slot = await this.ui.choose('Import into which slot?', SLOTS.map((s) => ({ label: s.replace('slot', 'Slot ') + (this.slots.slots.find((x) => x.slot === s)?.exists ? ' (overwrite)' : ''), value: s })));
       if (!slot) return;
       if (this.slots.slots.find((x) => x.slot === slot)?.exists) {

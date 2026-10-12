@@ -26,8 +26,8 @@ generated in code (no image or model files).
 ```sh
 npm install              # esbuild + three
 npm run build            # bundle src/ -> dist/chaos-spin.js (embeds the sim worker)
-npm test                 # 70 Node unit tests (node --test tests/*.test.js)
-npm run test:browser     # build, then 11 end-to-end scenarios in headless Chromium
+npm test                 # 114 Node unit tests (node --test tests/*.test.js)
+npm run test:browser     # build, then 15 end-to-end scenarios in headless Chromium
 npm run balance -- 8 all # AI-vs-AI round robin of reference builds on every stadium
 node tools/preview/shoot.js slot ring --audit   # render part models + geometry audit
 ```
@@ -137,7 +137,7 @@ Inspect screen switches the renderer to its own turntable scene.
 |---|---|---|
 | `battle.js` | 795 | Match controller: formats (single, bo3, bo5, points, endless), phases, launches, finishes, scoring, stats, events, replay record and playback, debug finish. |
 | `launch.js` | 207 | Launch model: charge meter, gold window, techniques, lean/aim → initial spin, velocity and tilt; launcher and cable gear. |
-| `ai.js` | 334 | AI controller that produces the same control frame as a human; personalities, skill (reaction, accuracy), velocity-control steering, contact awareness, rival tweaks, adaptation between rounds. |
+| `ai.js` | 360 | AI controller that produces the same control frame as a human; personalities, skill (reaction, accuracy), velocity-control steering, contact awareness, rival tweaks, adaptation between rounds. `pressWhenBehind` presses for a knock-out when losing the spin race; `readRace` projects that race from both builds' estimated spin time (`assembly.summary.estSpinTime`) and holds the centre when it would outlast the opponent. |
 | `abilities.js` | 301 | Spirit meter, Bit-Beast abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
 | `humanController.js` | 163 | Turns input actions into the control frame. |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
@@ -153,7 +153,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `modifiers.js` | 102 | Folds traits, sets, skills and beast passives into bounded modifier channels that the physics reads. |
 | `loot.js`, `progression.js` | ~290 | Deterministic loot; post-match XP, rewards, durability wear, stats. |
 | `workshop.js` | 373 | Equip, repair, upgrade, reroll and transfer traits, craft, dismantle (all validated). |
-| `save.js` | 235 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 3), replay storage (newest 12 plus pinned). |
+| `save.js` | 239 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 3), replay storage (newest 12 plus pinned). A save from a newer version is flagged (`newer` on load, `importedFromNewer` on import) so the title screen can warn. |
 | `profile.js` | 137 | New profile, normalisation, default settings. |
 | `tournament.js` | 704 | Pure tournament engine: single and double elimination (bracket reset), round robin, league with playoffs, Swiss; standings, placements, prizes. |
 | `story.js`, `rivals.js`, `modes.js`, `beasts.js`, `loadout.js` | ~900 | Story progress and flags; habit tracking and rival counter-builds; Challenge, Survival and League; beast bond and trials; loadout to participant. |
@@ -266,7 +266,7 @@ context; the simulation worker entry.
 | `tests/store.test.js` | Shop: odds add up and respect guarantees, prices and guarantees, pools (classic, launch gear, bundles), crates, capsule minimums, determinism, daily deals (exact item, once a day, next day new), old-save defaults. |
 | `tests/rift.test.js` | Rift Run: seeded maps and constraints, rewards and skips, hearts and Second Wind, charms/resonance/boons into participants, forge, trader, shrine, camp, events, Locker, talents, statuses, fusions, sweet spots, a headless two-act run. |
 | `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
-| `tests/browser/run.js` | 13 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop, beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal). It uses the GPU when there is one (about 3 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
+| `tests/browser/run.js` | 15 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop (incl. crafting, the Forge and a left-spin launcher's spin switch), beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal, Daily Store, right-stick scrolling), career (new game → build → Inspect → Rookie Cup title → prizes → Store crate → upgrade → equip a prize → skill point → save → reload → battle). It uses the GPU when there is one (about 4 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. |
 | `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 
