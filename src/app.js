@@ -16,6 +16,7 @@ import { Rng } from './core/rng.js';
 import { TitleScreen } from './ui/screens/title.js';
 import { processMatch } from './systems/progression.js';
 import { TournamentRunner } from './game/tournamentRunner.js';
+import { Telemetry } from './systems/telemetry.js';
 
 export class App {
   constructor(root) {
@@ -47,6 +48,9 @@ export class App {
     }
     this.ui = new UI(this, this.uiRoot);
     this.tournaments = new TournamentRunner(this);
+    // opt-in play data, only when running as the shared claude.ai artifact
+    this.telemetry = new Telemetry(this);
+    this.telemetry.init().then((ok) => { if (ok) setTimeout(() => this.telemetry.askConsent(), 1500); });
     // audio needs a user gesture
     const unlock = () => { this.audio.unlock(); if (this.sceneMode === 'showcase') this.audio.playMusic('menu'); };
     window.addEventListener('pointerdown', unlock, { once: true });
@@ -117,8 +121,10 @@ export class App {
 
   // Apply a finished match to the active profile and autosave (safe point).
   async processMatch(result, session, battle) {
+    if (!session.replay) this.telemetry?.match(result, session, battle, null);
     if (!this.profile || session.noRewards) return null;
     const rw = processMatch(this.profile, result, session, battle);
+    if (this.telemetry?.events.length) Object.assign(this.telemetry.events[this.telemetry.events.length - 1], { rewards: { credits: rw?.credits || 0, xp: rw?.playerXp || 0, items: (rw?.items || []).map((i) => [i.base, i.rarity]), found: (rw?.unlocks || []).filter((u) => u.startsWith('Synergy')) } });
     await this.save('silent');
     if (rw?.items?.length) this.audio.ui('loot');
     if (rw?.levelUps) this.audio.ui('levelup');

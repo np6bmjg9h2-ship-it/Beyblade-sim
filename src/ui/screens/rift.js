@@ -199,6 +199,7 @@ export class RiftScreen {
       mode: 'rift', title: `${RIFT_ACTS[node.act].name} · ${NODE_TYPES[node.type].name}`, arenaId: node.arena,
       format: node.type === 'boss' ? 'bo3' : 'single', seed: mixSeeds(node.seed, run.stats.battles),
       participants: [me, opp], difficulty: opp.difficulty, noRewards: true, rules: nodeRules(node),
+      riftInfo: { act: node.act, depth: run.depth, node: node.type, hearts: run.hearts, charms: run.charms.map((c) => c.id + (c.enhanced ? '+' : '')), boons: { ...run.boons }, affixes: node.affixes || [] },
       allowRematch: false, allowRestart: false, forfeitLabel: 'Retreat', forfeitWarning: 'Retreating counts as a loss: you lose a heart.',
       onForfeit: () => queueMicrotask(() => this.afterBattle(node, { won: false, forfeit: true })),
       onFinish: (res, rw, screen) => {

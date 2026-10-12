@@ -288,6 +288,7 @@ export class RiftSummaryScreen {
     const run = riftState(this.P).active;
     if (!this.keep.length && lockerChoices(run).length && !(await this.ui.confirm('Leave every part behind?', 'The Locker is empty, so all the parts from this run stay in the Rift.', { yes: 'Bank anyway', no: 'Go back' }))) return;
     this.banked = finishRun(this.P, run, { keep: this.keep });
+    this.app.telemetry?.event('riftEnd', { status: run.status, depth: run.depth, act: run.act, battles: run.stats?.battles, kept: this.keep.length, essence: this.banked.essence ?? null, charms: run.charms.map((c) => c.id), boons: { ...run.boons } });
     await this.app.save('silent');
     this.app.audio.ui(this.banked.career.levelUps ? 'levelup' : 'loot');
     this.ui.refresh(this);

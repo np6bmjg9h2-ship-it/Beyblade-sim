@@ -106,6 +106,7 @@ export class StoreScreen {
     if (!(await this.ui.confirm(`Buy ${o.name}?`, `${o.price.toLocaleString()} CR. ${o.desc}`, { yes: `Buy for ${o.price} CR` }))) return;
     const r = buyOffer(this.P, o.id);
     if (!r.ok) { this.ui.toast(r.reason, 'bad'); this.app.audio.ui('error'); return; }
+    this.app.telemetry?.event('store', { offer: o.id, price: o.price, items: (r.items || []).map((i) => [i.base, i.rarity]) });
     await this.app.save('silent');
     this.ui.push(new StoreRevealScreen(this, r, o));
   }

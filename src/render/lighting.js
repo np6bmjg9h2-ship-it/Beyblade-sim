@@ -6,6 +6,24 @@
 import * as THREE from 'three';
 
 export const TONE = { mapping: THREE.NeutralToneMapping, exposure: 1.05 };
+// realistic style: filmic tone mapping for physically based materials
+export const TONE_REAL = { mapping: THREE.NeutralToneMapping, exposure: 1.0 };
+
+const BASE = new WeakMap();
+// Light levels per render style: the cel look wants a flat fill and one hard
+// key; physically based materials take most light from the environment map.
+export function styleLights(L, style) {
+  const real = style === 'realistic';
+  for (const k of ['hemi', 'key', 'rimA', 'rimB', 'spot']) {
+    const l = L[k];
+    if (!l) continue;
+    if (!BASE.has(l)) BASE.set(l, l.intensity);
+    const b = BASE.get(l);
+    l.intensity = real ? b * { hemi: 0.25, key: 1.3, rimA: 1, rimB: 1, spot: 1 }[k] : b;
+    // the environment map is the fill: rim and spot lights only cost shader time
+    if (k === 'rimA' || k === 'rimB' || k === 'spot') l.visible = !real;
+  }
+}
 
 export function createLights(scene) {
   const hemi = new THREE.HemisphereLight('#dfe6ff', '#8f95b8', 0.95);

@@ -174,3 +174,30 @@ artifact and patch notes updated, and a log entry below.
 - Known limits: item finishes are colour-only until the visual leap; relic
   rarity can still roll at random (M4 reserves it for handcrafted relics); no
   loot-level balance harness yet (M7); synergy strengths are first estimates.
+
+### M3a: Realistic style and play data (2026-10-12)
+
+- Files: `src/render/toon.js` (render style switch: physically based
+  materials for every cel finish, cheaper standard materials for the
+  stadium, no ink hulls), `src/render/environment.js` (new: procedural arena
+  hall → PMREM environment map, also the blurred backdrop),
+  `src/render/post.js` (new: HDR composer, bloom, FXAA on Medium, MSAA on
+  High), `src/render/lighting.js` (light levels per style, Neutral tone
+  mapping), `src/render/renderer.js` + `src/render/inspect.js` (style
+  switching rebuilds stadium and tops), `src/systems/profile.js` +
+  `src/ui/screens/settings.js` (Art style setting), `src/systems/telemetry.js`
+  + `src/version.js` (new: opt-in play data), hooks in `src/app.js`,
+  `src/ui/screens/rift.js`, `src/ui/screens/riftReward.js`,
+  `src/ui/screens/store.js`; tests `render` (style) and `telemetry` (new).
+- Frame rate, Intel UHD 620, 1920×1080, frozen showcase battle: Anime ink
+  High 76-82 fps; Realistic High 40, Medium 48, Low 60. Ambient occlusion
+  (GTAO) is built but off: with it High fell to about 20 fps.
+- Play data: when the game runs as the shared artifact and the viewer may
+  write to its database (the owner), the game asks once and then sends one
+  record per battle (builds with traits, synergies, results, effects fired,
+  stats, frame rate, Rift context), Rift run ends, Store purchases and
+  errors to `telemetry/<session>-<part>` (80 events per document, one write
+  at a time). No names or save data. Rules make it readable only to the owner
+  and editors.
+- Tests: 137/137 unit, 15/15 browser (screens switches to Realistic and
+  back).

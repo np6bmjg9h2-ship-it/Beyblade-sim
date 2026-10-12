@@ -31,8 +31,8 @@ export const PLAYER_LEVEL_XP = (lv) => Math.round(120 * Math.pow(lv, 1.45));
 export function defaultSettings() {
   return {
     audio: { master: 0.8, sfx: 0.9, music: 0.45, ambience: 0.5, muted: false },
-    graphics: { quality: 'high', shadows: true, outlines: true, reducedEffects: false, showFps: false, debugOverlay: false, renderScale: 1, fpsCap: 0 },
-    gameplay: { slowmo: true, camera: 'broadcast', hudScale: 1, telemetry: false, subtitles: true, dialogueSpeed: 1, colorblind: false, highContrast: false, storyDifficulty: 'normal' },
+    graphics: { quality: 'high', style: 'ink', shadows: true, outlines: true, reducedEffects: false, showFps: false, debugOverlay: false, renderScale: 1, fpsCap: 0 },
+    gameplay: { slowmo: true, camera: 'broadcast', hudScale: 1, telemetry: false, subtitles: true, dialogueSpeed: 1, colorblind: false, highContrast: false, storyDifficulty: 'normal', shareData: null },
     input: { ...DEFAULT_INPUT_SETTINGS },
     bindings: null,
   };

@@ -5,7 +5,8 @@
 
 import * as THREE from 'three';
 import { TopVisual } from './topMesh.js';
-import { createLights } from './lighting.js';
+import { createLights, styleLights } from './lighting.js';
+import { arenaEnvironment } from './environment.js';
 import { INK_LAYER, toonMaterial, inked, disposeTree } from './toon.js';
 
 export class InspectStage {
@@ -35,6 +36,16 @@ export class InspectStage {
     this.focus = null;
     this.t = 0;
     this.viewShift = 0.14; // fraction of the width the subject is moved right (UI panel on the left)
+  }
+
+  // Match the render style: environment lighting and light levels.
+  setStyle(renderer, style) {
+    if (this.style === style) return;
+    this.style = style;
+    styleLights(this.lights, style);
+    this.env?.dispose();
+    this.env = style === 'realistic' ? arenaEnvironment(renderer, { sky: '#151a30', accent: '#4fc3ff', ring: '#b07cff' }) : null;
+    this.scene.environment = this.env?.texture || null;
   }
 
   show(assembly, opts = {}) {

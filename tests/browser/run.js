@@ -606,7 +606,16 @@ scenarios.screens = async () => {
     await h.shot('x02_stats');
     await h.padButton(5); await h.shot('x03_stats_usage');
     await h.padButton(5); await h.padButton(1);
-    return { errors: h.errors };
+    // art style: the realistic look builds and renders (post-processing on High), then back to ink
+    await h.eval(() => { const S = window.__app.settings; S.graphics.style = 'realistic'; S.graphics.quality = 'high'; window.__app.applySettings(); });
+    await h.page.waitForTimeout(1500);
+    const real = await h.eval(() => ({ post: !!window.__app.renderer.post, env: !!window.__app.renderer.scene.environment, fps: window.__app.renderer.fps() }));
+    if (!real.post || !real.env) throw new Error('realistic style did not switch on ' + JSON.stringify(real));
+    await h.shot('x04_realistic');
+    await h.eval(() => { const S = window.__app.settings; S.graphics.style = 'ink'; window.__app.applySettings(); });
+    await h.page.waitForTimeout(500);
+    if (await h.eval(() => !!window.__app.renderer.post || !!window.__app.renderer.scene.environment)) throw new Error('ink style did not come back');
+    return { errors: h.errors, realistic: real };
   } finally { await h.close(); }
 };
 

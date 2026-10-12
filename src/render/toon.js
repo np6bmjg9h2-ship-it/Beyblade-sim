@@ -59,6 +59,56 @@ export const RAMPS = {
   flat: [190, 255],
 };
 
+// ------------------------------------------------------------ render style
+
+// 'ink': cel shading with ink outlines (the default look). 'realistic':
+// physically based plastic, metal and rubber lit by the stadium environment
+// (render/environment.js), no outlines. Set before building models; the
+// renderer rebuilds the stadium and tops when it changes.
+let STYLE = 'ink';
+export function setRenderStyle(s) { STYLE = s === 'realistic' ? 'realistic' : 'ink'; }
+export const renderStyle = () => STYLE;
+// What is being built: 'top' gets full physically based finishes (clearcoat,
+// iridescence); 'arena' covers most of the screen, so it uses the cheaper
+// standard material.
+let CONTEXT = 'top';
+export function setMaterialContext(c) { CONTEXT = c; }
+
+// Physically based versions of the cel finishes.
+const PBR = {
+  plastic: { roughness: 0.4, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.22 },
+  gloss: { roughness: 0.2, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 },
+  metal: { roughness: 0.3, metalness: 1 },
+  chrome: { roughness: 0.06, metalness: 1 },
+  rubber: { roughness: 0.92, metalness: 0 },
+  clear: { roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03 },
+  gem: { roughness: 0.05, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.7, iridescenceIOR: 1.5 },
+  matte: { roughness: 0.82, metalness: 0 },
+};
+
+function physicalMaterial(color, opts, finish) {
+  let f = PBR[finish] || PBR.plastic;
+  // clearcoat and iridescence cost shader time: plain Standard where they're
+  // off, and always for the stadium (it fills the screen)
+  if (CONTEXT === 'arena') f = { roughness: Math.min(1, f.roughness + 0.12), metalness: f.metalness };
+  const Mat = f.clearcoat || f.iridescence ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
+  const mat = new Mat({
+    color, ...f,
+    emissive: opts.emissive || '#000000',
+    emissiveIntensity: opts.emissiveIntensity ?? (opts.emissive ? 1 : 0),
+    transparent: opts.opacity != null && opts.opacity < 1,
+    opacity: opts.opacity ?? 1,
+    side: opts.side ?? THREE.FrontSide,
+    map: opts.map || null,
+    emissiveMap: opts.emissiveMap || null,
+  });
+  if (opts.flatShading) mat.flatShading = true;
+  if (mat.transparent) mat.depthWrite = opts.depthWrite ?? false;
+  mat.userData.ink = opts.ink ?? inkFor(color);
+  mat.userData.finish = finish;
+  return mat;
+}
+
 // ------------------------------------------------------------ toon material
 
 // Finish presets: band ramp, specular band size/strength, rim strength.
@@ -103,6 +153,7 @@ uniform float uSpec; uniform float uSpecEdge; uniform float uRim; uniform vec3 u
 //   emissive, emissiveIntensity, opacity, side, flatShading, map,
 //   rim (override strength), rimColor, spec (override), outline: false to skip
 export function toonMaterial(color, opts = {}) {
+  if (STYLE === 'realistic') return physicalMaterial(color, opts, opts.finish || 'plastic');
   const f = FINISH[opts.finish || 'plastic'] || FINISH.plastic;
   const mat = new THREE.MeshToonMaterial({
     color,
@@ -232,6 +283,7 @@ export function ensureInkNormals(geo) {
 
 // Give a mesh an ink outline (child hull on INK_LAYER). opts: color, px, maxMm, alpha.
 export function addInk(mesh, opts = {}) {
+  if (STYLE === 'realistic') return mesh; // no outlines in the realistic style
   if (!mesh.isMesh || mesh.userData.inkHull) return mesh;
   ensureInkNormals(mesh.geometry);
   const color = opts.color || mesh.material?.userData?.ink || INK;

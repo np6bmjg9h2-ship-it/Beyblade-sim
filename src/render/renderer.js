@@ -9,15 +9,18 @@ import { TopVisual } from './topMesh.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { BEAST_INDEX } from '../data/beasts.js';
-import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree, toonMaterial, inked } from './toon.js';
-import { createLights, TONE } from './lighting.js';
+import { INK_LAYER, setInkResolution, setSpecBoost, disposeTree, toonMaterial, inked, setRenderStyle, renderStyle, setMaterialContext } from './toon.js';
+import { createLights, TONE, TONE_REAL, styleLights } from './lighting.js';
+import { arenaEnvironment } from './environment.js';
+import { PostFX } from './post.js';
 import { InspectStage } from './inspect.js';
 import { Arena } from '../physics/arena.js';
 
 export class GameRenderer {
   constructor(canvas, settings = {}) {
     this.canvas = canvas;
-    this.settings = { quality: 'high', shadows: true, reducedEffects: false, debug: false, ...settings };
+    this.settings = { quality: 'high', shadows: true, reducedEffects: false, debug: false, style: 'ink', ...settings };
+    setRenderStyle(this.settings.style);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.settings.quality !== 'low', powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Neutral tone mapping keeps the saturated cel palette from washing out
@@ -28,6 +31,9 @@ export class GameRenderer {
     this.rig = new CameraRig(this.camera);
     const L = createLights(this.scene);
     Object.assign(this, { hemi: L.hemi, key: L.key, rimA: L.rimA, rimB: L.rimB, spot: L.spot });
+    this.lights = L;
+    this.env = null;
+    this.post = null;
     this.applyQuality();
     this.effects = new Effects(this.scene, this.effectQuality());
     this.arenaObj = null;
@@ -43,8 +49,14 @@ export class GameRenderer {
 
   effectQuality() { return this.settings.reducedEffects ? 'low' : this.settings.quality; }
 
+  get realistic() { return renderStyle() === 'realistic'; }
+
   applyQuality() {
     const q = this.settings.quality;
+    const T = this.realistic ? TONE_REAL : TONE;
+    this.renderer.toneMapping = T.mapping;
+    this.renderer.toneMappingExposure = T.exposure;
+    styleLights(this.lights || { hemi: this.hemi, key: this.key, rimA: this.rimA, rimB: this.rimB, spot: this.spot }, renderStyle());
     const dpr = Math.min(window.devicePixelRatio || 1, q === 'high' ? 2 : q === 'medium' ? 1.5 : 1) * (this.settings.renderScale || 1);
     this.renderer.setPixelRatio(Math.max(0.35, dpr));
     this.renderer.shadowMap.enabled = !!this.settings.shadows && q !== 'low';
@@ -54,25 +66,38 @@ export class GameRenderer {
       const s = q === 'high' ? 2048 : 1024;
       this.key.shadow.mapSize.set(s, s);
     }
-    // ink outlines live on their own layer
-    const ink = this.settings.outlines !== false;
+    // ink outlines live on their own layer (the realistic style draws none)
+    const ink = this.settings.outlines !== false && !this.realistic;
     if (ink) this.camera.layers.enable(INK_LAYER); else this.camera.layers.disable(INK_LAYER);
     setSpecBoost(q === 'low' ? 0.7 : 1);
     setInkResolution(this.canvas.clientWidth || window.innerWidth, this.canvas.clientHeight || window.innerHeight, this.renderer.getPixelRatio());
   }
 
   setSettings(s) {
-    const prevQ = this.settings.quality;
+    const prevQ = this.settings.quality, prevStyle = this.settings.style;
     Object.assign(this.settings, s);
+    const styleChanged = (this.settings.style || 'ink') !== (prevStyle || 'ink');
+    if (styleChanged) setRenderStyle(this.settings.style);
     this.applyQuality();
     if (this.effects) this.effects.setQuality(this.effectQuality());
-    if (prevQ !== this.settings.quality && this.arenaDef) this.setArena(this.arenaDef);
+    if ((prevQ !== this.settings.quality || styleChanged) && this.arenaDef) this.setArena(this.arenaDef);
+    if (styleChanged && this.fighters) this.setFighters(this.fighters);
+    const wantPost = this.realistic && this.settings.quality !== 'low';
+    if (wantPost !== !!this.post || (wantPost && (styleChanged || prevQ !== this.settings.quality))) this.buildPost();
+  }
+
+  // Post-processing exists only in the realistic style above Low quality.
+  buildPost() {
+    this.post?.dispose();
+    this.post = null;
+    if (this.realistic && this.settings.quality !== 'low') this.post = new PostFX(this.renderer, this.scene, this.camera, { quality: this.settings.quality });
   }
 
   resize() {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
+    this.post?.setSize(w, h, this.renderer.getPixelRatio());
     setInkResolution(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
@@ -100,12 +125,29 @@ export class GameRenderer {
       disposeTree(this.arenaObj.group);
     }
     this.arenaDef = def;
+    setMaterialContext('arena');
     this.arenaObj = buildArena(def, this.settings.quality);
+    setMaterialContext('top');
     const floor = new Arena(def);
     this.effects.spirits.floorAt = (x, z) => floor.heightAtR(Math.hypot(x, z));
     this.scene.add(this.arenaObj.group);
-    this.scene.background = new THREE.Color(def.theme.sky);
-    this.scene.fog = new THREE.Fog(def.theme.fog, 1.4, 4.5);
+    this.env?.dispose();
+    this.env = null;
+    if (this.realistic) {
+      // image-based lighting from a procedural hall in the stadium's colours
+      this.env = arenaEnvironment(this.renderer, def.theme);
+      this.scene.environment = this.env.texture;
+      this.scene.background = this.env.texture;
+      this.scene.backgroundBlurriness = 0.45;
+      this.scene.backgroundIntensity = 0.5;
+      this.scene.environmentIntensity = 0.85;
+      this.scene.fog = new THREE.Fog(def.theme.fog, 2.2, 7);
+    } else {
+      this.scene.environment = null;
+      this.scene.background = new THREE.Color(def.theme.sky);
+      this.scene.fog = new THREE.Fog(def.theme.fog, 1.4, 4.5);
+    }
+    if (!this.post && this.realistic && this.settings.quality !== 'low') this.buildPost();
     this.rimA.color.set(def.theme.accent);
     this.rimB.color.set(def.theme.ring);
     this.effects.spirits.warmup(this.renderer, this.scene, this.camera);
@@ -123,6 +165,7 @@ export class GameRenderer {
 
   setFighters(fighters) {
     this.clearFighters();
+    this.fighters = fighters;
     for (const f of fighters) {
       const v = new TopVisual(f.assembly, { color: f.p.color || f.assembly.parts.ring.color, beast: f.p.beast?.id, quality: this.settings.quality });
       v.root.visible = false;
@@ -346,6 +389,7 @@ export class GameRenderer {
   render(dt, frameTime = dt) {
     if (this.inspectActive) {
       this.inspect.update(dt);
+      this.inspect.setStyle?.(this.renderer, renderStyle());
       this.renderer.render(this.inspect.scene, this.inspect.camera);
       this.frameTimes.push(frameTime);
       if (this.frameTimes.length > 120) this.frameTimes.shift();
@@ -356,9 +400,19 @@ export class GameRenderer {
       if (v.animate(dt) && v.root.visible) this.effects.ring([v.root.position.x, v.root.position.y, v.root.position.z], 0.004, 0.035, 0.22, '#ffffff');
     }
     this.effects.update(dt);
-    this.renderer.render(this.scene, this.camera);
+    if (this.post) this.post.render(dt);
+    else this.renderer.render(this.scene, this.camera);
     this.frameTimes.push(frameTime);
     if (this.frameTimes.length > 120) this.frameTimes.shift();
+  }
+
+  // The graphics chip's name, for play data (the debug extension when offered).
+  gpuName() {
+    try {
+      const gl = this.renderer.getContext();
+      const x = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).slice(0, 120);
+    } catch { return null; }
   }
 
   fps() {

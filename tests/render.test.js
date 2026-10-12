@@ -66,3 +66,22 @@ test('follow cameras pull back to keep the wall in frame when a top nears the ed
   const calm = settle('tracking', [-0.03, 0.03]);
   assert.ok(Math.abs(calm.dist - (0.3 + 0.06 * 1.2)) < 0.003, `no pull-back without a ring-out threat (${calm.dist.toFixed(4)} m)`);
 });
+
+test('the realistic style builds physically based materials and skips ink hulls', async () => {
+  const { toonMaterial, setRenderStyle, setMaterialContext, inked } = await import('../src/render/toon.js');
+  try {
+    setRenderStyle('realistic');
+    const gloss = toonMaterial('#3366ff', { finish: 'gloss' });
+    assert.ok(gloss.isMeshPhysicalMaterial && gloss.clearcoat === 1, 'tops get clearcoat gloss');
+    const metal = toonMaterial('#cccccc', { finish: 'metal' });
+    assert.ok(metal.isMeshStandardMaterial && metal.metalness === 1);
+    setMaterialContext('arena');
+    const bowl = toonMaterial('#888888', { finish: 'gloss' });
+    assert.ok(bowl.isMeshStandardMaterial && !bowl.isMeshPhysicalMaterial, 'the stadium uses the cheaper material');
+    setMaterialContext('top');
+    const m = inked(new THREE.BoxGeometry(1, 1, 1), gloss);
+    assert.equal(m.children.length, 0, 'no ink hull');
+  } finally { setRenderStyle('ink'); setMaterialContext('top'); }
+  const toon = toonMaterial('#3366ff', { finish: 'gloss' });
+  assert.ok(toon.isMeshToonMaterial, 'back to cel shading');
+});
