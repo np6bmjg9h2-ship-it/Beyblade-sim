@@ -221,3 +221,55 @@ artifact and patch notes updated, and a log entry below.
   75 s, the 17-seat crowd row in about 5 s (CPU, Cycles, denoised).
 - Frame rate unchanged within noise (Realistic High 38-40 fps on the UHD 620).
 - Tests: 137/137 unit, 15/15 browser.
+
+### M4: Relics, Journal, targeted crafting, duplicates (2026-10-12)
+
+- Files: `src/data/relics.js` (new: 12 handcrafted relics with lore and
+  earn paths), `src/systems/relics.js` (new: earning from the save's own
+  records, the relic item, recasting), `src/data/traits.js` (12 relic
+  signature traits: never rolled, rerolled, imprinted or engraved),
+  `src/systems/journal.js` + `src/ui/journal.js` (new: Journal tab with
+  Relics / Parts / Traits / Sets / Milestones), `src/systems/workshop.js`
+  (imprints, engraving, training with a spare copy; relics protected; undo
+  all-or-nothing), `src/systems/loot.js` (relic rarity reserved),
+  `src/systems/items.js`, `src/systems/effectSpec.js`,
+  `src/systems/itemValidate.js`, `src/systems/profile.js` (relics,
+  imprints, journal fields), `src/app.js` (relics arrive on the next save or
+  load, announced), `src/ui/screens/workshop.js`, `src/ui/widgets.js`,
+  `styles.css`; tests `relics` and `properties-workshop` (new), browser
+  scenario `relics`.
+- Relics: Ember Crown (Chapter 3), Skywake Spindle (Chapter 4), Null
+  Lattice (Chapter 5), Zero Point Core (Chapter 6), Champion's Orbit (Arena
+  Zero Championship), Riftborn Fang (Rift Depth 3 clear), Masterwork Pivot
+  (Masterwork mastery), Archivist's Lens (60 traits), Bondkeeper's Seal
+  (awaken a Bit-Beast), Laurel Launcher (Division 1 League title),
+  Rivalbreaker Cord (beat all 10 rivals), Survivor's Ward (12 Survival
+  wins). One each per save; paths are checked from records, so saves that
+  already met a path receive the relic on load. Lost relics can be recast
+  for 1,500 CR and 6 Relic Fragments.
+- Drop tables: the planned central drop-table refactor was not done (every
+  source already lives in data: tournaments, store, challenges, story; a
+  rewrite would only risk regressions). Instead relic rarity is reserved
+  for relics, the Journal lists where each part can be found (opponents
+  that use it, Store bundles, tier of random drops, blueprint) and shows
+  the bad-luck protection counters.
+- Targeted crafting: dismantling can keep one trait as an imprint (90%
+  strength, case of 12), engraved onto any eligible part (slot, rarity,
+  exclusion group, capacity; the target's rarity caps the strength). A
+  spare copy of the same part gives mastery XP (200 + 150 per rarity rank +
+  half its own XP).
+- Journal milestones: parts 25/50/75/100%, traits 15/30/45/60/80,
+  synergies 3/7/12/all, relics 1/4/8/all, paying credits and materials once.
+- Found while writing the crafting tests: undoing a dismantle after engraving its
+  imprint would have returned the part and kept the engraved trait (fixed:
+  refused); undo could take back part of a yield before failing (fixed:
+  checks first).
+- Relic strength, AI vs AI on the build each relic suits (60-80 games per
+  side, same build with a plain copy of the base part): Zero Point Core,
+  Riftborn Fang and Masterwork Pivot +13 points, Archivist's Lens +12,
+  Champion's Orbit +8; Null Lattice +22 on a Defense build that normally
+  carries a stronger lock; the dash, ability and launch relics change
+  little in AI play (they reward the player's own timing). Riftborn Fang
+  and Masterwork Pivot were toned down from +18 and +23.
+- Tests: 155/155 unit (relics 7, Workshop property 1 new), 17/17 browser
+  (`relics` new), balance guard unchanged (50 / 46 / 57 / 46 / 51).

@@ -22,6 +22,7 @@ import { InspectScreen } from './inspect.js';
 import { compareSwap, verdictLine } from '../../systems/compare.js';
 import { compareBlock } from '../compare.js';
 import { synergySummary, buildBreakdown, synergyJournal } from '../synergyPanel.js';
+import { renderJournal } from '../journal.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -29,7 +30,7 @@ const TABS = [
   { id: 'repair', label: 'Repair' },
   { id: 'upgrade', label: 'Upgrade' },
   { id: 'craft', label: 'Craft' },
-  { id: 'collection', label: 'Collection' },
+  { id: 'collection', label: 'Journal' },
   { id: 'synergies', label: 'Synergies' },
 ];
 const ALL_SLOTS = [...SLOTS, 'launcher', 'cable'];
@@ -322,6 +323,7 @@ export class WorkshopScreen {
   async itemActions(it) {
     const P = this.p;
     const equipped = WS.isEquipped(P, it.uid);
+    const dupes = WS.duplicatesOf(P, it);
     const L = P.loadouts[P.activeLoadout];
     const isPart = SLOTS.includes(it.slot);
     const choice = await this.ui.choose(itemName(it), [
@@ -332,8 +334,10 @@ export class WorkshopScreen {
       { label: it.locked ? 'Unlock' : 'Lock 🔒', value: 'lock' },
       { label: 'Nickname…', value: 'nick' },
       { label: 'Upgrade / traits…', value: 'upgrade' },
+      ...(dupes.length ? [{ label: `Train with a copy (${dupes.length} spare)…`, value: 'train', desc: `Use up another ${baseOf(it)?.name || 'copy'} to give this one mastery XP (up to +${Math.max(...dupes.map((d) => WS.trainGain(d)))} XP).` }] : []),
       { label: 'Repair…', value: 'repair' },
-      { label: 'Dismantle', value: 'dismantle', disabled: it.locked || equipped, desc: Object.entries(WS.dismantleYield(it)).map(([k, v]) => `${k} +${v}`).join(', ') },
+      it.relic ? { label: 'Dismantle', value: 'dismantle', disabled: true, desc: 'Relics cannot be dismantled.' }
+        : { label: 'Dismantle', value: 'dismantle', disabled: it.locked || equipped, desc: Object.entries(WS.dismantleYield(it)).map(([k, v]) => `${k} +${v}`).join(', ') + (it.traits.length ? '. You can keep one trait as an imprint.' : '') },
     ]);
     if (choice === 'equip') {
       const mech = it.slot === 'launcher' ? resolveLaunchGear(it, null).spinMech : 'dual';
@@ -353,11 +357,36 @@ export class WorkshopScreen {
     if (choice === 'nick') { this.ui.push(new TextPrompt('Nickname', it.nickname || '', 20, (v) => { WS.setNickname(P, it.uid, v); this.ui.refresh(this); })); return; }
     if (choice === 'upgrade') { this.upgradeUid = it.uid; this.setTab('upgrade'); return; }
     if (choice === 'repair') { this.setTab('repair'); return; }
+    if (choice === 'train') { await this.trainFlow(it, dupes); return; }
     if (choice === 'dismantle') {
+      let imprint = null;
+      if (it.traits.length) {
+        const full = (P.imprints || []).length >= WS.IMPRINT_CAP;
+        const pick = await this.ui.choose('Keep a trait as an imprint?', [
+          ...it.traits.map((t, i) => ({ value: String(i), label: `Keep ${TRAIT_INDEX[t.id].name}`, disabled: full, desc: full ? `Your imprint case is full (${WS.IMPRINT_CAP}): engrave or discard one in the Craft tab.` : `Engrave it onto another part later, at ${Math.round(WS.IMPRINT_KEEP * 100)}% strength: ${TRAIT_INDEX[t.id].desc(t.mag * WS.IMPRINT_KEEP)}` })),
+          { value: 'none', label: 'No imprint, just dismantle' },
+        ], { body: `Imprints: ${(P.imprints || []).length}/${WS.IMPRINT_CAP}` });
+        if (pick == null) return;
+        if (pick !== 'none') imprint = +pick;
+      }
       if (WS.dismantleNeedsConfirm(it) && !(await this.ui.confirm('Dismantle?', `${itemName(it)} is ${RARITY_INDEX[it.rarity].name}${masteryOf(it.xp).index >= 2 ? ', mastered' : ''}${it.favourite ? ', a favourite' : ''}. It will be destroyed for materials. You can undo until you leave the Workshop.`, { danger: true, yes: 'Dismantle' }))) return;
-      const r = WS.dismantle(P, it.uid);
-      this.ui.toast(r.ok ? 'Dismantled: ' + Object.entries(r.yield).map(([k, v]) => `${k} +${v}`).join(', ') : r.reason, r.ok ? 'good' : 'bad');
+      const r = WS.dismantle(P, it.uid, { imprint });
+      this.ui.toast(r.ok ? 'Dismantled: ' + Object.entries(r.yield).map(([k, v]) => `${k} +${v}`).join(', ') + (r.imprint ? `. Kept an imprint of ${TRAIT_INDEX[r.imprint.id].name}.` : '') : r.reason, r.ok ? 'good' : 'bad', 4000);
     }
+    this.ui.refresh(this);
+  }
+
+  // Feed a spare copy of the same part to this one for mastery XP.
+  async trainFlow(it, dupes) {
+    const P = this.p;
+    const donorUid = await this.ui.choose(`Train ${itemName(it)} with which copy?`, dupes.map((d) => ({ value: d.uid, label: `${itemName(d)} (${RARITY_INDEX[d.rarity].name}${d.traits.length ? `, ${d.traits.length} trait${d.traits.length > 1 ? 's' : ''}` : ''})`, desc: `+${WS.trainGain(d)} mastery XP. The copy is used up${d.traits.length ? ': consider dismantling it for an imprint instead' : ''}.` })));
+    if (!donorUid) return;
+    const donor = P.inventory[donorUid];
+    if ((donor.favourite || donor.traits.length || masteryOf(donor.xp || 0).index >= 2) && !(await this.ui.confirm('Use up this copy?', `${itemName(donor)} will be used up to train ${itemName(it)}. You can undo until you leave the Workshop.`, { danger: true, yes: 'Train' }))) return;
+    const r = WS.trainWithDuplicate(P, it.uid, donorUid);
+    if (!r.ok) { this.ui.toast(r.reason, 'bad'); this.app.audio.ui('error'); return; }
+    this.app.audio.ui(r.rankUp ? 'levelup' : 'confirm');
+    this.ui.toast(`+${r.xp} mastery XP${r.rankUp ? `: ${itemName(it)} is now ${r.mastery.name}!` : ` (${r.mastery.name})`}`, 'good', 3600);
     this.ui.refresh(this);
   }
 
@@ -450,13 +479,16 @@ export class WorkshopScreen {
       }
       // traits
       panel.append(h('h3', {}, 'Traits'));
+      if (it.relic) panel.append(h('div', { class: 'small muted' }, 'Relics keep their handcrafted traits: they cannot be rerolled, transferred or engraved.'));
       const rc = WS.rerollCost(P, it);
-      it.traits.forEach((t, i) => panel.append(btn(h('div', { class: 'col' }, h('b', {}, `Reroll ${TRAIT_INDEX[t.id].name}`), h('div', { class: 'small muted' }, TRAIT_INDEX[t.id].desc(t.mag)), costChips(P, rc)), async () => {
+      if (!it.relic) it.traits.forEach((t, i) => panel.append(btn(h('div', { class: 'col' }, h('b', {}, `Reroll ${TRAIT_INDEX[t.id].name}`), h('div', { class: 'small muted' }, TRAIT_INDEX[t.id].desc(t.mag)), costChips(P, rc)), async () => {
         if (!WS.canAfford(P, rc)) { this.ui.toast(`Not enough: you still need ${this.missingText(rc)}.`, 'bad', 3600); this.app.audio.ui('error'); return; }
         if (await this.ui.confirm('Reroll trait?', `${TRAIT_INDEX[t.id].name} will be replaced by a random eligible trait. Other traits are kept.`, { yes: 'Reroll' })) this.act(() => WS.rerollTrait(P, it.uid, i));
       }, { class: 'craft-btn' + (WS.canAfford(P, rc) ? '' : ' cant'), id: 'reroll-' + i })));
       if (!it.traits.length) panel.append(h('div', { class: 'small muted' }, 'This item has no traits to reroll.'));
-      const donors = Object.values(P.inventory).filter((d) => d.uid !== it.uid && d.slot === it.slot && d.traits.length && !d.locked && !WS.isEquipped(P, d.uid));
+      const imprints = P.imprints || [];
+      if (!it.relic && imprints.length) panel.append(btn(`Engrave an imprint… (${imprints.length} stored)`, () => this.engraveFlow(it), { desc: `Put a trait you kept from a dismantled part onto this one. Capacity ${it.traits.length}/${WS.traitCapacity(it)}; the item's rarity caps the strength.` }));
+      const donors = it.relic ? [] : Object.values(P.inventory).filter((d) => d.uid !== it.uid && d.slot === it.slot && d.traits.length && !d.locked && !d.relic && !WS.isEquipped(P, d.uid));
       if (donors.length) panel.append(btn(`Transfer a trait from another ${SLOT_NAMES[it.slot]}… (donor is consumed)`, () => this.transferFlow(it, donors), { desc: `Capacity ${it.traits.length}/${WS.traitCapacity(it)}. Transferred traits keep 85% of their strength.` }));
       // tuning
       const slots = tuningSlots(it.xp || 0);
@@ -475,6 +507,30 @@ export class WorkshopScreen {
     if (r.ok) this.app.audio.ui('confirm');
     this.ui.toast(r.ok ? (r.trait ? `New trait: ${TRAIT_INDEX[r.trait.id].name}` : 'Done.') : r.reason, r.ok ? 'good' : 'bad', 3200);
     this.ui.refresh(this);
+  }
+
+  async engraveFlow(target) {
+    const P = this.p;
+    const opts = (P.imprints || []).map((imp, i) => {
+      const c = WS.engraveCheck(P, imp, target, target.traits.length >= WS.traitCapacity(target) ? 0 : null);
+      const d = TRAIT_INDEX[imp.id];
+      return { value: String(i), label: `${d.name} (from ${imp.from})`, disabled: !c.ok, desc: c.ok ? d.desc(c.mag) : c.reason };
+    });
+    const idx = await this.ui.choose(`Engrave onto ${itemName(target)}`, opts);
+    if (idx == null) return;
+    let replace = null;
+    if (target.traits.length >= WS.traitCapacity(target)) {
+      const r = await this.ui.choose('No free trait slot: replace which trait?', target.traits.map((t, i) => ({ value: String(i), label: TRAIT_INDEX[t.id].name, desc: TRAIT_INDEX[t.id].desc(t.mag) })));
+      if (r == null) return;
+      replace = +r;
+    }
+    const chk = WS.engraveCheck(P, P.imprints[+idx], target, replace);
+    if (!chk.ok) { this.ui.toast(chk.reason, 'bad'); return; }
+    const cost = WS.engraveCost(P, target);
+    if (!WS.canAfford(P, cost)) { this.ui.toast(`Not enough: you still need ${this.missingText(cost)}.`, 'bad', 3600); this.app.audio.ui('error'); return; }
+    if (!(await this.ui.confirm('Engrave?', `${TRAIT_INDEX[P.imprints[+idx].id].name} goes onto ${itemName(target)}${replace != null ? `, replacing ${TRAIT_INDEX[target.traits[replace].id].name}` : ''}. The imprint is used up. Cost: ${WS.costText(cost)}.`, { yes: 'Engrave' }))) return;
+    this.act(() => WS.engrave(P, +idx, target.uid, replace));
+    this.app.save('silent');
   }
 
   async transferFlow(target, donors) {
@@ -513,7 +569,13 @@ export class WorkshopScreen {
       h('p', { class: 'small muted' }, 'The Forge turns materials into a random Epic-or-better part for the slot you choose.'),
       h('div', { class: 'row gap' }, h('span', { class: 'small' }, 'Cost per forge:'), costChips(P, WS.FORGE_COST)),
       ...ALL_SLOTS.map((s) => btn(`Forge ${SLOT_NAMES[s]}`, () => this.craft(() => WS.forge(P, s, rollLoot), WS.FORGE_COST, (r) => `Forged ${itemName(r.item)} (${RARITY_INDEX[r.item.rarity].name}).`), { class: 'craft-btn' + (fok ? '' : ' cant'), id: 'forge-' + s, desc: fok ? `Forge a random Epic-or-better ${SLOT_NAMES[s]}.` : `Missing ${this.missingText(WS.FORGE_COST)}.` })));
-    return h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel scroll', 'data-scroll': 'craft' }, h('h3', {}, 'Blueprints'), rows), h('div', { class: 'panel scroll', 'data-scroll': 'forge' }, h('h3', {}, 'Forge'), forge));
+    const imps = P.imprints || [];
+    const case_ = h('div', { class: 'col gap', 'data-wrap': '' },
+      h('p', { class: 'small muted' }, `When you dismantle a part you can keep one of its traits as an imprint (${Math.round(WS.IMPRINT_KEEP * 100)}% strength), then engrave it onto another part from that part's Upgrade / traits page. Stored: ${imps.length}/${WS.IMPRINT_CAP}.`),
+      ...imps.map((imp, i) => h('div', { class: 'row gap imprint-row' }, h('div', { class: 'col', style: { flex: 1 } }, h('b', {}, TRAIT_INDEX[imp.id]?.name || imp.id), h('div', { class: 'small muted' }, `from ${imp.from} · fits ${(TRAIT_INDEX[imp.id]?.slots || []).map((s) => SLOT_NAMES[s]).join(', ')}`), h('div', { class: 'small' }, TRAIT_INDEX[imp.id]?.desc(imp.mag) || '')),
+        btn('Discard', async () => { if (await this.ui.confirm('Discard imprint?', `${TRAIT_INDEX[imp.id]?.name} will be lost.`, { danger: true, yes: 'Discard' })) this.act(() => WS.discardImprint(P, i)); }, { id: 'imp-discard-' + i }))));
+    if (!imps.length) case_.append(h('div', { class: 'small muted' }, 'No imprints yet.'));
+    return h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel scroll', 'data-scroll': 'craft' }, h('h3', {}, 'Blueprints'), rows), h('div', { class: 'panel scroll', 'data-scroll': 'forge' }, h('h3', {}, 'Forge'), forge, h('h3', {}, 'Imprints'), case_));
   }
 
   missingText(cost) {
@@ -544,27 +606,7 @@ export class WorkshopScreen {
   // ================================================================ collection
 
   renderCollection() {
-    const P = this.p;
-    const bases = [...PARTS, ...LAUNCHERS, ...CABLES];
-    const found = bases.filter((b) => P.discovery.parts[b.id]).length;
-    const bySlot = h('div', { class: 'col' });
-    for (const s of ALL_SLOTS) {
-      const all = bases.filter((b) => b.slot === s);
-      bySlot.append(h('div', { class: 'coll-row' }, h('b', {}, `${SLOT_NAMES[s]} ${all.filter((b) => P.discovery.parts[b.id]).length}/${all.length}`),
-        h('div', { class: 'coll-items' }, all.map((b) => h('span', { class: 'coll-item' + (P.discovery.parts[b.id] ? '' : ' unknown'), title: P.discovery.parts[b.id] ? b.desc : 'Undiscovered' }, P.discovery.parts[b.id] ? b.name : '???')))));
-    }
-    const sets = h('div', { class: 'col gap' });
-    const owned = Object.values(P.inventory);
-    for (const s of SETS) {
-      const n = owned.filter((i) => i.set === s.id).length;
-      sets.append(h('div', { class: 'set-block', style: { borderColor: s.color } }, h('b', { style: { color: s.color } }, s.name), ` — ${s.theme} (${n} owned${P.discovery.sets[s.id] ? '' : ', undiscovered'})`,
-        h('div', { class: 'small' }, Object.entries(s.bonuses).map(([k, v]) => h('div', {}, `${k} pieces: ${v.desc}`))),
-        h('div', { class: 'small muted' }, 'Slots: ' + s.slots.map((x) => SLOT_NAMES[x]).join(', '))));
-    }
-    const traitsFound = TRAITS.filter((t) => P.discovery.traits[t.id]).length;
-    return h('div', { class: 'ws-cols two-wide' },
-      h('div', { class: 'panel scroll', 'data-scroll': 'coll' }, h('h3', {}, `Parts discovered ${found}/${bases.length} · traits ${traitsFound}/${TRAITS.length}`), bySlot, btn('Close', () => this.onBack())),
-      h('div', { class: 'panel scroll' }, h('h3', {}, 'Equipment sets'), sets));
+    return h('div', { class: 'ws-cols' }, renderJournal(this));
   }
 }
 

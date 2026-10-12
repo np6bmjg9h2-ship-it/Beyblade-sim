@@ -2,13 +2,16 @@
 // costs, mutate the profile and return { ok, ... } or { ok:false, reason }.
 // Repairs keep identity, XP and history. A free Basic Service always brings a
 // part back to 50% so no build can become permanently unusable.
+// Targeted crafting: dismantling can keep one trait as an imprint, and an
+// imprint can be engraved onto another part. Duplicates of a part train its
+// mastery. Relics keep their handcrafted traits and cannot be dismantled.
 
 import { RARITY_INDEX, rarityRank } from '../data/rarity.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { UPGRADE_INDEX, MAX_UPGRADES } from '../data/upgrades.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { computeSkillEffects } from '../data/skills.js';
-import { eligibleTraits, masteryOf, tuningSlots, baseOf, createItem, itemName } from './items.js';
+import { eligibleTraits, masteryOf, tuningSlots, baseOf, createItem, itemName, MASTERY_CAP } from './items.js';
 import { Rng, mixSeeds } from '../core/rng.js';
 import { PART_INDEX } from '../data/parts.js';
 import { LAUNCHER_INDEX, CABLE_INDEX } from '../data/launchers.js';
@@ -157,20 +160,111 @@ export function dismantleNeedsConfirm(it) {
   return rarityRank(it.rarity) >= 2 || masteryOf(it.xp || 0).index >= 2 || it.favourite || !!it.nickname || (it.history?.battles || 0) > 10;
 }
 
-export function dismantle(profile, uid) {
+// opts.imprint: index of a trait to keep as an imprint (see engrave).
+export function dismantle(profile, uid, opts = {}) {
   const it = profile.inventory[uid];
   if (!it) return fail('Item not found');
+  if (it.relic) return fail('Relics cannot be dismantled');
   if (it.locked) return fail('Item is locked');
   if (isEquipped(profile, uid)) return fail('Item is equipped in a loadout');
   if (activeLocks(profile).registered.has(uid)) return fail('Item is registered for your current tournament');
+  let imprint = null;
+  if (opts.imprint != null) {
+    const t = it.traits[opts.imprint];
+    if (!t || !TRAIT_INDEX[t.id] || TRAIT_INDEX[t.id].relic) return fail('No trait to imprint there');
+    if ((profile.imprints || []).length >= IMPRINT_CAP) return fail(`Your imprint case is full (${IMPRINT_CAP}). Engrave or discard one first.`);
+    imprint = { id: t.id, mag: +(t.mag * IMPRINT_KEEP).toFixed(3), from: itemName(it), src: it.uid, at: Date.now() };
+  }
   const y = dismantleYield(it);
   for (const [k, v] of Object.entries(y)) {
     if (k === 'research') profile.currency.research += v;
     else profile.materials[k] = (profile.materials[k] || 0) + v;
   }
+  if (imprint) (profile.imprints = profile.imprints || []).push(imprint);
   delete profile.inventory[uid];
-  pushUndo(profile, { type: 'dismantle', item: it, yield: y, label: `Dismantle ${itemName(it)}` });
-  return { ok: true, yield: y };
+  pushUndo(profile, { type: 'dismantle', item: it, yield: y, imprint: !!imprint, label: `Dismantle ${itemName(it)}` });
+  return { ok: true, yield: y, imprint };
+}
+
+// ------------------------------------------------------------------ imprints and engraving
+
+export const IMPRINT_CAP = 12;
+export const IMPRINT_KEEP = 0.9; // an imprint keeps 90% of the trait's strength
+
+// Can this imprint go onto that item? { ok, reason, mag }
+export function engraveCheck(profile, imprint, target, replaceIndex = null) {
+  const d = TRAIT_INDEX[imprint?.id];
+  if (!d || d.relic) return fail('Unknown imprint');
+  if (!target) return fail('Item not found');
+  if (target.relic) return fail('Relics keep their handcrafted traits');
+  if (!d.slots.includes(target.slot)) return fail(`${d.name} does not fit a ${target.slot}`);
+  if (rarityRank(d.rarityMin) > rarityRank(target.rarity)) return fail(`${d.name} needs a ${RARITY_INDEX[d.rarityMin].name} or rarer item`);
+  if (target.traits.some((x, i) => x.id === d.id && i !== replaceIndex)) return fail('The item already has this trait');
+  const keep = target.traits.filter((_, i) => i !== replaceIndex);
+  if (d.group && keep.some((x) => TRAIT_INDEX[x.id]?.group === d.group)) return fail('Conflicts with a trait already on the item');
+  if (replaceIndex == null && target.traits.length >= traitCapacity(target)) return fail(`No free trait slot (${traitCapacity(target)} for ${RARITY_INDEX[target.rarity].name})`);
+  // the item's rarity caps how strong an engraved trait can be
+  const mag = +Math.min(imprint.mag, RARITY_INDEX[target.rarity].mag[1]).toFixed(3);
+  return { ok: true, mag };
+}
+
+export function engraveCost(profile, target) {
+  return scaleCost({ credits: 250, coreShard: 2, research: 8 }, (1 + rarityRank(target.rarity) * 0.3) * (1 + (econ(profile).craftCost || 0)));
+}
+
+export function engrave(profile, imprintIndex, targetUid, replaceIndex = null) {
+  const imp = (profile.imprints || [])[imprintIndex];
+  const target = profile.inventory[targetUid];
+  if (!imp) return fail('No such imprint');
+  const c = engraveCheck(profile, imp, target, replaceIndex);
+  if (!c.ok) return c;
+  const cost = engraveCost(profile, target);
+  if (!canAfford(profile, cost)) return fail('Not enough resources: ' + costText(cost));
+  pay(profile, cost);
+  const t = { id: imp.id, mag: c.mag };
+  const old = replaceIndex != null ? target.traits[replaceIndex] : null;
+  if (replaceIndex != null) target.traits[replaceIndex] = t; else target.traits.push(t);
+  profile.imprints.splice(imprintIndex, 1);
+  target.history.upgrades = target.history.upgrades || [];
+  target.history.upgrades.push({ engrave: imp.id, from: imp.from, replaced: old?.id || null, at: Date.now() });
+  return { ok: true, cost, trait: t, old };
+}
+
+export function discardImprint(profile, index) {
+  if (!(profile.imprints || [])[index]) return fail('No such imprint');
+  const [gone] = profile.imprints.splice(index, 1);
+  return { ok: true, imprint: gone };
+}
+
+// ------------------------------------------------------------------ duplicates train mastery
+
+// Other copies of the same part (same base) that could be fed to this one.
+export function duplicatesOf(profile, it) {
+  return Object.values(profile.inventory).filter((d) => d.uid !== it.uid && d.base === it.base && !d.relic && !d.locked && !isEquipped(profile, d.uid));
+}
+
+// Mastery XP a copy gives: more for rarer and better-trained copies.
+export function trainGain(donor) {
+  return Math.round(200 + 150 * rarityRank(donor.rarity) + 0.5 * (donor.xp || 0));
+}
+
+export function trainWithDuplicate(profile, targetUid, donorUid) {
+  const target = profile.inventory[targetUid], donor = profile.inventory[donorUid];
+  if (!target || !donor) return fail('Item not found');
+  if (targetUid === donorUid) return fail('Choose another copy');
+  if (donor.base !== target.base) return fail('Only a copy of the same part can train it');
+  if (donor.relic) return fail('Relics cannot be used up');
+  if (donor.locked) return fail('That copy is locked');
+  if (isEquipped(profile, donorUid)) return fail('That copy is equipped in a loadout');
+  if (activeLocks(profile).registered.has(donorUid)) return fail('That copy is registered for your current tournament');
+  if ((target.xp || 0) >= MASTERY_CAP) return fail('Already at Masterwork');
+  const before = masteryOf(target.xp || 0);
+  const xp = Math.min(MASTERY_CAP - (target.xp || 0), trainGain(donor));
+  target.xp = (target.xp || 0) + xp;
+  delete profile.inventory[donorUid];
+  pushUndo(profile, { type: 'train', item: donor, targetUid, xp, label: `Train with ${itemName(donor)}` });
+  const after = masteryOf(target.xp);
+  return { ok: true, xp, mastery: after, rankUp: after.index > before.index };
 }
 
 // ------------------------------------------------------------------ upgrades
@@ -214,6 +308,7 @@ export function rerollCost(profile, it) {
 export function rerollTrait(profile, uid, index) {
   const it = profile.inventory[uid];
   if (!it) return fail('Item not found');
+  if (it.relic) return fail('Relics keep their handcrafted traits');
   const t = it.traits[index];
   if (!t) return fail('No trait in that position');
   const cost = rerollCost(profile, it);
@@ -247,6 +342,7 @@ export function transferTrait(profile, donorUid, index, targetUid, replaceIndex 
   const donor = profile.inventory[donorUid], target = profile.inventory[targetUid];
   if (!donor || !target) return fail('Item not found');
   if (donorUid === targetUid) return fail('Choose a different donor');
+  if (donor.relic || target.relic) return fail('Relics keep their handcrafted traits');
   if (donor.slot !== target.slot) return fail('Donor and target must be the same slot type');
   if (donor.locked) return fail('Donor is locked');
   if (isEquipped(profile, donorUid)) return fail('Donor is equipped');
@@ -369,10 +465,21 @@ export function undo(profile) {
   if (!e) return fail('Nothing to undo');
   switch (e.type) {
     case 'dismantle': {
+      // its imprint must still be in the case (engraving it already used the trait)
+      const ii = e.imprint ? (profile.imprints || []).findIndex((x) => x.src === e.item.uid) : -1;
+      if (e.imprint && ii < 0) return fail('Its imprint was already engraved or discarded');
+      // check everything before taking anything back
       for (const [k, v] of Object.entries(e.yield)) {
-        if (k === 'research') { if (profile.currency.research < v) return fail('Research already spent'); profile.currency.research -= v; }
-        else { if ((profile.materials[k] || 0) < v) return fail('Materials already spent'); profile.materials[k] -= v; }
+        if (k === 'research' ? profile.currency.research < v : (profile.materials[k] || 0) < v) return fail(k === 'research' ? 'Research already spent' : 'Materials already spent');
       }
+      for (const [k, v] of Object.entries(e.yield)) { if (k === 'research') profile.currency.research -= v; else profile.materials[k] -= v; }
+      if (ii >= 0) profile.imprints.splice(ii, 1);
+      profile.inventory[e.item.uid] = e.item;
+      break;
+    }
+    case 'train': {
+      const t = profile.inventory[e.targetUid];
+      if (t) t.xp = Math.max(0, (t.xp || 0) - e.xp);
       profile.inventory[e.item.uid] = e.item;
       break;
     }

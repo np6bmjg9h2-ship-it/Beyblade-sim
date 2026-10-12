@@ -1321,6 +1321,90 @@ scenarios.touch = async () => {
   } finally { await h.close(); }
 };
 
+// Relics and targeted crafting with the controller: a finished chapter
+// earns its relic on the next save, the Journal shows every relic and pays a
+// milestone, a dismantled part leaves an imprint that is engraved onto
+// another part, a spare copy trains mastery, and relics can't be dismantled.
+scenarios.relics = async () => {
+  const h = await launch();
+  const choose = async (re) => {
+    await h.waitFor((s) => [...(window.__app.ui.modal?.el.querySelectorAll('.btn') || [])].some((b) => new RegExp(s).test(b.textContent) && !b.disabled), 5000, 'option ' + re, re.source);
+    await h.eval((s) => window.__app.ui.focus([...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => new RegExp(s).test(b.textContent))), re.source);
+    await h.padButton(0);
+  };
+  try {
+    await newGame(h);
+    const toast = await h.eval(async () => {
+      const a = window.__app, P = a.profile;
+      P.currency.credits = 50000; P.currency.research = 500; Object.assign(P.materials, { scrap: 500, polymer: 200, alloy: 200, coreShard: 100, relicFragment: 20 });
+      P.story.completed.push('ch3');
+      await a.save('silent');
+      return [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ');
+    });
+    if (!/Relic earned: Ember Crown/.test(toast)) throw new Error('no relic announcement: ' + toast);
+    const relicUid = await h.eval(() => Object.values(window.__app.profile.inventory).find((i) => i.relic === 'emberCrown')?.uid);
+    if (!relicUid) throw new Error('relic not in inventory');
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.eval(() => window.__app.ui.current.setTab('collection'));
+    await h.waitFor(() => document.querySelectorAll('.relic-card').length === 12 && document.querySelectorAll('.relic-card.earned').length === 1, 5000, 'journal relics');
+    await h.page.waitForTimeout(500); // let the tab slide in
+    await h.shot('r01_journal');
+    await h.focusId('jv-milestones'); await h.padButton(0);
+    await h.waitFor(() => document.querySelector('[data-id="claim-relic1"]'), 5000, 'milestones');
+    const cr0 = await h.eval(() => window.__app.profile.currency.credits);
+    await h.focusId('claim-relic1'); await h.padButton(0);
+    const cr1 = await h.eval(() => window.__app.profile.currency.credits);
+    if (cr1 !== cr0 + 500) throw new Error(`milestone reward: ${cr0} -> ${cr1}`);
+    await h.focusId('jv-parts'); await h.padButton(0);
+    await h.waitFor(() => document.querySelector('[data-id="jp-ring_galefang"]'), 5000, 'parts view');
+    await h.focusId('jp-ring_galefang');
+    if (!/Found:/.test(await h.eval(() => document.querySelector('.desc-bar').textContent))) throw new Error('part sources missing');
+    // a spare ring with two traits, dismantled through the item actions keeping an imprint
+    const spare = await h.eval(() => {
+      const P = window.__app.profile;
+      const src = Object.values(P.inventory).find((i) => i.base === 'ring_bastion');
+      const it = structuredClone(src); it.uid = 'spare_ring'; it.rarity = 'epic'; it.traits = [{ id: 'deepHooks', mag: 0.8 }, { id: 'honedEdge', mag: 0.7 }];
+      P.inventory[it.uid] = it;
+      window.__app.ui.current.setTab('inventory');
+      return it.uid;
+    });
+    await h.waitFor(() => document.querySelector('[data-id="spare_ring"]'), 5000, 'inventory row');
+    await h.focusId(spare); await h.padButton(0);
+    await choose(/^Dismantle/);
+    await choose(/Keep Deep Hooks/);
+    await choose(/^Dismantle$/);
+    await h.waitFor(() => window.__app.profile.imprints.length === 1 && !window.__app.profile.inventory.spare_ring, 5000, 'imprint kept');
+    // engrave it onto the equipped ring from its Upgrade / traits page
+    const ring = await h.eval(() => { const P = window.__app.profile; const uid = P.loadouts[0].parts.ring; P.inventory[uid].rarity = 'rare'; P.inventory[uid].traits = []; window.__app.ui.current.upgradeUid = uid; window.__app.ui.current.setTab('upgrade'); return uid; });
+    await h.waitFor(() => [...document.querySelectorAll('.btn')].some((b) => b.textContent.startsWith('Engrave an imprint')), 5000, 'engrave button');
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.btn')].find((b) => b.textContent.startsWith('Engrave an imprint'))));
+    await h.padButton(0);
+    await choose(/Deep Hooks/);
+    await choose(/^Engrave$/);
+    const eng = await h.eval((u) => window.__app.profile.inventory[u].traits, ring);
+    if (!eng.some((t) => t.id === 'deepHooks' && t.mag === 0.72)) throw new Error('engrave: ' + JSON.stringify(eng));
+    // a spare copy trains mastery
+    const lock = await h.eval(() => {
+      const P = window.__app.profile, uid = P.loadouts[0].parts.lock;
+      const copy = structuredClone(P.inventory[uid]); copy.uid = 'spare_lock'; copy.xp = 0; P.inventory[copy.uid] = copy;
+      window.__app.ui.current.setTab('inventory');
+      return uid;
+    });
+    await h.waitFor((u) => document.querySelector(`[data-id="${u}"]`), 5000, 'lock row', lock);
+    await h.focusId(lock); await h.padButton(0);
+    await choose(/^Train with a copy/);
+    await choose(/Click/);
+    await h.waitFor((u) => (window.__app.profile.inventory[u].xp || 0) >= 200, 5000, 'mastery trained', lock);
+    // relics can't be dismantled
+    await h.focusId(relicUid); await h.padButton(0);
+    const dis = await h.eval(() => [...window.__app.ui.modal.el.querySelectorAll('.btn')].find((b) => b.textContent === 'Dismantle')?.disabled);
+    if (!dis) throw new Error('relic dismantle was offered');
+    await h.padButton(1);
+    await h.shot('r02_inventory');
+    return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

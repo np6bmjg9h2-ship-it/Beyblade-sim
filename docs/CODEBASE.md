@@ -158,7 +158,8 @@ Inspect screen switches the renderer to its own turntable scene.
 | `compare.js` | 200 | Measured swap comparison for any build: part rows, finished-top rows, launch rows, traits and sets gained/lost, legality, role verdict. |
 | `modifiers.js` | 115 | Folds traits, sets, skills, synergies and beast passives into bounded modifier channels that the physics reads; per-source uptime for the results breakdown. |
 | `loot.js`, `progression.js` | ~310 | Seeded loot through `itemGen` with bad-luck protection (`PITY`); post-match XP, rewards, durability wear, stats, synergy discovery. |
-| `workshop.js` | 373 | Equip, repair, upgrade, reroll and transfer traits, craft, dismantle (all validated). |
+| `workshop.js` | 470 | Equip, repair, upgrade, reroll and transfer traits, craft, dismantle (all validated); imprints kept on dismantle and engraved onto other parts; spare copies train mastery; relics protected; undo. |
+| `relics.js`, `journal.js` | ~200 | Handcrafted relics (`data/relics.js`): earned from the save's own records (checked on every save and load), the relic item, recasting. The Journal: counts, where each part is found, bad-luck protection counters, milestone rewards. |
 | `save.js` | 239 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 4: v4 adds discovered synergies, pity counters, the item quarantine), replay storage (newest 12 plus pinned). A save from a newer version is flagged (`newer` on load, `importedFromNewer` on import) so the title screen can warn. |
 | `profile.js` | 137 | New profile, normalisation, default settings. |
 | `tournament.js` | 704 | Pure tournament engine: single and double elimination (bracket reset), round robin, league with playoffs, Swiss; standings, placements, prizes. |

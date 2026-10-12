@@ -15,14 +15,17 @@ import { validateItem } from './itemValidate.js';
 export const SLOT_WEIGHTS = { ring: 22, tip: 20, disc: 16, lock: 12, core: 12, aux: 6, launcher: 6, cable: 6 };
 const ALL_BASES = [...PARTS, ...LAUNCHERS, ...CABLES];
 
+// Relic rarity is reserved for the handcrafted relics (data/relics.js):
+// random drops, packs, the Forge and daily deals never roll it.
 export function rarityWeights(tier = 0, luck = 0) {
   const k = 1 + tier * 0.55 + luck;
-  return RARITIES.map((r, i) => ({ id: r.id, weight: r.weight * Math.pow(k, i) * (i >= 5 && tier < 2 ? 0.2 : 1) }));
+  return RARITIES.map((r, i) => ({ id: r.id, weight: r.id === 'relic' ? 0 : r.weight * Math.pow(k, i) * (i >= 5 && tier < 2 ? 0.2 : 1) }));
 }
 
 export function rollRarity(rng, tier = 0, luck = 0, min = null) {
-  let pool = rarityWeights(tier, luck);
+  let pool = rarityWeights(tier, luck).filter((r) => r.weight > 0);
   if (min) pool = pool.filter((r) => rarityRank(r.id) >= rarityRank(min));
+  if (!pool.length) return 'mythic';
   return rng.weighted(pool).id;
 }
 

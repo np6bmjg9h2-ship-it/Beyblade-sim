@@ -10,6 +10,7 @@ import { SET_INDEX } from '../data/sets.js';
 import { SLOTS } from '../data/parts.js';
 import { baseOf } from './items.js';
 import { resolvePart } from './assembly.js';
+import { RELIC_INDEX } from '../data/relics.js';
 
 const ALL_SLOTS = [...SLOTS, 'launcher', 'cable'];
 const MAX_TRAITS = 6;
@@ -83,6 +84,7 @@ export function validateItem(it) {
     else if (!finite(it.special.mag ?? 1)) errors.push('special magnitude');
   }
   if (it.set && !SET_INDEX[it.set]) errors.push(`unknown set ${it.set}`);
+  if (it.relic != null && (!RELIC_INDEX[it.relic] || RELIC_INDEX[it.relic].base !== it.base)) errors.push(`unknown relic ${it.relic}`);
   if (!finite(it.maxDurability) || it.maxDurability < 1 || it.maxDurability > 1000) errors.push(`max durability ${it.maxDurability}`);
   if (!finite(it.durability) || it.durability < 0 || it.durability > (it.maxDurability || 0) + 1e-6) errors.push(`durability ${it.durability}`);
   if (it.xp != null && (!finite(it.xp) || it.xp < 0)) errors.push(`xp ${it.xp}`);

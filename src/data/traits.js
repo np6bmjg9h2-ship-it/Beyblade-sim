@@ -275,6 +275,41 @@ curse({ id: 'leaden', name: 'Leaden', adj: 'Leaden', slots: ['ring', 'disc', 'co
 curse({ id: 'reckless', name: 'Reckless', adj: 'Reckless', slots: ['ring', 'tip'], deltas: [['restitutionWhenHit', [0.08, 0.15]]] });
 curse({ id: 'thirsty', name: 'Thirsty', adj: 'Thirsty', slots: ['core', 'ring'], deltas: [['abilityCharge', [-0.1, -0.2]]] });
 
+// ================================================================ relic signatures
+// Each exists only on its handcrafted relic (data/relics.js): never rolled,
+// rerolled, imprinted or engraved. Fixed strength (the relic's special slot).
+const relic = (o) => def({ relic: true, special: true, rarityMin: 'relic', cost: 2, ...o });
+relic({ id: 'kindling', name: 'Kindling', family: 'offense', slots: ['ring'],
+  react: { on: 'hit', min: 0.012, cooldown: 0.4, effect: { deltas: [['faceAngle', 1.2], ['contactFriction', 0.04]], duration: 3, stacks: 3 } },
+  status: { scorch: 0.14 } });
+relic({ id: 'tailwind', name: 'Tailwind', family: 'mobility', slots: ['tip'],
+  react: { on: 'dash', cooldown: 2, effect: { deltas: [['steerForce', 0.3], ['steerEfficiency', 0.2]], duration: 1.5, spin: 0.02 } } });
+relic({ id: 'nullField', name: 'Null Field', family: 'defense', slots: ['lock'],
+  react: { on: 'lockSlip', cooldown: 6, effect: { deltas: [['burstThreshold', 0.4]], duration: 4, spirit: 15 } } });
+relic({ id: 'zeroPoint', name: 'Zero Point', family: 'endurance', slots: ['core'],
+  react: { on: 'lowSpin', value: 0.25, limit: 1, effect: { spin: 0.15, deltas: [['abilityCharge', 0.5]], duration: 5 } } });
+relic({ id: 'gravityWell', name: 'Gravity Well', family: 'endurance', slots: ['disc'], cond: { type: 'center' },
+  deltas: [['tipSpinDrag', -0.25], ['aeroDrag', -0.12]],
+  react: { on: 'struck', cooldown: 4, effect: { deltas: [['restitutionWhenHit', -0.2]], duration: 2 } } });
+relic({ id: 'riftHunger', name: 'Rift Hunger', family: 'offense', slots: ['ring'], cond: { type: 'opponentNearEdge' },
+  deltas: [['faceAngle', 2], ['steerForce', 0.15]] });
+relic({ id: 'craftsmansPoise', name: "Craftsman's Poise", family: 'endurance', slots: ['tip'], cond: { type: 'always' },
+  deltas: [['tipSpinDrag', -0.07]],
+  react: { on: 'lowSpin', value: 0.3, limit: 1, effect: { deltas: [['nutationDamping', 10]], duration: 8 } } });
+relic({ id: 'recall', name: 'Recall', family: 'technical', slots: ['core'], cond: { type: 'always' },
+  deltas: [['abilityCharge', 0.3]],
+  react: { on: 'ability', effect: { spirit: 12 } } });
+relic({ id: 'kindredBond', name: 'Kindred Bond', family: 'technical', slots: ['disc'], cond: { type: 'always' },
+  deltas: [['abilityPower', 0.15], ['abilityDuration', 0.2]],
+  react: { on: 'ability', effect: { deltas: [['burstThreshold', 0.3]], duration: 3 } } });
+relic({ id: 'laurel', name: 'Laurel', family: 'technical', slots: ['launcher'],
+  launch: { window: 0.5, consistency: 0.3, power: 0.04 } });
+relic({ id: 'rivalbreak', name: 'Rivalbreak', family: 'technical', slots: ['cable'],
+  launch: { perfectBonus: 0.05, controlledConsistency: 0.4, consistency: 0.15 } });
+relic({ id: 'lastWard', name: 'Last Ward', family: 'defense', slots: ['aux'], cond: { type: 'always' },
+  deltas: [['wallRestitution', -0.1]],
+  react: { on: 'struck', cooldown: 3, effect: { deltas: [['restitutionWhenHit', -0.25]], duration: 2, spirit: 6 } } });
+
 export const TRAIT_SPECS = S;
 export const TRAITS = S.map(compileTrait);
 export const TRAIT_INDEX = Object.fromEntries(TRAITS.map((t) => [t.id, t]));

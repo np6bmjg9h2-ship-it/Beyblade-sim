@@ -10,6 +10,7 @@ import { conditionOf, conditionBand } from '../systems/assembly.js';
 import { SET_INDEX } from '../data/sets.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { SLOT_NAMES } from '../data/parts.js';
+import { RELIC_INDEX } from '../data/relics.js';
 
 export function beastImg(id, size = 64, cls = '') {
   const b = BEAST_INDEX[id];
@@ -76,8 +77,9 @@ export function itemCard(item, opts = {}) {
       h('div', { class: 'item-title' }, h('div', { class: 'item-name' }, itemName(item), item.favourite ? ' ★' : '', item.locked ? ' 🔒' : ''),
         h('div', { class: 'item-sub' }, `${SLOT_NAMES[item.slot] || item.slot}${item.title || item.nickname ? ` · ${base?.name || ''}` : ''} · Lv ${item.level}`)),
       rarityChip(item.rarity)),
-    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null, item.def?.generated ? h('span', { class: 'chip proto-chip' }, 'Prototype') : null, item.cursed ? h('span', { class: 'chip curse-chip', title: 'Carries a curse: a drawback that bought it an extra trait' }, 'Cursed') : null),
-    opts.compact ? null : h('div', { class: 'item-traits' }, traits.length ? traits.map((t) => h('div', { class: 'trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') + (TRAIT_INDEX[t.id]?.curse ? ' curse' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ': ', TRAIT_INDEX[t.id]?.desc(t.mag, item) || '')) : h('div', { class: 'muted' }, 'No traits')));
+    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), item.relic ? h('span', { class: 'chip relic-chip' }, 'Relic') : null, set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null, item.def?.generated ? h('span', { class: 'chip proto-chip' }, 'Prototype') : null, item.cursed ? h('span', { class: 'chip curse-chip', title: 'Carries a curse: a drawback that bought it an extra trait' }, 'Cursed') : null),
+    opts.compact ? null : h('div', { class: 'item-traits' }, traits.length ? traits.map((t) => h('div', { class: 'trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') + (TRAIT_INDEX[t.id]?.curse ? ' curse' : '') + (TRAIT_INDEX[t.id]?.relic ? ' signature' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.relic ? `Signature: ${TRAIT_INDEX[t.id].name}` : TRAIT_INDEX[t.id]?.name || t.id), ': ', TRAIT_INDEX[t.id]?.desc(t.mag, item) || '')) : h('div', { class: 'muted' }, 'No traits')),
+    !opts.compact && item.relic && RELIC_INDEX[item.relic] ? h('div', { class: 'small lore' }, RELIC_INDEX[item.relic].lore) : null);
   return el;
 }
 

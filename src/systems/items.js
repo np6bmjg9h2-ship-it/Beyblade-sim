@@ -80,10 +80,11 @@ function rollStats(base, level, rng) {
 }
 
 // Traits an item of this slot and rarity can roll. Curses only come through
-// opts.curse (a cursed roll); special traits only through opts.special.
+// opts.curse (a cursed roll); special traits only through opts.special;
+// relic signatures never (they belong to their handcrafted relic).
 export function eligibleTraits(slot, rarity, opts = {}) {
   const rr = rarityRank(rarity);
-  return TRAITS.filter((t) => t.slots.includes(slot) && rarityRank(t.rarityMin) <= rr && !!t.special === !!opts.special && !!t.curse === !!opts.curse);
+  return TRAITS.filter((t) => !t.relic && t.slots.includes(slot) && rarityRank(t.rarityMin) <= rr && !!t.special === !!opts.special && !!t.curse === !!opts.curse);
 }
 
 function rollTraits(base, rarity, rng, opts = {}) {

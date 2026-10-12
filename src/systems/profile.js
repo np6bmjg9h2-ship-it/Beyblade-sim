@@ -63,6 +63,9 @@ export function newProfile(seed = Date.now()) {
     discovery: { parts: {}, sets: {}, traits: {}, beasts: { orrery: true }, synergies: {} },
     seeds: { loot: seed >>> 0, counter: 0, pity: { epic: 0, legendary: 0 } },
     quarantine: {}, // items that failed validation on load, kept for inspection
+    relics: { earned: {}, casts: {} }, // handcrafted relics earned (data/relics.js)
+    imprints: [], // traits kept from dismantled parts, ready to engrave
+    journal: { claimed: {} }, // Journal milestone rewards collected
     tutorial: {},
     settings: defaultSettings(),
     undo: [],

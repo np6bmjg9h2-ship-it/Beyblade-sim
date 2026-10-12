@@ -18,6 +18,7 @@ import { processMatch } from './systems/progression.js';
 import { TournamentRunner } from './game/tournamentRunner.js';
 import { Telemetry } from './systems/telemetry.js';
 import { TouchControls } from './input/touch.js';
+import { checkRelics } from './systems/relics.js';
 
 export class App {
   constructor(root) {
@@ -114,10 +115,21 @@ export class App {
     this.profile = normalizeProfile(profile);
     this.slot = slot;
     this.tournaments?.reset();
+    // relics a save had already earned (or earned in an older version) arrive now
+    const got = checkRelics(this.profile);
+    if (got.length) setTimeout(() => this.announceRelics(got), 1500);
+  }
+
+  // A relic path completed: the item is already in the inventory.
+  announceRelics(items) {
+    for (const it of items) this.ui.toast(`★ Relic earned: ${it.title}! Find it in the Workshop and its story in the Journal.`, 'good', 7000);
+    if (items.length) this.audio.ui('levelup');
   }
 
   async save(reason = 'manual') {
     if (!this.profile || !this.slot) return false;
+    const got = checkRelics(this.profile);
+    if (got.length) this.announceRelics(got);
     try {
       await this.saves.save(this.slot, this.profile);
       if (reason !== 'silent') this.flashSaved();

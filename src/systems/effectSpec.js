@@ -218,7 +218,7 @@ export function compileTrait(spec) {
   const t = {
     id: spec.id, name: spec.name, family: spec.family, slots: spec.slots, kind,
     rarityMin: spec.rarityMin || 'common', special: !!spec.special, group: spec.group || null,
-    cost: spec.cost ?? (spec.special ? 2 : spec.curse ? -1 : 1), curse: !!spec.curse, adj: spec.adj || null,
+    cost: spec.cost ?? (spec.special ? 2 : spec.curse ? -1 : 1), curse: !!spec.curse, relic: !!spec.relic, adj: spec.adj || null,
     grow: spec.grow || null, requires: spec.requires || null, spec,
   };
   if (spec.cond) t.cond = spec.cond;
