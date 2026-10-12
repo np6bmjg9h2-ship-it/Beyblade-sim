@@ -44,6 +44,7 @@ export class ResultsScreen {
       row('Distance travelled', `${f.stats.distance.toFixed(1)} m`), row('Abilities used', f.stats.abilitiesUsed), row('Ability hits', f.stats.abilityHits || 0),
       row('Counters', f.stats.counters || 0), row('Dashes', f.stats.dashes || 0), row('Lock slips taken / dealt', `${f.stats.lockClicksTaken} / ${f.stats.lockClicksDealt}`));
     const rewardsEl = rewards ? renderRewards(rewards, this.app) : h('div', { class: 'muted' }, 'No rewards in this mode.');
+    const powered = poweredBy(f);
     const actions = h('div', { class: 'row gap' },
       this.opts.onRematch ? btn(this.opts.rematchLabel || 'Rematch', () => this.opts.onRematch(), { class: 'primary' }) : null,
       this.opts.replayId ? btn('Watch replay', () => this.watchReplay(), { id: 'watch-replay', desc: 'Re-simulates the match from your recorded inputs.' }) : null,
@@ -53,12 +54,26 @@ export class ResultsScreen {
       h('div', { class: 'results-grid', 'data-scroll': 'results' },
         h('div', { class: 'panel' }, h('h3', {}, 'Rounds'), rounds, h('h3', {}, 'Launches'), launches),
         h('div', { class: 'panel' }, h('h3', {}, 'Rewards'), rewardsEl, h('h3', {}, 'Durability loss'), wear.childElementCount ? wear : h('div', { class: 'muted' }, 'No wear.')),
-        h('div', { class: 'panel' }, h('h3', {}, 'Where your spin went'), energyEl, h('h3', {}, 'Notable collisions'), notable, h('h3', {}, 'Battle stats'), statsEl)),
+        h('div', { class: 'panel' }, h('h3', {}, 'Where your spin went'), energyEl, h('h3', {}, 'What powered your top'), powered, h('h3', {}, 'Notable collisions'), notable, h('h3', {}, 'Battle stats'), statsEl)),
       actions);
   }
 
   prompts() { return [['confirm', 'Select'], ['back', 'Continue']]; }
   onBack() { this.opts.onExit(); return true; }
+}
+
+const ORIGIN_NAMES = { trait: 'trait', set: 'set', skill: 'skill', beast: 'Bit-Beast', resonance: 'resonance', synergy: 'synergy', rift: 'Rift', ability: 'ability', item: 'item', affix: 'affix' };
+
+// Effect sources by time active and triggers fired (game/battle.js stats.sources).
+function poweredBy(f) {
+  const total = Math.max(0.1, f.stats.spinTime || 0);
+  const rows = Object.values(f.stats.sources || {})
+    .filter((x) => x.origin !== 'ability' && (x.seconds > 0.05 || x.fired))
+    .sort((a, b) => (b.fired * 2 + b.seconds) - (a.fired * 2 + a.seconds)).slice(0, 10);
+  if (!rows.length) return h('div', { class: 'small muted' }, 'Bare parts: only physics this time.');
+  return h('div', { class: 'col' }, rows.map((x) => h('div', { class: 'stat-row' }, h('span', { class: 'stat-label' }, x.name),
+    h('span', { class: 'stat-value' }, x.fired ? `${x.fired}× ` : `${Math.min(100, Math.round((x.seconds / total) * 100))}%`),
+    h('span', { class: 'stat-hint' }, `${ORIGIN_NAMES[x.origin] || x.origin}${x.fired ? (x.seconds > 0.05 ? ` · active ${x.seconds.toFixed(1)} s` : '') : ' · of the time'}`))));
 }
 
 function row(label, v) { return h('div', { class: 'stat-row' }, h('span', { class: 'stat-label' }, label), h('span', { class: 'stat-value' }, String(v))); }

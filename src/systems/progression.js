@@ -4,6 +4,7 @@
 // research, loot, statistics and rival records. Rewards scale with
 // opponent difficulty and decay when farming the same opponent repeatedly.
 
+import { discoverSynergies } from './synergy.js';
 import { masteryOf, MASTERY_CAP, itemWearMultiplier, itemName } from './items.js';
 import { addPlayerXp } from './profile.js';
 import { rollLoot, addItem } from './loot.js';
@@ -176,6 +177,9 @@ export function processMatch(profile, result, session, battle) {
       event: `${new Date().toLocaleDateString()}: ${won ? 'Won' : draw ? 'Drew' : 'Lost'} ${result.score.map((x) => x.rounds).join('-')}${session.title ? ` (${session.title})` : ''}`,
     });
   }
+
+  // ---------------------------------------------------------- synergies
+  for (const name of discoverSynergies(profile, me.p.synergies)) rw.unlocks.push(`Synergy discovered: ${name}`);
 
   // ---------------------------------------------------------- statistics
   updateStats(profile, result, hi, session, battle);

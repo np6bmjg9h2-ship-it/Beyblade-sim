@@ -2,6 +2,7 @@
 // between-runs pages (Rift Talents and records). Battles hand back here;
 // flow() then walks the player through any rewards still waiting.
 
+import { discoverSynergies } from '../../systems/synergy.js';
 import { h, btn, selector } from '../ui.js';
 import { beastImg, statRow } from '../widgets.js';
 import { RARITY_INDEX } from '../../data/rarity.js';
@@ -204,8 +205,9 @@ export class RiftScreen {
         try { updateStats(P, res, 0, session, screen.battle); } catch (e) { console.warn(e); }
         const won = res.winner === 0;
         const how = won ? [...res.rounds].reverse().find((r) => r.winner === 0)?.how : null;
+        const synergies = screen.battle?.fighters?.[0]?.p?.synergies || [];
         screen.exit();
-        queueMicrotask(() => this.afterBattle(node, { won, how }));
+        queueMicrotask(() => this.afterBattle(node, { won, how, synergies }));
         return true;
       },
     };
@@ -217,7 +219,9 @@ export class RiftScreen {
     if (!run) return;
     run.inBattle = null;
     const r = recordBattle(this.P, run, node, outcome);
+    const found = discoverSynergies(this.P, outcome.synergies);
     await this.app.save('silent');
+    for (const name of found) this.ui.toast(`Synergy discovered: ${name}`, 'good', 4000);
     if (r.won) {
       this.ui.toast(`Victory! +${r.shards} shards · +${r.essence} Essence${r.met ? '' : ' · vault rule not met'}`, 'good', 3500);
     } else if (r.heart === 'revived') this.ui.toast('Second Wind! You fight on with one heart.', 'warn', 4000);

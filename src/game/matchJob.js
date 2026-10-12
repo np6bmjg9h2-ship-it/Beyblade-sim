@@ -56,7 +56,7 @@ export function runSpinTest(job) {
   const sim = new Simulation({ arena, tops: [top] });
   const mods = new ModifierStack();
   const items = Object.entries(p.build).filter(([, it]) => it).map(([slot, item]) => ({ slot, item }));
-  for (const src of collectTraitSources(items)) mods.add(src);
+  for (const src of collectTraitSources(items, asm.parts)) mods.add(src);
   for (const src of p.modSources || []) mods.add(src);
   const gear = resolveLaunchGear(p.launcher, p.cable, { launchMods: p.launchMods });
   const res = computeLaunch({ gear, techId: job.technique || 'controlled', charge: PERFECT_CENTER, aim: { x: -0.03, z: 0, lean: 0, dir: 0 }, spinDir: p.spin || 'R', topSpec: asm.spec, rng: new Rng(job.seed || 1), arena, opponentAim: { x: 0.1, z: 0, lean: 0, dir: Math.PI }, skillMods: p.skillMods });

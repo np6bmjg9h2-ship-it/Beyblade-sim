@@ -36,7 +36,7 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
     const seen = new Map();
     for (const t of [...(it.traits || []), ...(it.special ? [it.special] : [])]) {
       const d = TRAIT_INDEX[t.id];
-      if (!d || d.kind !== 'launch') continue;
+      if (!d?.launch) continue;
       if (!seen.has(t.id) || seen.get(t.id).mag < t.mag) seen.set(t.id, t);
     }
     for (const t of seen.values()) addLaunch(TRAIT_INDEX[t.id].launch(t.mag ?? 1));

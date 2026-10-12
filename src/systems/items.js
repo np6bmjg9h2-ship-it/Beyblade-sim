@@ -79,9 +79,11 @@ function rollStats(base, level, rng) {
   return stats;
 }
 
+// Traits an item of this slot and rarity can roll. Curses only come through
+// opts.curse (a cursed roll); special traits only through opts.special.
 export function eligibleTraits(slot, rarity, opts = {}) {
   const rr = rarityRank(rarity);
-  return TRAITS.filter((t) => t.slots.includes(slot) && rarityRank(t.rarityMin) <= rr && !!t.special === !!opts.special);
+  return TRAITS.filter((t) => t.slots.includes(slot) && rarityRank(t.rarityMin) <= rr && !!t.special === !!opts.special && !!t.curse === !!opts.curse);
 }
 
 function rollTraits(base, rarity, rng, opts = {}) {
@@ -135,7 +137,7 @@ export function createItem(opts) {
   let maxDur = 100 + Math.min(20, level * 0.5);
   for (const t of [...traits, ...(special ? [special] : [])]) {
     const d = TRAIT_INDEX[t.id];
-    if (d?.kind === 'item' && d.item) maxDur *= 1 + (d.item(t.mag).maxDurability || 0);
+    if (d?.item) maxDur *= 1 + (d.item(t.mag).maxDurability || 0);
   }
   maxDur = Math.round(maxDur);
   const item = {
@@ -162,14 +164,15 @@ export function itemName(item) {
   const b = baseOf(item);
   if (!b) return 'Unknown';
   const pole = b.magnet ? ` · ${item.pole === 'S' ? 'S' : 'N'}` : ''; // magnet discs show which face is up
-  return (item.nickname ? `“${item.nickname}”` : b.name) + pole;
+  // nickname, else the generated title ("Honed Gale Fang of Fury"), else the part's name
+  return (item.nickname ? `“${item.nickname}”` : item.title || b.name) + pole;
 }
 
 export function itemWearMultiplier(item) {
   let m = 1;
   for (const t of [...(item.traits || []), ...(item.special ? [item.special] : [])]) {
     const d = TRAIT_INDEX[t.id];
-    if (d?.kind === 'item' && d.item) m *= 1 + (d.item(t.mag).wear || 0);
+    if (d?.item) m *= 1 + (d.item(t.mag).wear || 0);
   }
   for (const u of item.upgrades || []) m *= 1 + (UPGRADE_INDEX[u]?.wear || 0);
   return Math.max(0.3, m);

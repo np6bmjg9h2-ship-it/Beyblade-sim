@@ -14,6 +14,7 @@ import { computeSkillEffects } from '../data/skills.js';
 import { bondLevel } from '../data/beasts.js';
 import { opponentFrom } from './modes.js';
 import { rivalParticipant } from './rivals.js';
+import { buildBattleFx } from './synergy.js';
 
 const addTo = (o, x) => { for (const [k, v] of Object.entries(x || {})) if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 
@@ -98,13 +99,20 @@ export function riftParticipant(profile, run) {
   if (el) status[el] = (status[el] || 0) + RING_ELEMENT_CHANCE;
   const bs = run.beast ? profile.beasts[run.beast.id] : null;
   const beast = run.beast ? { id: run.beast.id, bondLevel: bs ? bondLevel(bs.bondXp) : 1, awakened: !!(bs?.awakened || fx.awaken), resonanceBoost: sk.economy.resonance || 0 } : null;
+  // synergies (charms count in a run) and elemental traits on run parts
+  const syn = buildBattleFx({ parts, launcher, cable, beast, spin: run.spin, run }, profile.discovery?.synergies || {});
+  addTo(launchMods, syn.launch);
+  addTo(skillMods, syn.skill);
+  const statusPower = { ...fx.statusPower }, statusTime = { ...fx.statusTime };
+  if (syn.rift) { addTo(status, syn.rift.status); addTo(statusPower, syn.rift.statusPower); addTo(statusTime, syn.rift.statusTime); }
   return {
     id: 'player', name: profile.player.name, human: true,
     build: parts, launcher, cable, beast,
     spin: run.spin || 'R', technique: run.technique || 'normal',
-    modSources: [...sets.sources, ...sk.sources, ...fx.mods, ...forgeSources(run)],
+    modSources: [...sets.sources, ...sk.sources, ...fx.mods, ...forgeSources(run), ...syn.sources],
+    reactive: syn.reactive, synergies: syn.ids,
     launchMods, skillMods, knownTechniques: profile.techniques, color: profile.player.color,
-    rift: { status, statusPower: fx.statusPower, statusTime: fx.statusTime, sweet: fx.sweet, sweetMul: fx.sweetMul, sweetSpirit: fx.sweetSpirit, secondWind: fx.secondWind },
+    rift: { status, statusPower, statusTime, sweet: fx.sweet, sweetMul: fx.sweetMul, sweetSpirit: fx.sweetSpirit, secondWind: fx.secondWind },
   };
 }
 

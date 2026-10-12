@@ -291,9 +291,20 @@ scenarios.workshop = async () => {
     const inv2 = await h.eval(() => Object.keys(window.__app.profile.inventory).length);
     if (inv2 !== inv1 + 1) throw new Error('forge did not add an item');
     await h.shot('ws_craft');
+    // synergies: three endurance traits on the active loadout light up Long Horizon
+    await h.eval(() => {
+      const P = window.__app.profile, L = P.loadouts[P.activeLoadout];
+      const put = (slot, id) => { P.inventory[L.parts[slot]].traits = [{ id, mag: 0.8 }]; };
+      put('ring', 'streamlined'); put('core', 'lateBloom'); put('disc', 'rimWeighted');
+      window.__app.ui.current.setTab('synergies');
+    });
+    await h.waitFor(() => document.querySelector('.syn-row.active') && document.querySelector('.bd-group'), 5000, 'synergy tab');
+    const syn = await h.eval(() => ({ active: [...document.querySelectorAll('.syn-row.active .syn-name')].map((e) => e.textContent), journal: document.querySelectorAll('.syn-row').length }));
+    if (!syn.active.some((t) => t.includes('Long Horizon')) || syn.journal < 10) throw new Error('synergy panel: ' + JSON.stringify(syn));
+    await h.shot('ws_synergies');
     await h.padButton(1);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'back to menu');
-    return { errors: h.errors };
+    return { errors: h.errors, synergies: syn.active };
   } finally { await h.close(); }
 };
 
@@ -1204,6 +1215,7 @@ scenarios.career = async () => {
     if (invalid) throw new Error('loadout cannot battle after the loop: ' + invalid);
     await h.eval(() => window.__app.ui.current.start?.());
     await playMatch();
+    if (!(await h.eval(() => [...document.querySelectorAll('.results h3')].some((e) => e.textContent === 'What powered your top')))) throw new Error('results breakdown missing');
     await h.shot('cr02_after');
     return { played, place: hist.place, credits: [s0.cr, s1.cr], level: [s0.level, s1.level], skilled, errors: h.errors };
   } finally { await h.close(); }

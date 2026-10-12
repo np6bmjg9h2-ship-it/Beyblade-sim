@@ -850,3 +850,19 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 .cmp-mini .cmp-verdict { margin: 2px 0 4px; }
 .cmp-mini .vd { font-size: 11px; }
 .cmp-mini .cmp-row { grid-template-columns: 1fr auto; font-size: 12px; }
+/* loot engine: curses, finishes */
+.chip.curse-chip { color: #ff6b8a; border-color: #ff6b8a; }
+.item-traits .trait.curse b { color: #ff6b8a; }
+/* synergies and build breakdown (ui/synergyPanel.js) */
+.syn-row { padding: 6px 10px; margin: 4px 0; border-left: 4px solid var(--line); background: rgba(4,5,11,0.35); }
+.syn-row.active { border-left-color: var(--gold); }
+.syn-row.active.undiscovered { border-left-color: var(--accent); }
+.syn-row.near { border-left-color: var(--warn); }
+.syn-row.known { border-left-color: var(--gold); }
+.syn-row.hidden { opacity: 0.75; }
+.syn-name { font: 700 13px var(--ui); letter-spacing: 0.03em; }
+.syn-row.active .syn-name { color: var(--gold); }
+.syn-edges { margin-top: 3px; }
+.lore { font-style: italic; color: #b9c4e4; margin-top: 2px; }
+.bd-group { margin: 8px 0; }
+.bd-row { margin: 2px 0; } .bd-row.curse b { color: #ff6b8a; }

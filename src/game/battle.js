@@ -20,6 +20,7 @@ import { AbilityRuntime } from './abilities.js';
 import { resolveLaunchGear, ChargeMeter, computeLaunch, MAX_LEAN, LAUNCH_RING } from './launch.js';
 import { AIController, emptyControls } from './ai.js';
 import { RiftEffects, hasRiftEffects } from './riftEffects.js';
+import { ItemEffects } from './itemEffects.js';
 
 export const FORMATS = {
   single: { id: 'single', name: 'Single Round', roundsToWin: 1 },
@@ -142,7 +143,7 @@ export class Battle extends Emitter {
       f.top = new TopBody(asm.spec, { id: f.id, side: f.index });
       f.top.lockCondition = 1;
       f.mods = new ModifierStack();
-      for (const src of collectTraitSources(f.items)) f.mods.add(src);
+      for (const src of collectTraitSources(f.items, asm.parts)) f.mods.add(src);
       for (const src of p.modSources || []) f.mods.add(src);
       this.addBeastSources(f);
       f.ability = new AbilityRuntime({ fighter: f, beast: p.beast, sim: null, skills: p.skillMods || {}, rules: this.rules });
@@ -194,6 +195,10 @@ export class Battle extends Emitter {
     for (const f of this.fighters) f.ability.sim = this.sim;
     // Rift Run statuses and sweet spots (only when a participant carries them)
     this.riftFx = hasRiftEffects(this.fighters.map((f) => f.p)) ? new RiftEffects(this) : null;
+    // reactive traits and synergies (only when someone carries them)
+    this.itemFx?.dispose();
+    const itemFx = new ItemEffects(this);
+    this.itemFx = itemFx.list.some((l) => l.length) ? itemFx : (itemFx.dispose(), null);
     this.emit('roundStart', { round: this.round, phase: this.phase });
   }
 
@@ -424,6 +429,7 @@ export class Battle extends Emitter {
       f.mods.evaluate(this.conditionContext(f, opp), f.top.mods);
     }
     this.riftFx?.preTick();
+    this.itemFx?.preTick();
     const events = sim.tick();
     this.roundTicks++;
     if (this.phase === 'battle' || this.phase === 'countdown') this.battleTime += TICK;
@@ -502,6 +508,7 @@ export class Battle extends Emitter {
           this.fighters[1 - f.index].stats.lockClicksDealt += n;
           if (this.rules.durability) this.addWear(f, 'lock', WEAR.clickLock * n, 'lock slipped a notch');
           this.emit('lockClick', { fighter: f, notches: e.notches, max: e.max });
+          this.itemFx?.onLockSlip(f);
           break;
         }
         case 'finish': this.onFinish(e); break;
@@ -540,6 +547,7 @@ export class Battle extends Emitter {
       fa.ability.onImpact(e, fb.ability);
       fb.ability.onImpact(e, fa.ability);
       this.riftFx?.onImpact(fa, fb, e);
+      this.itemFx?.onImpact(fa, fb, e);
       const critical = J > 0.06;
       const { glance, tangent } = glanceOf(e.normal, fa.top.v, fb.top.v, e.approach);
       const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };
@@ -567,7 +575,7 @@ export class Battle extends Emitter {
 
   onWall(e) {
     const f = this.fighterOf(e.top);
-    if (e.type === 'wall') { f.stats.wallHits++; this.emit('wall', { fighter: f, impulse: e.impulse, point: e.point, normal: e.normal }); }
+    if (e.type === 'wall') { f.stats.wallHits++; this.emit('wall', { fighter: f, impulse: e.impulse, point: e.point, normal: e.normal }); this.itemFx?.onWall(f, e); }
     if (this.rules.durability) {
       const over = Math.max(0, e.impulse - WEAR.wallJ0);
       if (over > 0) this.addWear(f, e.layer?.part || 'ring', WEAR.wallK * over, 'wall impacts');
@@ -659,6 +667,16 @@ export class Battle extends Emitter {
         this.addWear(f, 'tip', tipW, 'floor friction');
       }
       for (const [k, v] of Object.entries(f.roundWear)) f.stats.wear[k] = (f.stats.wear[k] || 0) + v;
+      // what powered this top: seconds each effect source was active, triggers fired
+      const src = f.stats.sources || (f.stats.sources = {});
+      for (const [id, n] of Object.entries(f.mods?.uptime || {})) {
+        const x = src[id] || (src[id] = { ...f.mods.names[id], seconds: 0, fired: 0 });
+        x.seconds += n * TICK;
+      }
+      for (const r of this.itemFx?.report(f.index) || []) {
+        const x = src[r.id] || (src[r.id] = { name: r.name, origin: r.origin, seconds: 0, fired: 0 });
+        x.fired += r.fired;
+      }
       for (const [k, v] of Object.entries(f.roundWearCauses)) f.stats.wearCauses[k] = (f.stats.wearCauses[k] || 0) + v;
     }
     this.roundNotable.sort((a, b) => b.impulse - a.impulse);

@@ -21,6 +21,7 @@ import { rollLoot } from '../../systems/loot.js';
 import { InspectScreen } from './inspect.js';
 import { compareSwap, verdictLine } from '../../systems/compare.js';
 import { compareBlock } from '../compare.js';
+import { synergySummary, buildBreakdown, synergyJournal } from '../synergyPanel.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'upgrade', label: 'Upgrade' },
   { id: 'craft', label: 'Craft' },
   { id: 'collection', label: 'Collection' },
+  { id: 'synergies', label: 'Synergies' },
 ];
 const ALL_SLOTS = [...SLOTS, 'launcher', 'cable'];
 const ROLES = ['Attack', 'Defense', 'Stamina', 'Balance', 'Burst', 'Counter', 'Experimental'];
@@ -54,6 +56,7 @@ export class WorkshopScreen {
       upgrade: () => this.renderUpgrade(),
       craft: () => this.renderCraft(),
       collection: () => this.renderCollection(),
+      synergies: () => this.renderSynergies(),
     }[this.tab]();
     const P = this.p;
     const mats = resourceBar(P);
@@ -142,10 +145,11 @@ export class WorkshopScreen {
     }
     const sets = S.sets.active;
     out.append(h('h3', {}, 'Set bonuses'), sets.length ? h('div', { class: 'col' }, sets.map((a) => h('div', { class: 'small' }, h('b', { style: { color: a.set.color } }, `${a.set.name} (${a.tier})`), ' ', a.bonus.desc))) : h('div', { class: 'small muted' }, 'None active. Equip 2+ pieces of a set.'));
+    out.append(synergySummary(P, L));
     const items = Object.values(v.parts).filter(Boolean).concat([v.launcher, v.cable].filter(Boolean));
     const traits = [];
     for (const it of items) for (const t of [...it.traits, ...(it.special ? [it.special] : [])]) traits.push([it, t]);
-    out.append(h('h3', {}, 'Traits in play'), traits.length ? h('div', { class: 'col' }, traits.map(([it, t]) => h('div', { class: 'small' }, h('b', {}, TRAIT_INDEX[t.id].name), ` (${itemName(it)}): `, TRAIT_INDEX[t.id].desc(t.mag)))) : h('div', { class: 'small muted' }, 'No traits.'));
+    out.append(h('h3', {}, 'Traits in play'), traits.length ? h('div', { class: 'col' }, traits.map(([it, t]) => h('div', { class: 'small' }, h('b', {}, TRAIT_INDEX[t.id].name), ` (${itemName(it)}): `, TRAIT_INDEX[t.id].desc(t.mag, it)))) : h('div', { class: 'small muted' }, 'No traits.'));
     if (S.beast) {
       const coreAff = S.validation.parts.core ? baseOf(S.validation.parts.core)?.affinity : null;
       const res = S.beast.resonance;
@@ -525,6 +529,16 @@ export class WorkshopScreen {
     this.ui.toast(okText(r), 'good', 3600);
     this.app.save('silent');
     this.ui.refresh(this);
+  }
+
+  // ================================================================ synergies
+
+  renderSynergies() {
+    const P = this.p;
+    const L = P.loadouts[this.loadoutIndex] || P.loadouts[P.activeLoadout];
+    return h('div', { class: 'ws-cols two-wide' },
+      h('div', { class: 'panel scroll', 'data-scroll': 'syn-build' }, h('h3', {}, L.name), synergySummary(P, L), buildBreakdown(P, L)),
+      h('div', { class: 'panel scroll', 'data-scroll': 'syn-journal' }, synergyJournal(P, L)));
   }
 
   // ================================================================ collection

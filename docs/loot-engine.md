@@ -82,21 +82,28 @@ game/itemEffects.js  battle hooks -> triggers -> timed modifiers, spirit, lock s
    with budgets, names, visual variants, version; reactive traits; synergy
    engine with a first set of rules, Workshop "Synergies" panel and a
    post-battle "What powered your top" breakdown; save v4 migration; tests.
-3. **Relics, drop tables, journal, targeted crafting.** Handcrafted relics
+3. **Visual leap** (requested 2026-10-12). A Realistic render style next to
+   the anime ink style: post-processing (pmndrs/postprocessing: bloom, SMAA,
+   N8AO ambient occlusion), physically based materials for plastic and metal
+   lit by CC0 HDR studio lighting, item finishes from the visual variants,
+   three.quarks for sparks, debris and trails, and Blender (4.5 LTS, headless
+   scripts) for Bit-Beast spirits and stadium scenery. Must keep 60 fps on
+   an Intel UHD 620 at the default setting.
+4. **Relics, drop tables, journal, targeted crafting.** Handcrafted relics
    with fixed signature mechanics and clear acquisition paths; configurable
    drop tables with pity; collection journal (traits, synergies incl. hidden
    ones, relics, provenance); trait imprinting from dismantles and targeted
    engraving; a use for duplicates.
-4. **Daily Seed.** One shared challenge per day: fixed starting top, fixed
+5. **Daily Seed.** One shared challenge per day: fixed starting top, fixed
    part options, rival sequence and a stadium modifier; local best and streak;
    shareable replay codes that re-simulate and verify the run. Offline first.
-5. **Rift Run integration.** Rerolls with clear costs, relic rewards from deep
+6. **Rift Run integration.** Rerolls with clear costs, relic rewards from deep
    bosses, run synergies with charms and boons, discovery notices, cleanup
    tests (nothing run-only leaks into tournaments).
-6. **Authoring and balancing tools.** Content schema and validator CLI for
+7. **Authoring and balancing tools.** Content schema and validator CLI for
    Claude-assisted authoring (explicit registration, no network); loot
    simulation harness (trait/synergy usage, win-rate effect, outliers).
-7. **Story and economy.** Longer chapters 2-6; Rift/Store economy checked by
+8. **Story and economy.** Longer chapters 2-6; Rift/Store economy checked by
    simulation until there is playtest data.
 
 Every milestone: unit + browser tests, balance guard, build, commit and push,
@@ -123,3 +130,47 @@ artifact and patch notes updated, and a log entry below.
 - Tests: 119/119 unit (5 new), 15/15 browser (workshop checks the panel).
 - Known limits: role verdicts are a sum of measured changes, not a battle
   prediction; Bit-Beast and skill effects are not part of the comparison.
+
+### M2: Loot engine vertical slice (2026-10-12)
+
+- Files: `src/data/channels.js` (new: channel limits and conditions),
+  `src/systems/effectSpec.js` (new: spec compiler and generated
+  descriptions), `src/data/traits.js` (rewritten as 99 declarative specs: the
+  55 originals bit-identical, plus 12 reactive, 3 elemental, 3 mastery, 4
+  part-synergy and 5 curse traits), `src/game/itemEffects.js` (new: reactive
+  engine), `src/data/synergies.js` + `src/systems/synergy.js` (new: 19 rules,
+  8 of them hidden), `src/systems/itemGen.js` + `src/systems/itemValidate.js`
+  (new), `src/systems/loot.js` (v2 generation, bad-luck protection,
+  validated adds), `src/systems/riftLoot.js` (Rift parts through v2),
+  `src/systems/loadout.js` and `src/systems/riftBattle.js` (synergies and
+  statuses into participants), `src/systems/modifiers.js` (requirements,
+  mastery growth, per-source uptime), `src/game/battle.js` (item effects,
+  breakdown stats), `src/systems/assembly.js`, `src/game/launch.js`,
+  `src/systems/items.js` (titles, compiled-trait checks, curse filter),
+  `src/systems/profile.js` + `src/systems/save.js` (schema v4, quarantine),
+  `src/systems/progression.js` + `src/ui/screens/rift.js` (synergy discovery),
+  `src/ui/synergyPanel.js` (new), `src/ui/screens/workshop.js` (Synergies
+  tab, synergy summary), `src/ui/screens/results.js` ("What powered your
+  top"), `src/ui/widgets.js`, `styles.css`; tests `traits`, `itemEffects`,
+  `synergy`, `itemGen` (new) and updates to `progression`.
+- Works: every trait is data with generated text; reactive traits fire from
+  real battle events through modifiers, spirit, lock stress and the spin
+  ledger; Scorch/Static/Rust traits work in every mode (the Rift status
+  system, including fusions); mastery traits grow with use; part-synergy
+  traits need their part; cursed rolls trade a drawback for an extra trait;
+  synergies combine traits, sets, mastery, curses, part types, the Bit-Beast
+  and Rift charms, show their contributing items and near misses, and are
+  discovered in battle (hidden ones reveal their names); drops are generated
+  by a seeded, versioned pipeline with power budgets, names and visual
+  variants, and can be rebuilt from their record; bad-luck protection
+  guarantees an Epic within 20 random drops and a Legendary within 60;
+  invalid items are refused or quarantined; the results screen shows each
+  effect's active time and trigger count.
+- Tests: 134/134 unit (traits 3, itemEffects 3, synergy 5, itemGen 4 new;
+  save test extended), 15/15 browser (workshop checks the Synergies tab,
+  career checks the results breakdown), balance guard unchanged (50 / 46 / 57
+  / 46 / 51%), bare battles bit-identical to the previous commit (16 seeded
+  matches), 0.20 ms per tick.
+- Known limits: item finishes are colour-only until the visual leap; relic
+  rarity can still roll at random (M4 reserves it for handcrafted relics); no
+  loot-level balance harness yet (M7); synergy strengths are first estimates.

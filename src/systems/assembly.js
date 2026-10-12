@@ -9,6 +9,7 @@
 
 import { PART_INDEX, ARCHITECTURES, SLOTS } from '../data/parts.js';
 import { TRAIT_INDEX } from '../data/traits.js';
+import { effMag } from './effectSpec.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
 import { DEG } from '../core/math.js';
@@ -41,8 +42,8 @@ export function resolvePart(entry) {
   if (isItem) {
     if (entry.stats) for (const [k, v] of Object.entries(entry.stats)) def[k] = v;
     // physical traits change the part itself
-    for (const t of entry.traits || []) applyPhysicalTrait(def, t, notes);
-    if (entry.special) applyPhysicalTrait(def, entry.special, notes);
+    for (const t of entry.traits || []) applyPhysicalTrait(def, t, notes, entry);
+    if (entry.special) applyPhysicalTrait(def, entry.special, notes, entry);
     for (const tu of entry.tuning || []) {
       const td = TUNING_INDEX[tu];
       if (td && td.apply) { td.apply(def); notes.push(td.name); }
@@ -52,6 +53,8 @@ export function resolvePart(entry) {
       if (ud && ud.apply) { ud.apply(def); notes.push(ud.name); }
     }
   }
+  // the item's visual variant tints its model (cosmetic only, never physics)
+  if (isItem && entry.visual?.color) def.color = entry.visual.color;
   const c = isItem ? conditionOf(entry) : 1;
   applyWear(def, c);
   def._condition = c;
@@ -60,10 +63,10 @@ export function resolvePart(entry) {
   return def;
 }
 
-function applyPhysicalTrait(def, t, notes) {
+function applyPhysicalTrait(def, t, notes, item) {
   const td = TRAIT_INDEX[t.id];
-  if (!td || td.kind !== 'physical' || !td.physical) return;
-  td.physical(def, t.mag ?? 1);
+  if (!td?.physical) return;
+  td.physical(def, effMag(td, t, item));
   notes.push(td.name);
 }
 

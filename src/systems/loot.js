@@ -9,7 +9,8 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { PARTS } from '../data/parts.js';
 import { LAUNCHERS, CABLES } from '../data/launchers.js';
 import { RARITIES, rarityRank } from '../data/rarity.js';
-import { createItem } from './items.js';
+import { generateItem } from './itemGen.js';
+import { validateItem } from './itemValidate.js';
 
 export const SLOT_WEIGHTS = { ring: 22, tip: 20, disc: 16, lock: 12, core: 12, aux: 6, launcher: 6, cable: 6 };
 const ALL_BASES = [...PARTS, ...LAUNCHERS, ...CABLES];
@@ -32,23 +33,41 @@ export function rollBase(rng, { tier = 0, favour = [], favourSets = [], slots = 
   return rng.weighted(cands.map((b) => ({ b, weight: (favour.includes(b.id) ? 4 : 1) * (b.tier >= 3 ? 0.6 : 1) }))).b;
 }
 
+// Bad-luck protection: after this many drops without an Epic-or-better
+// (Legendary-or-better) item, the next random drop is at least that rarity.
+export const PITY = { epic: 20, legendary: 60 };
+
+function pityFloor(profile, rarity) {
+  const P = profile.seeds.pity || (profile.seeds.pity = { epic: 0, legendary: 0 });
+  if (P.legendary + 1 >= PITY.legendary && rarityRank(rarity) < rarityRank('legendary')) return 'legendary';
+  if (P.epic + 1 >= PITY.epic && rarityRank(rarity) < rarityRank('epic')) return 'epic';
+  return rarity;
+}
+function countPity(profile, rarity) {
+  const P = profile.seeds.pity;
+  P.epic = rarityRank(rarity) >= rarityRank('epic') ? 0 : P.epic + 1;
+  P.legendary = rarityRank(rarity) >= rarityRank('legendary') ? 0 : P.legendary + 1;
+}
+
 // Generate one loot item for a profile from a source description.
-// source: { label, tier, level, favour: [baseIds], favourSets: [setIds], minRarity, slots }
+// source: { label, tier, level, favour: [baseIds], favourSets: [setIds], minRarity, slots, base?, rarity? }
+// Random rarities count toward bad-luck protection; fixed rarities don't.
 export function rollLoot(profile, source) {
   const counter = profile.seeds.counter = (profile.seeds.counter || 0) + 1;
   const seed = mixSeeds(profile.seeds.loot, counter, source.label || 'loot');
   const rng = new Rng(seed);
   const base = source.base ? ALL_BASES.find((b) => b.id === source.base) : rollBase(rng, source);
-  const rarity = source.rarity || rollRarity(rng, source.tier ?? 0, source.luck ?? 0, source.minRarity);
+  let rarity = source.rarity || rollRarity(rng, source.tier ?? 0, source.luck ?? 0, source.minRarity);
+  if (!source.rarity) { rarity = pityFloor(profile, rarity); countPity(profile, rarity); }
   const level = Math.max(1, Math.round((source.level ?? profile.player.level) + rng.int(-2, 2)));
   let set;
   if (source.favourSets?.length && rng.chance(0.5)) set = rng.pick(source.favourSets);
-  const item = createItem({ base: base.id, rarity, level, seed: rng.nextU32(), set, source: source.label || 'loot' });
-  item.gen = { source: source.label, tier: source.tier ?? 0, counter };
-  return item;
+  return generateItem({ base, rarity, level, seed: rng.nextU32(), set, source: source.label || 'loot', tier: source.tier ?? 0, counter });
 }
 
 export function addItem(profile, item) {
+  const v = validateItem(item);
+  if (!v.ok) throw new Error(`refusing an invalid item (${item?.base}): ${v.errors.join('; ')}`);
   profile.inventory[item.uid] = item;
   const first = !profile.discovery.parts[item.base];
   profile.discovery.parts[item.base] = true;

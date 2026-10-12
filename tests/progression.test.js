@@ -3,6 +3,7 @@
 // win -> loot a unique item -> equip -> level -> damage -> repair -> save -> reload -> identity intact.
 
 import test from 'node:test';
+import { regenerate } from '../src/systems/itemGen.js';
 import assert from 'node:assert/strict';
 import { newProfile, normalizeProfile } from '../src/systems/profile.js';
 import { SaveManager, migrate, validate } from '../src/systems/save.js';
@@ -90,10 +91,9 @@ test('loot is deterministic per seed and higher tiers yield rarer items', () => 
     return w.filter((x) => rarityRank(x.id) >= 2).reduce((s, x) => s + x.weight, 0) / tot;
   };
   assert.ok(rareShare(4) > rareShare(2) && rareShare(2) > rareShare(0));
-  // recreating from the stored seed reproduces the item
-  const re = createItem({ base: ia.base, rarity: ia.rarity, level: ia.level, seed: ia.seed, set: ia.set });
-  assert.deepEqual(re.traits, ia.traits);
-  assert.deepEqual(re.stats, ia.stats);
+  // recreating from the recorded seed and generation version reproduces the item
+  const re = regenerate(ia);
+  assert.deepEqual({ ...re, history: 0 }, { ...ia, history: 0 });
 });
 
 test('rarity sets trait count; exclusive groups never co-occur', () => {
@@ -138,7 +138,9 @@ test('every trait has a measurable mechanical effect (no traits that do nothing)
     if (t.kind === 'physical') {
       changed = JSON.stringify(resolvePart(plain)) !== JSON.stringify(resolvePart(withT));
     } else if (t.kind === 'conditional') {
-      const mk = (it) => { const m = new ModifierStack(); for (const s of collectTraitSources([{ slot, item: it }])) m.add(s); return m; };
+      // traits that need a matching part get one (systems/effectSpec.js requirementsMet)
+      const parts = t.requires ? Object.fromEntries(t.requires.map((q) => [q.slot, { wear: q.wear?.[0], role: q.role?.[0], id: q.base }])) : null;
+      const mk = (it) => { const m = new ModifierStack(); for (const s of collectTraitSources([{ slot, item: it }], parts)) m.add(s); return m; };
       if (t.cond?.type === 'critical') withT.durability = 1;
       const a = mk(plain).evaluate(condCtx(t.cond || { type: 'always' }), defaultMods());
       const b = mk(withT).evaluate(condCtx(t.cond || { type: 'always' }), defaultMods());
@@ -149,6 +151,12 @@ test('every trait has a measurable mechanical effect (no traits that do nothing)
       changed = JSON.stringify(gearA.mods) !== JSON.stringify(gearB.mods);
     } else if (t.kind === 'item') {
       changed = plain.maxDurability !== withT.maxDurability || JSON.stringify(t.item(0.8)).length > 2;
+    } else if (t.kind === 'reactive') {
+      // fired in battle by game/itemEffects.js (tests/itemEffects.test.js)
+      const e = t.react(0.8).effect;
+      changed = !!(e.deltas?.some(([, v]) => v !== 0) || e.spirit || e.stress || e.spin);
+    } else if (t.kind === 'status') {
+      changed = Object.values(t.status(0.8)).some((v) => v > 0);
     }
     assert.ok(changed, `trait ${t.id} (${t.kind}) changes something`);
   }
@@ -253,10 +261,21 @@ test('save schema: migration from v1, validation, backup recovery', async () => 
   delete v1.discovery;
   for (const L of v1.loadouts) delete L.technique;
   const { data, applied } = migrate(v1);
-  assert.deepEqual(applied, [1, 2]);
+  assert.deepEqual(applied, [1, 2, 3]);
   assert.equal(validate(data).length, 0);
   const norm = normalizeProfile(data);
   assert.ok(norm.discovery && norm.loadouts.every((L) => L.technique));
+  // v4: loot engine records
+  assert.deepEqual(norm.discovery.synergies, {});
+  assert.deepEqual(norm.seeds.pity, { epic: 0, legendary: 0 });
+  assert.deepEqual(norm.quarantine, {});
+  // an impossible item is quarantined (kept, unequipped), never silently deleted
+  const bad = structuredClone(p);
+  const ringUid = bad.loadouts[0].parts.ring;
+  bad.inventory[ringUid].traits.push({ id: 'noSuchTrait', mag: 0.5 });
+  const fixed = normalizeProfile(bad);
+  assert.ok(!fixed.inventory[ringUid] && fixed.quarantine[ringUid]?.errors.some((e) => /noSuchTrait/.test(e)));
+  assert.equal(fixed.loadouts[0].parts.ring, null);
   // corrupt main save -> backup restores
   const saves = await SaveManager.create({ memory: true });
   await saves.save('slot2', p);

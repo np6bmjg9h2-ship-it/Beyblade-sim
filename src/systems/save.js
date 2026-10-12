@@ -73,6 +73,18 @@ export const MIGRATIONS = {
     d.version = 3;
     return d;
   },
+  // v3 -> v4: loot engine. Discovered synergies, bad-luck counters, a
+  // quarantine for invalid items; older items are generation v1.
+  3: (d) => {
+    d.discovery = d.discovery || {};
+    d.discovery.synergies = d.discovery.synergies || {};
+    d.seeds = d.seeds || {};
+    d.seeds.pity = d.seeds.pity || { epic: 0, legendary: 0 };
+    d.quarantine = d.quarantine || {};
+    for (const it of Object.values(d.inventory || {})) if (it && it.gen && it.gen.v == null) it.gen.v = 1;
+    d.version = 4;
+    return d;
+  },
 };
 
 export function migrate(data) {

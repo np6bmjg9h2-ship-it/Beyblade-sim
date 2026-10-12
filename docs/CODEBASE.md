@@ -142,6 +142,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `humanController.js` | 163 | Turns input actions into the control frame. |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
 | `../physics/mechanisms.js` | 140 | Classic-series moving parts inside the simulation (spec.mech from assembly): magnet forces between tops (substep), spring tips (absorb when struck, hop), clutches (energy stored at launch, released on a hit or at low spin, tip change), automatic tip shifts. Booked to the `mechanism` ledger; emits `mechanism` events. TopBody keeps a live `tip` copy that these change. |
+| `itemEffects.js` | 125 | Reactive item effects: triggers from traits and synergies (hit, heavy hit, struck, wall, lock slip, ability, dash, counter, low spin, edge escape) with cooldowns, stacks and per-round limits, acting through timed modifiers, spirit, the next-hit lock-stress multiplier and `sim.restoreSpin` (ledger). Seeded RNG; created per round only when someone carries reactive effects. Order in one impact: abilities, Rift, items. Reports trigger counts for the results breakdown. |
 | `riftEffects.js` | 122 | Rift Run in-battle effects, only when a participant carries a `rift` block: sweet-spot hits, Scorch/Static/Rust statuses as timed modifiers, status fusions (meltdown, flashover, brittle), Second Wind. Emits `riftStatus`, `riftFusion`, `sweetSpot`, `meltdownHit`, `secondWind`. |
 | `matchJob.js`, `matchSim.js`, `tournamentRunner.js` | ~290 | Headless AI-vs-AI matches for tournaments: Web Worker from an embedded Blob URL, with an inline time-sliced fallback. |
 
@@ -149,11 +150,16 @@ Inspect screen switches the renderer to its own turntable scene.
 | File | Lines | Purpose |
 |---|---|---|
 | `assembly.js` | 348 | Validates a build (architecture, socket, mass limits) and computes the physical spec plus a summary for the UI. **Stack heights live here** (`spec.geometry`). |
-| `items.js` | 175 | Item instances: seeded stats, rarity, traits, set membership, durability, XP and mastery. |
-| `modifiers.js` | 102 | Folds traits, sets, skills and beast passives into bounded modifier channels that the physics reads. |
-| `loot.js`, `progression.js` | ~290 | Deterministic loot; post-match XP, rewards, durability wear, stats. |
+| `items.js` | 180 | Item instances: seeded stats, rarity, traits, set membership, durability, XP and mastery; `itemName` (nickname, generated title, base name). |
+| `effectSpec.js` | 230 | Declarative effect specs → runtime functions (`physical`, `fx`, `launch`, `item`, `react`, `status`) and descriptions generated from the same numbers; mastery growth (`effMag`), part requirements (`requirementsMet`), trigger names. |
+| `itemGen.js` | 150 | Generation v2: seeded, versioned pipeline (traits within a power budget, exclusions, cursed rolls, special, set, tolerances, validation, title, visual variant, provenance in `item.gen`); `regenerate(item)` rebuilds an item from its record. |
+| `itemValidate.js` | 85 | `validateItem`: ids, slots, rarity, magnitudes, counts, durability, finite stats, and the resolved part's physical bounds. Used by `addItem` (refuses) and `normalizeProfile` (quarantines). |
+| `synergy.js` | 230 | Synergy engine: build context (traits, families, statuses, sets, mastery, curses, part types, mass, beast, launcher, Rift charms), requirement checks with contributing items, active rules and near misses (hidden ones stay hidden), effects for battle (`buildBattleFx`: sources, reactive, launch/skill keys, status block), discovery. |
+| `compare.js` | 200 | Measured swap comparison for any build: part rows, finished-top rows, launch rows, traits and sets gained/lost, legality, role verdict. |
+| `modifiers.js` | 115 | Folds traits, sets, skills, synergies and beast passives into bounded modifier channels that the physics reads; per-source uptime for the results breakdown. |
+| `loot.js`, `progression.js` | ~310 | Seeded loot through `itemGen` with bad-luck protection (`PITY`); post-match XP, rewards, durability wear, stats, synergy discovery. |
 | `workshop.js` | 373 | Equip, repair, upgrade, reroll and transfer traits, craft, dismantle (all validated). |
-| `save.js` | 239 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 3), replay storage (newest 12 plus pinned). A save from a newer version is flagged (`newer` on load, `importedFromNewer` on import) so the title screen can warn. |
+| `save.js` | 239 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 4: v4 adds discovered synergies, pity counters, the item quarantine), replay storage (newest 12 plus pinned). A save from a newer version is flagged (`newer` on load, `importedFromNewer` on import) so the title screen can warn. |
 | `profile.js` | 137 | New profile, normalisation, default settings. |
 | `tournament.js` | 704 | Pure tournament engine: single and double elimination (bracket reset), round robin, league with playoffs, Swiss; standings, placements, prizes. |
 | `story.js`, `rivals.js`, `modes.js`, `beasts.js`, `loadout.js` | ~900 | Story progress and flags; habit tracking and rival counter-builds; Challenge, Survival and League; beast bond and trials; loadout to participant. |
@@ -163,7 +169,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `riftBattle.js`, `riftLoot.js`, `riftNodes.js` | ~560 | Run effects (charms, resonance, boons) → battle participants and opponents (elite affixes, vault rules); counter-seeded loot, prices, forge jobs, shrine and event rolls; trader, forge, shrine, camp and event actions. Everything rolls from `runRng(run, label…)`, so a run replays from its seed. |
 
 ### data/ (content)
-Parts (63 across 6 slots, 14 of them the classic series), traits (72), sets (6), rarity (7), launchers (12) and
+Parts (63 across 6 slots, 14 of them the classic series), traits (99, declarative specs in `traits.js`, channels and conditions in `channels.js`), synergies (19, `synergies.js`), sets (6), rarity (7), launchers (12) and
 cables (5), techniques, arenas (7), beasts (11) plus lore, AI profiles,
 opponents (8 archetypes), characters (10), story (6 chapters: ch1 11 nodes,
 ch2–6 5–7 nodes), tournaments (9 plus story events plus 5 league divisions),
@@ -192,7 +198,9 @@ physical (mm, g) and consumed by `assembly.js`.
 
 ### ui/
 `ui.js` (screen stack, spatial focus navigation for controller and keyboard,
-prompts with device glyphs, toasts, modals), `widgets.js`, `charts.js`, and
+prompts with device glyphs, toasts, modals), `widgets.js`, `charts.js`,
+`compare.js` (swap comparison panels), `synergyPanel.js` (synergies, build
+breakdown, journal), and
 `screens/` (title, main menu, quick battle, battle HUD 630 lines, results and
 replays, workshop 590, inspect, beasts, skills, stats, settings, story 408,
 dialogue, tournament 580, modes and lab, Rift Run hub/map, loot and node
@@ -248,6 +256,15 @@ context; the simulation worker entry.
     on Windows.)
 11. **Original content only.** No copyrighted characters, logos, names or
     designs from existing franchises.
+12. **No code in item data.** Items store ids, magnitudes, seeds and
+    provenance only; behaviour lives in registered declarative specs
+    (`data/traits.js`, `data/synergies.js`) compiled by `systems/effectSpec.js`.
+    Descriptions are generated from the specs; never hand-write numbers.
+13. **Synergies need loot.** Every synergy rule has a loot requirement
+    (trait, set, mastery, curse, charm…), so bare reference builds never get
+    one and `npm run balance` keeps measuring the base game.
+14. **Validated items.** `addItem` refuses invalid items; loading quarantines
+    them. New item sources must pass `validateItem` (tests/itemGen.test.js).
 
 ---
 

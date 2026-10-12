@@ -9,6 +9,7 @@ import { setSources } from '../data/sets.js';
 import { computeSkillEffects } from '../data/skills.js';
 import { bondLevel, BEAST_INDEX } from '../data/beasts.js';
 import { SLOTS } from '../data/parts.js';
+import { buildBattleFx } from './synergy.js';
 
 export function loadoutItems(profile, L) {
   const parts = {};
@@ -37,6 +38,11 @@ export function buildParticipant(profile, L, opts = {}) {
   for (const [k, v] of Object.entries(sk.launch)) launchMods[k] = (launchMods[k] || 0) + v;
   const bs = L.beast ? profile.beasts[L.beast] : null;
   const beast = bs ? { id: bs.id, bondLevel: bondLevel(bs.bondXp), awakened: !!bs.awakened, resonanceBoost: sk.economy.resonance || 0 } : null;
+  // synergies and elemental traits (systems/synergy.js)
+  const fx = buildBattleFx({ parts, launcher, cable, beast, spin: L.spin }, profile.discovery?.synergies || {});
+  for (const [k, v] of Object.entries(fx.launch)) launchMods[k] = (launchMods[k] || 0) + v;
+  const skillMods = { ...sk.skillMods };
+  for (const [k, v] of Object.entries(fx.skill)) skillMods[k] = (skillMods[k] || 0) + v;
   return {
     id: opts.id || 'player',
     name: profile.player.name,
@@ -46,9 +52,12 @@ export function buildParticipant(profile, L, opts = {}) {
     beast,
     spin: L.spin || 'R',
     technique: L.technique || 'normal',
-    modSources: [...sets.sources, ...sk.sources],
+    modSources: [...sets.sources, ...sk.sources, ...fx.sources],
     launchMods,
-    skillMods: sk.skillMods,
+    skillMods,
+    reactive: fx.reactive,
+    synergies: fx.ids,
+    ...(fx.rift ? { rift: fx.rift } : {}),
     knownTechniques: profile.techniques,
     color: profile.player.color,
     loadoutId: L.id,

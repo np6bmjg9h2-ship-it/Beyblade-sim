@@ -3,9 +3,10 @@
 // older or partially corrupted saves keep working (see save.js migrations).
 
 import { createItem } from './items.js';
+import { validateItem } from './itemValidate.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const MATERIALS = {
   scrap: { name: 'Scrap Alloy', desc: 'Salvaged metal and polymer. Used in repairs and basic upgrades.' },
@@ -59,8 +60,9 @@ export function newProfile(seed = Date.now()) {
     habits: { matches: 0, style: { attack: 0, defense: 0, stamina: 0, balance: 0, burst: 0, upper: 0 }, recentStyles: [], aggression: 0.5, edge: 0.2, dashRate: 0, counterRate: 0, abilityRate: 0, leftSpin: 0, perfectRate: 0 },
     arenasUnlocked: ['standard'],
     stats: { battles: 0, wins: 0, losses: 0, draws: 0, rounds: 0, roundsWon: 0, finishes: { spin: 0, out: 0, burst: 0, decision: 0 }, losses_by: { spin: 0, out: 0, burst: 0, decision: 0 }, highestImpact: 0, longestSpin: 0, totalBattleTime: 0, perfectLaunches: 0, launches: 0, abilityUses: 0, streak: 0, bestStreak: 0, arenaUse: {}, beastUse: {}, buildUse: {}, tournamentsWon: 0, finals: 0, earnings: 0, survivalBest: 0, challengesDone: {} },
-    discovery: { parts: {}, sets: {}, traits: {}, beasts: { orrery: true } },
-    seeds: { loot: seed >>> 0, counter: 0 },
+    discovery: { parts: {}, sets: {}, traits: {}, beasts: { orrery: true }, synergies: {} },
+    seeds: { loot: seed >>> 0, counter: 0, pity: { epic: 0, legendary: 0 } },
+    quarantine: {}, // items that failed validation on load, kept for inspection
     tutorial: {},
     settings: defaultSettings(),
     undo: [],
@@ -101,11 +103,16 @@ export function normalizeProfile(p) {
   }
   if (!p.beasts.orrery) p.beasts.orrery = { id: 'orrery', bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {} };
   for (const b of Object.values(p.beasts)) { b.stats = b.stats || {}; b.bondXp = b.bondXp || 0; }
-  for (const it of Object.values(p.inventory)) {
-    it.history = it.history || { battles: 0, wins: 0, knockouts: 0, bursts: 0, burstsSurvived: 0, highestImpact: 0, longestSpin: 0, tournamentWins: 0, moments: [] };
-    it.history.moments = it.history.moments || [];
-    it.tuning = it.tuning || []; it.upgrades = it.upgrades || []; it.traits = it.traits || [];
-    if (it.slot === 'launcher' && !it.parts) it.parts = { drive: 100, trigger: 100, grip: 100 };
+  for (const [uid, it] of Object.entries(p.inventory)) {
+    if (it && typeof it === 'object') {
+      it.history = it.history || { battles: 0, wins: 0, knockouts: 0, bursts: 0, burstsSurvived: 0, highestImpact: 0, longestSpin: 0, tournamentWins: 0, moments: [] };
+      it.history.moments = it.history.moments || [];
+      it.tuning = it.tuning || []; it.upgrades = it.upgrades || []; it.traits = it.traits || [];
+      if (it.slot === 'launcher' && !it.parts) it.parts = { drive: 100, trigger: 100, grip: 100 };
+    }
+    // impossible or corrupted items are set aside, not deleted (unequipped below)
+    const v = validateItem(it);
+    if (!v.ok) { p.quarantine[uid] = { item: it, errors: v.errors, at: Date.now() }; delete p.inventory[uid]; }
   }
   // drop loadout references to items that no longer exist
   for (const L of p.loadouts) {

@@ -9,7 +9,8 @@ import { RARITY_INDEX, rarityRank } from '../data/rarity.js';
 import { CHARMS, CHARM_INDEX, CHARM_RARITIES, canEnhance } from '../data/riftCharms.js';
 import { BOONS } from '../data/riftBoons.js';
 import { RIFT_ACTS, STATUS_IDS, depthRules, PART_PRICE, CHARM_PRICE, HEART_PRICE, RESTOCK_PRICE, FORGE_PRICE, FORGE_MAX_LEVEL, SHARD_REWARD } from '../data/rift.js';
-import { createItem, eligibleTraits } from './items.js';
+import { eligibleTraits } from './items.js';
+import { generateItem } from './itemGen.js';
 import { rollRarity } from './loot.js';
 import { validateBuild } from './assembly.js';
 import { runEffects } from './riftBattle.js';
@@ -44,7 +45,7 @@ export function rollRunPart(profile, run, rng, { minRarity = null, rarityBoost =
     if (!cands.length) continue;
     const base = rng.weighted(cands.map((b) => ({ b, weight: cur && cur.base === b.id ? 0.4 : 1 }))).b;
     const rarity = rollRarity(rng, run.act + rarityBoost, D.luck + 0.4 * (talents(profile).treasure || 0), minRarity);
-    const item = createItem({ base: base.id, rarity, level: 5 + 10 * run.act, seed: rng.nextU32(), source: 'Rift Run' });
+    const item = generateItem({ base, rarity, level: 5 + 10 * run.act, seed: rng.nextU32(), source: 'Rift Run', tier: run.act });
     item.uid = `rift_${(run.seed >>> 0).toString(36)}_${run.counter}_${rng.int(0, 1e6).toString(36)}`;
     item.origin = 'found';
     item.forge = 0;

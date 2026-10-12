@@ -74,10 +74,10 @@ export function itemCard(item, opts = {}) {
     h('div', { class: 'item-head' },
       h('span', { class: 'swatch', style: { background: item.visual?.color || base?.color || '#888' } }),
       h('div', { class: 'item-title' }, h('div', { class: 'item-name' }, itemName(item), item.favourite ? ' ★' : '', item.locked ? ' 🔒' : ''),
-        h('div', { class: 'item-sub' }, `${SLOT_NAMES[item.slot] || item.slot} · Lv ${item.level}`)),
+        h('div', { class: 'item-sub' }, `${SLOT_NAMES[item.slot] || item.slot}${item.title || item.nickname ? ` · ${base?.name || ''}` : ''} · Lv ${item.level}`)),
       rarityChip(item.rarity)),
-    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null, item.def?.generated ? h('span', { class: 'chip proto-chip' }, 'Prototype') : null),
-    opts.compact ? null : h('div', { class: 'item-traits' }, traits.length ? traits.map((t) => h('div', { class: 'trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ': ', TRAIT_INDEX[t.id]?.desc(t.mag) || '')) : h('div', { class: 'muted' }, 'No traits')));
+    h('div', { class: 'item-meta' }, condChip(item), h('span', { class: 'chip' }, `${m.name} · ${Math.round(item.xp || 0)} XP`), set ? h('span', { class: 'chip', style: { color: set.color, borderColor: set.color } }, set.name) : null, item.def?.generated ? h('span', { class: 'chip proto-chip' }, 'Prototype') : null, item.cursed ? h('span', { class: 'chip curse-chip', title: 'Carries a curse: a drawback that bought it an extra trait' }, 'Cursed') : null),
+    opts.compact ? null : h('div', { class: 'item-traits' }, traits.length ? traits.map((t) => h('div', { class: 'trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') + (TRAIT_INDEX[t.id]?.curse ? ' curse' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ': ', TRAIT_INDEX[t.id]?.desc(t.mag, item) || '')) : h('div', { class: 'muted' }, 'No traits')));
   return el;
 }
 

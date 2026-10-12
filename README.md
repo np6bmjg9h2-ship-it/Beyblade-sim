@@ -118,12 +118,29 @@ timing against a gold window, overcharge and misfire, lean and aim, and seven
 techniques (four basic, three learned) change the initial state.
 
 **Equipment.** 63 parts across six slots plus 12 launchers and 5 cords, each a
-unique item instance (seeded stats, up to three traits from 72, optional
+unique item instance (seeded stats, up to three traits from 99, optional
 special trait, set membership across 6 sets, durability, XP and mastery,
 history and nicknames) in 7 rarities. Traits feed bounded modifier channels
 that the physics reads; there are no cosmetic-only stats. Durability degrades
 physical properties; repairs, a free basic service and restoration keep any
 build usable.
+
+**Loot engine.** Traits are plain data (`src/data/traits.js`) compiled by
+`src/systems/effectSpec.js`, and every trait description is generated from
+the same numbers. Besides changing a part or a modifier channel, a trait can
+fire on battle events with a cooldown (a wall bounce, a heavy hit, a lock
+slip, a dash, low spin), inflict Scorch, Static or Rust on hits, grow with
+the part's mastery, need a matching part (a ball tip, an attack ring), or be
+a curse that bought the item an extra trait. Drops come from a seeded,
+versioned pipeline (`src/systems/itemGen.js`: power budget, exclusions,
+names such as "Honed Gale Fang of Fury", colour and finish variants) with
+bad-luck protection, and every item is validated before it enters an
+inventory or a battle (old saves quarantine broken items instead of losing
+them). 19 synergies (`src/data/synergies.js`, some hidden until found) combine
+traits, sets, mastery, curses, part types, the Bit-Beast and Rift charms;
+the Workshop's Synergies tab shows which items feed each one and what is one
+step away, and the results screen lists what powered your top. Picking a
+part shows how it changes the finished top before you equip it.
 
 **Classic series.** 14 parts and 6 launchers in the style of the first
 generation of tops, with moving parts that run in the physics
