@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-12 (loot engine M2). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-12 (safety nets after the tool audit). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -24,8 +24,10 @@ current build; no install or server needed. WebGL required.
 | UI pass + Store | 0235969 | Main Store / Daily Store (prototype generator); crafting fixed (costs no longer need research; clear missing-resource feedback; the Forge needs no relic fragment); right stick / R-F scrolls any panel, scroll positions kept on refresh, edge fades; screen, panel, tab and modal motion; press flash; toasts bottom-right (max 3); wallet chips in headers; menu tile icons |
 | Shop | 66f3644 | CR shop: packs with guaranteed rarities and printed odds, mystery capsules, themed bundles, materials crate, daily deals; menu tile with a badge for new deals; tests `tests/store.test.js`, browser scenario `store` |
 | Playtest fixes | 176a613, 58f6a98, d85df0a | Battle callouts moved to a small side feed; Rift loot is the grind (boss secures finds, send home, full clear keeps all, Locker pre-selects); Final Clutch toned down (store 0.12) |
-| Loot engine M1-M2 | 93c163e, (this commit) | Swap comparison in the Workshop; declarative traits with generated text (99), reactive traits, elemental/mastery/part-synergy/curse traits, 19 synergies with a Synergies tab and journal, generation v2 (budgets, names, variants, bad-luck protection), item validation and quarantine (save v4), "What powered your top". Plan and log: `docs/loot-engine.md` |
+| Loot engine M1-M2 | 93c163e, b2d57b5 | Swap comparison in the Workshop; declarative traits with generated text (99), reactive traits, elemental/mastery/part-synergy/curse traits, 19 synergies with a Synergies tab and journal, generation v2 (budgets, names, variants, bad-luck protection), item validation and quarantine (save v4), "What powered your top". Plan and log: `docs/loot-engine.md` |
 | 5 Balance pass 2, career loop, final QA | 70aaa89 | Every type 40-60%: AI reads the spin race (`readRace`), Pivot Ball / Comet Arc / Semi-Flat / Quad Spike tuned (Clutch Charger 29% -> 47%); career loop played end to end (browser scenario `career`); gaps fixed (upgrade/reroll feedback, prize launchers for the other spin offer a spin switch, squashed panels, newer-version saves warn); per-tick physics allocations removed (bit-identical results); findings register closed except the "Bit-Beast" name |
+| Loot engine M3 | 03f76b5, 086f67e | Realistic art style (PBR materials, arena environment, bloom), opt-in play data to the shared artifact's database, item finishes on the 3D parts, Blender-rendered hall panorama and crowd |
+| Safety nets | (this commit) | From the tool audit (report: claude.ai artifact "SPINFORGE Tool Audit"): fast-check property tests (`tests/properties-*.test.js`: any two legal loot tops never gain energy from a collision and stay finite; same seed, same simulation and same full battle; generated items stay valid, in budget and rebuild exactly; bad-luck protection; every trait finite at any magnitude; channels always within limits; synergies consistent; saves round-trip). They found that one damaged item made a whole save unreadable: saves now set damaged items aside, repair damaged loadouts, Bit-Beasts and fields, fall back to the backup and else salvage what can be read (30,000 fuzzed damaged saves load). tinybench perf gate (`npm run perf`, `npm run perf:check`, baseline per CPU in `tools/perf-baseline.json`), `npm run test:deep` (1,000 runs per property) |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
@@ -44,7 +46,7 @@ Guard: `npm run balance:check` (25-70% band). Experiments:
 
 ## Next steps (after the plan)
 
-Current work: the loot-engine brief, milestones in `docs/loot-engine.md` (next: M3 visual leap, then relics/journal, Daily Seed, Rift integration, tools, story).
+Current work: iPhone support (touch controls, phone layout), then the loot-engine milestones in `docs/loot-engine.md` (next: M4 relics, drop tables, journal, targeted crafting; then Daily Seed, Rift integration, tools, story).
 
 1. Playtest and tune Rift Run's economy and difficulty, the Store prices and
    the Daily Store prototypes (all first estimates).

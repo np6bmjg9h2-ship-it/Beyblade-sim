@@ -24,13 +24,40 @@ function allFinite(o, depth = 0) {
   return Object.values(o).every((v) => allFinite(v, depth + 1));
 }
 
+// Fields a generated prototype's own definition must carry (what assembly
+// and the launch model read), by slot.
+const N = 'number';
+const DEF_FIELDS = {
+  ring: { name: 'string', arch: 'array', spin: 'string', mass: N, rIn: N, rOut: N, rBase: N, blades: N, faceAngle: N, thickness: N, restitution: N, friction: N, aero: N, catch: N, bladeWidth: N, slope: N, massDist: N },
+  disc: { name: 'string', mass: N, rIn: N, rOut: N, thickness: N, massDist: N },
+  lock: { name: 'string', arch: 'array', tipSocket: 'string', mass: N, radius: N, height: N, notches: N, threshold: N, recovery: N },
+  tip: { name: 'string', socket: 'string', mass: N, length: N, bodyRadius: N, ballRadius: N, flatRadius: N, mu: N, patchRadius: N, compliance: N, wear: 'string' },
+  launcher: { name: 'string', spinMech: 'string', drive: 'object', transfer: 'object', trigger: 'object', grip: 'object', chargeRate: N },
+};
+const kindOf = (x) => (Array.isArray(x) ? 'array' : x === null ? 'null' : typeof x);
+
+// Rolled stats override fields of the base, so they must keep its shape
+// (a number stays a finite number, a nested block stays an object).
+function sameShape(v, b, depth = 0) {
+  if (typeof b === 'number') return finite(v);
+  if (b && typeof b === 'object' && !Array.isArray(b)) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+    return depth > 3 || Object.entries(v).every(([k, x]) => !(k in b) || sameShape(x, b[k], depth + 1));
+  }
+  return true;
+}
+
 export function validateItem(it) {
   const errors = [];
   const warnings = [];
   if (!it || typeof it !== 'object') return { ok: false, errors: ['not an item'], warnings };
   if (typeof it.uid !== 'string' || !it.uid) errors.push('missing uid');
-  const base = baseOf(it);
-  if (!base) errors.push(`unknown base ${it.base}`);
+  const defBad = it.def != null && kindOf(it.def) !== 'object';
+  const base = defBad ? null : baseOf(it);
+  if (typeof it.base !== 'string' || !it.base) errors.push('missing base id');
+  if (defBad) errors.push('prototype definition is invalid');
+  else if (!base) errors.push(`unknown base ${it.base}`);
+  else if (it.def && it.def.id !== it.base) errors.push('prototype id does not match its base');
   else if (base.slot !== it.slot) errors.push(`slot ${it.slot} does not match its base (${base.slot})`);
   if (!ALL_SLOTS.includes(it.slot)) errors.push(`unknown slot ${it.slot}`);
   if (!RARITY_INDEX[it.rarity]) errors.push(`unknown rarity ${it.rarity}`);
@@ -60,7 +87,10 @@ export function validateItem(it) {
   if (!finite(it.durability) || it.durability < 0 || it.durability > (it.maxDurability || 0) + 1e-6) errors.push(`durability ${it.durability}`);
   if (it.xp != null && (!finite(it.xp) || it.xp < 0)) errors.push(`xp ${it.xp}`);
   if (!allFinite(it.stats)) errors.push('rolled stats are not numbers');
-  if (it.def && (!allFinite(it.def) || it.def.slot !== it.slot)) errors.push('prototype definition is invalid');
+  if (it.stats != null && (typeof it.stats !== 'object' || Array.isArray(it.stats))) errors.push('rolled stats are not a record');
+  else if (it.stats && base) for (const [k, v] of Object.entries(it.stats)) if (k in base && !sameShape(v, base[k])) errors.push(`rolled ${k} does not match its base`);
+  if (it.def && !defBad && (!allFinite(it.def) || it.def.slot !== it.slot)) errors.push('prototype definition is invalid');
+  else if (it.def && !defBad) for (const [k, kind] of Object.entries(DEF_FIELDS[it.slot] || {})) if (kindOf(it.def[k]) !== kind || (kind === N && !finite(it.def[k]))) errors.push(`prototype ${k} is missing or damaged`);
   // physics: the part must resolve to sane numbers
   if (!errors.length && base && SLOTS.includes(it.slot)) {
     try {

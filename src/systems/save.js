@@ -103,20 +103,37 @@ export function migrate(data) {
   return { data: d, applied, newer: v > SCHEMA_VERSION ? v : null };
 }
 
+// Structural check of a whole save. Damaged individual items are not a
+// reason to refuse a save: normalizeProfile sets them aside (quarantine).
 export function validate(d) {
   const problems = [];
-  if (!d || typeof d !== 'object') return ['Save is not an object'];
+  const record = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+  if (!record(d)) return ['Save is not an object'];
   if (typeof d.version !== 'number') problems.push('Missing version');
-  if (!d.player || typeof d.player !== 'object') problems.push('Missing player');
-  if (!d.inventory || typeof d.inventory !== 'object') problems.push('Missing inventory');
+  if (!record(d.player)) problems.push('Missing player');
+  if (!record(d.inventory)) problems.push('Missing inventory');
   if (!Array.isArray(d.loadouts)) problems.push('Missing loadouts');
-  if (!d.beasts || typeof d.beasts !== 'object') problems.push('Missing beasts');
-  for (const [uid, it] of Object.entries(d.inventory || {})) {
-    if (!it || it.uid !== uid || typeof it.base !== 'string') { problems.push(`Corrupt item ${uid}`); break; }
-    if (!Number.isFinite(it.durability) || !Number.isFinite(it.maxDurability)) { problems.push(`Item ${uid} has invalid durability`); break; }
-  }
+  if (!record(d.beasts)) problems.push('Missing beasts');
   if (d.currency && (!Number.isFinite(d.currency.credits) || d.currency.credits < 0)) problems.push('Invalid currency');
   return problems;
+}
+
+// Last resort for a damaged save with no usable backup: keep everything that
+// can still be read (player, items, loadouts, progress) and reset only the
+// broken top-level blocks. Returns null when the data isn't a save at all.
+export function salvage(raw) {
+  const record = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+  if (!record(raw) || !(record(raw.player) || record(raw.inventory) || Array.isArray(raw.loadouts))) return null;
+  const d = structuredClone(raw);
+  if (!(Number.isInteger(d.version) && d.version >= 1)) d.version = SCHEMA_VERSION;
+  const { data } = migrate(d);
+  if (!record(data.player)) data.player = {};
+  if (!record(data.inventory)) data.inventory = {};
+  if (!Array.isArray(data.loadouts)) data.loadouts = [];
+  if (!record(data.beasts)) data.beasts = {};
+  if (!record(data.currency)) data.currency = {};
+  for (const k of ['credits', 'research']) if (!Number.isFinite(data.currency[k]) || data.currency[k] < 0) data.currency[k] = 0;
+  return data;
 }
 
 // ------------------------------------------------------------ manager
@@ -149,23 +166,36 @@ export class SaveManager {
     return { slots: out, lastSlot: meta.lastSlot };
   }
 
-  // Load a slot, migrating and validating; falls back to the backup copy.
+  // Load a slot, migrating and validating; falls back to the backup copy,
+  // then to salvaging what can still be read. `setAside` counts items that
+  // failed validation on this load (kept in profile.quarantine).
   async load(slot) {
+    const count = (q) => (q && typeof q === 'object' && !Array.isArray(q) ? Object.keys(q).length : 0);
+    const ready = (data) => {
+      const before = count(data.quarantine);
+      const p = normalizeProfile(data);
+      return { p, setAside: Math.max(0, count(p.quarantine) - before) };
+    };
     const tryParse = async (key) => {
       const raw = await this.store.get(key);
       if (!raw) return { ok: false, reason: 'empty' };
       try {
         const { data, applied, newer } = migrate(structuredClone(raw));
         const problems = validate(data);
-        if (problems.length) return { ok: false, reason: problems.join('; ') };
-        return { ok: true, data: normalizeProfile(data), migrated: applied, newer };
-      } catch (e) { return { ok: false, reason: e.message }; }
+        if (problems.length) return { ok: false, reason: problems.join('; '), raw };
+        const { p, setAside } = ready(data);
+        return { ok: true, data: p, migrated: applied, newer, setAside };
+      } catch (e) { return { ok: false, reason: e.message, raw }; }
     };
     const main = await tryParse(slot);
     if (main.ok) return { ...main, recovered: false };
     if (main.reason === 'empty') return { ok: false, reason: 'empty' };
     const backup = await tryParse(slot + '_backup');
     if (backup.ok) return { ...backup, recovered: true, reason: main.reason };
+    try {
+      const data = salvage(main.raw);
+      if (data) { const { p, setAside } = ready(data); return { ok: true, data: p, migrated: [], newer: null, setAside, recovered: false, salvaged: main.reason }; }
+    } catch { /* not salvageable */ }
     return { ok: false, reason: main.reason, corrupt: true };
   }
 

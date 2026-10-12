@@ -92,6 +92,8 @@ export class TitleScreen {
       return;
     }
     if (r.recovered) this.ui.toast('The latest save was damaged — restored the previous backup.', 'warn', 5000);
+    if (r.salvaged) this.ui.toast('This save was damaged and had no backup — recovered everything that could still be read.', 'warn', 6000);
+    if (r.setAside) this.ui.toast(`${r.setAside} damaged item${r.setAside > 1 ? 's were' : ' was'} set aside so the rest of your save loads.`, 'warn', 6000);
     if (r.migrated?.length) this.ui.toast(`Save upgraded from version ${r.migrated[0]}.`, 'info');
     if (r.newer) this.ui.toast(`This save comes from a newer version of the game (save format ${r.newer}). It loads, but anything this version doesn't know about may be lost when it saves.`, 'warn', 7000);
     this.app.setProfile(r.data, slot);

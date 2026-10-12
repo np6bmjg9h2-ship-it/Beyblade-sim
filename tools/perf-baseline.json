@@ -1,0 +1,15 @@
+{
+  "machine": {
+    "cpu": "Intel(R) Core(TM) i5-8365U CPU @ 1.60GHz",
+    "node": "v24.21.0"
+  },
+  "recorded": "2026-10-12",
+  "p50": {
+    "physics: 1 s of a two-top battle (120 ticks)": 15.59975,
+    "battle: AI vs AI round (12 s, headless)": 90.31845,
+    "loot: generate an item": 0.0565,
+    "loot: synergies and effects for a build": 0.0548,
+    "assembly: assemble a loot top": 0.0522,
+    "save: normalise a 220-item profile": 4.9644
+  }
+}

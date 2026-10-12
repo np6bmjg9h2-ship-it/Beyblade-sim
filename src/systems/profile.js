@@ -85,13 +85,23 @@ export function newProfile(seed = Date.now()) {
   return p;
 }
 
-// Fill in anything missing from older or damaged saves.
+const kindOf = (x) => (Array.isArray(x) ? 'array' : x === null ? 'null' : typeof x);
+const isRecord = (o) => kindOf(o) === 'object';
+const ITEM_HISTORY = { battles: 0, wins: 0, knockouts: 0, bursts: 0, burstsSurvived: 0, highestImpact: 0, longestSpin: 0, tournamentWins: 0, moments: [] };
+
+// Fill in anything missing from older or damaged saves. A field of the
+// default shape that holds the wrong kind of value (or a non-finite number)
+// is damaged and gets its default; fields whose default is null are
+// optional and keep whatever was saved.
 export function normalizeProfile(p) {
   const d = newProfileShape();
   const fill = (target, def) => {
     for (const [k, v] of Object.entries(def)) {
-      if (target[k] === undefined || target[k] === null && v !== null) target[k] = structuredClone(v);
-      else if (v && typeof v === 'object' && !Array.isArray(v) && typeof target[k] === 'object' && !Array.isArray(target[k])) fill(target[k], v);
+      const t = target[k];
+      if (t === undefined || (t === null && v !== null)) target[k] = structuredClone(v);
+      else if (v === null) continue;
+      else if (kindOf(t) !== kindOf(v) || (typeof v === 'number' && !Number.isFinite(t))) target[k] = structuredClone(v);
+      else if (isRecord(v)) fill(t, v);
     }
   };
   fill(p, d);
@@ -101,26 +111,44 @@ export function normalizeProfile(p) {
     if (!p.settings[k] || typeof p.settings[k] !== 'object') p.settings[k] = structuredClone(ds[k]);
     else if (ds[k]) for (const [kk, vv] of Object.entries(ds[k])) if (p.settings[k][kk] === undefined) p.settings[k][kk] = vv;
   }
-  if (!p.beasts.orrery) p.beasts.orrery = { id: 'orrery', bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {} };
-  for (const b of Object.values(p.beasts)) { b.stats = b.stats || {}; b.bondXp = b.bondXp || 0; }
+  // a damaged Bit-Beast record keeps the beast (ownership) with a fresh bond
+  for (const [id, b] of Object.entries(p.beasts)) {
+    if (!isRecord(b)) { p.beasts[id] = { id, bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {}, nickname: null }; continue; }
+    if (!isRecord(b.stats)) b.stats = {};
+    if (!Number.isFinite(b.bondXp) || b.bondXp < 0) b.bondXp = 0;
+  }
   for (const [uid, it] of Object.entries(p.inventory)) {
-    if (it && typeof it === 'object') {
-      it.history = it.history || { battles: 0, wins: 0, knockouts: 0, bursts: 0, burstsSurvived: 0, highestImpact: 0, longestSpin: 0, tournamentWins: 0, moments: [] };
-      it.history.moments = it.history.moments || [];
-      it.tuning = it.tuning || []; it.upgrades = it.upgrades || []; it.traits = it.traits || [];
-      if (it.slot === 'launcher' && !it.parts) it.parts = { drive: 100, trigger: 100, grip: 100 };
+    if (isRecord(it)) {
+      if (it.uid !== uid) it.uid = uid; // the inventory key is the item's identity
+      if (!isRecord(it.history)) it.history = structuredClone(ITEM_HISTORY);
+      for (const [k, v] of Object.entries(ITEM_HISTORY)) if (typeof v === 'number' && !Number.isFinite(it.history[k])) it.history[k] = v;
+      if (!Array.isArray(it.history.moments)) it.history.moments = [];
+      if (!Array.isArray(it.tuning)) it.tuning = [];
+      if (!Array.isArray(it.upgrades)) it.upgrades = [];
+      if (it.traits == null) it.traits = [];
+      if (it.slot === 'launcher' && !isRecord(it.parts)) it.parts = { drive: 100, trigger: 100, grip: 100 };
     }
     // impossible or corrupted items are set aside, not deleted (unequipped below)
     const v = validateItem(it);
     if (!v.ok) { p.quarantine[uid] = { item: it, errors: v.errors, at: Date.now() }; delete p.inventory[uid]; }
   }
-  // drop loadout references to items that no longer exist
-  for (const L of p.loadouts) {
-    for (const s of Object.keys(L.parts)) if (L.parts[s] && !p.inventory[L.parts[s]]) L.parts[s] = null;
-    if (L.launcher && !p.inventory[L.launcher]) L.launcher = null;
-    if (L.cable && !p.inventory[L.cable]) L.cable = null;
-    if (L.beast && !p.beasts[L.beast]) L.beast = 'orrery';
-  }
+  // repair damaged loadouts and drop references to items that no longer exist
+  const owned = (uid) => (typeof uid === 'string' && p.inventory[uid] ? uid : null);
+  p.loadouts = p.loadouts.filter(isRecord);
+  if (!p.loadouts.length) p.loadouts.push({ id: 'L1', name: 'Loadout 1', role: 'Balance', parts: {}, launcher: null, cable: null, beast: 'orrery', spin: 'R', technique: 'normal' });
+  p.loadouts.forEach((L, i) => {
+    if (!isRecord(L.parts)) L.parts = {};
+    for (const s of Object.keys(L.parts)) L.parts[s] = owned(L.parts[s]);
+    L.launcher = owned(L.launcher);
+    L.cable = owned(L.cable);
+    // no Bit-Beast is a valid choice (null); an unknown one falls back to Orrery
+    if (L.beast != null && !(typeof L.beast === 'string' && p.beasts[L.beast])) L.beast = L.beast ? 'orrery' : null;
+    if (L.spin !== 'R' && L.spin !== 'L') L.spin = 'R';
+    if (typeof L.technique !== 'string') L.technique = 'normal';
+    if (typeof L.name !== 'string') L.name = `Loadout ${i + 1}`;
+    if (typeof L.id !== 'string') { let n = i + 1; while (p.loadouts.some((o) => o.id === `L${n}`)) n++; L.id = `L${n}`; }
+  });
+  if (!Number.isInteger(p.activeLoadout) || p.activeLoadout < 0 || p.activeLoadout >= p.loadouts.length) p.activeLoadout = 0;
   p.version = SCHEMA_VERSION;
   return p;
 }
