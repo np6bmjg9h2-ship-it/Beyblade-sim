@@ -18,13 +18,20 @@ const ALL_BASES = [...PARTS, ...LAUNCHERS, ...CABLES];
 
 // Relic rarity is reserved for the handcrafted relics (data/relics.js):
 // random drops, packs, the Forge and daily deals never roll it.
+// Each rarity's weight grows as k^rank, so the slope per tier must stay small:
+// 0.55 per tier gave 26% Legendary-or-better at tier 2 and 53% at tier 4
+// (tools/loot-sim.js, 2026-10-13). Now: about 3% at tier 0, 10% at tier 4.
+export const RARITY_CURVE = { perTier: 0.11, perLuck: 0.2 };
 export function rarityWeights(tier = 0, luck = 0) {
-  const k = 1 + tier * 0.55 + luck;
+  const k = 1 + tier * RARITY_CURVE.perTier + luck * RARITY_CURVE.perLuck;
   return RARITIES.map((r, i) => ({ id: r.id, weight: r.id === 'relic' ? 0 : r.weight * dm.pow(k, i) * (i >= 5 && tier < 2 ? 0.2 : 1) }));
 }
 
-export function rollRarity(rng, tier = 0, luck = 0, min = null) {
+// boost: weight multipliers for Epic-or-better and Legendary-or-better
+// (the soft bad-luck ramp).
+export function rollRarity(rng, tier = 0, luck = 0, min = null, boost = null) {
   let pool = rarityWeights(tier, luck).filter((r) => r.weight > 0);
+  if (boost) pool = pool.map((r) => ({ id: r.id, weight: r.weight * (rarityRank(r.id) >= rarityRank('legendary') ? boost.legendary : rarityRank(r.id) >= rarityRank('epic') ? boost.epic : 1) }));
   if (min) pool = pool.filter((r) => rarityRank(r.id) >= rarityRank(min));
   if (!pool.length) return 'mythic';
   return rng.weighted(pool).id;
@@ -39,7 +46,17 @@ export function rollBase(rng, { tier = 0, favour = [], favourSets = [], slots = 
 
 // Bad-luck protection: after this many drops without an Epic-or-better
 // (Legendary-or-better) item, the next random drop is at least that rarity.
+// Before that, a soft ramp raises the odds a little with every dry drop, so
+// most droughts end before the hard guarantee.
 export const PITY = { epic: 20, legendary: 60 };
+export const SOFT_PITY = { epic: { from: 10, step: 0.15 }, legendary: { from: 30, step: 0.08 } };
+
+export function pityBoost(profile) {
+  const P = profile.seeds.pity || { epic: 0, legendary: 0 };
+  const ramp = (n, s) => 1 + Math.max(0, n - s.from) * s.step;
+  const legendary = ramp(P.legendary, SOFT_PITY.legendary);
+  return { epic: ramp(P.epic, SOFT_PITY.epic), legendary: Math.max(legendary, ramp(P.epic, SOFT_PITY.epic)) };
+}
 
 function pityFloor(profile, rarity) {
   const P = profile.seeds.pity || (profile.seeds.pity = { epic: 0, legendary: 0 });
@@ -61,7 +78,7 @@ export function rollLoot(profile, source) {
   const seed = mixSeeds(profile.seeds.loot, counter, source.label || 'loot');
   const rng = new Rng(seed);
   const base = source.base ? ALL_BASES.find((b) => b.id === source.base) : rollBase(rng, source);
-  let rarity = source.rarity || rollRarity(rng, source.tier ?? 0, source.luck ?? 0, source.minRarity);
+  let rarity = source.rarity || rollRarity(rng, source.tier ?? 0, source.luck ?? 0, source.minRarity, pityBoost(profile));
   if (!source.rarity) { rarity = pityFloor(profile, rarity); countPity(profile, rarity); }
   const level = Math.max(1, Math.round((source.level ?? profile.player.level) + rng.int(-2, 2)));
   let set;

@@ -86,7 +86,7 @@ export class SettingsScreen {
         rows.append(
           toggle('High-contrast UI', S.gameplay.highContrast, (v) => { S.gameplay.highContrast = v; commit(); }),
           toggle('Colour-blind friendly meters', S.gameplay.colorblind, (v) => { S.gameplay.colorblind = v; commit(); }, { desc: 'Uses blue/orange instead of green/red and adds patterns to critical meters.' }),
-          toggle('Reduced effects', S.graphics.reducedEffects, (v) => { S.graphics.reducedEffects = v; commit(); }),
+          toggle('Reduced effects', S.graphics.reducedEffects, (v) => { S.graphics.reducedEffects = v; commit(); }, { desc: 'Fewer particles and flashes, and no freeze-frame on heavy hits. Finish callouts and sounds stay.' }),
           toggle('Slow-motion on impacts', S.gameplay.slowmo, (v) => { S.gameplay.slowmo = v; commit(); }),
         );
         break;

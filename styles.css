@@ -342,6 +342,11 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 2px soli
 .bn-finish { font: 400 66px/1 var(--display); color: var(--gold); letter-spacing: 0.05em; text-shadow: var(--ol3), 6px 6px 0 var(--hot); }
 .bn-winner { display: inline-block; font: italic 700 19px var(--ui); letter-spacing: 0.05em; text-transform: uppercase; margin: 10px 0 12px; padding: 2px 16px; background: var(--ink); color: #fff; transform: skewX(-12deg); }
 .bn-expl { font-size: 14px; color: #dce4f7; line-height: 1.45; }
+.result-why { font: italic 700 20px var(--ui); color: #fff; margin: 0 0 8px; letter-spacing: 0.02em; }
+.result-why .advice { font: 400 15px var(--ui); color: #aab6d4; font-style: normal; }
+.big-text .why-tag { font: italic 700 30px/1.2 var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: #fff; text-shadow: var(--ol3); margin-top: 10px; text-align: center; opacity: 0; animation: whyin 0.25s ease-out 0.15s forwards; }
+@keyframes whyin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) { .big-text .why-tag { font-size: 20px; } .result-why { font-size: 17px; } }
 .bn-adapt { font-size: 13px; color: var(--warn); margin-top: 6px; }
 .bn-cont { margin-top: 14px; color: #c4cde8; font: italic 700 13px var(--ui); letter-spacing: 0.05em; text-transform: uppercase; }
 .pause-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: var(--tone-dark); }

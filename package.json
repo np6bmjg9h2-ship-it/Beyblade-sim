@@ -16,7 +16,9 @@
     "balance:check": "node tools/balance-par.js 6 all --check 25-70",
     "test:deep": "node tools/test-deep.js",
     "perf": "node tools/perf.js",
-    "perf:check": "node tools/perf.js --check"
+    "perf:check": "node tools/perf.js --check",
+    "fairness": "node tools/fairness.js",
+    "loot:sim": "node tools/loot-sim.js"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

@@ -63,11 +63,14 @@ export class HitStop {
 
   reset() { this.left = 0; this.suppressed = false; }
 
-  // Advance real time by dt; returns the factor for the battle's dt.
+  // Advance real time by dt; returns the factor for the battle's dt. The
+  // last frame of a freeze is only partly frozen, so a freeze lasts exactly
+  // its length instead of rounding up to whole frames.
   step(dt) {
     this.t += dt;
-    if (this.left <= 0) return 1;
+    if (this.left <= 0 || !(dt > 0)) return 1;
+    const f = this.left >= dt ? 1 : this.left / dt;
     this.left -= dt;
-    return HIT_STOP.slow;
+    return f === 1 ? HIT_STOP.slow : 1 - f * (1 - HIT_STOP.slow);
   }
 }

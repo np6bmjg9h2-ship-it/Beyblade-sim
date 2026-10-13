@@ -155,6 +155,28 @@ export class AudioEngine {
     this.noise(0.08 + 0.12 * k, { type: 'highpass', freq: 2500, gain: 0.25 * (0.3 + k) });
     if (k > 0.5) this.noise(0.25, { type: 'lowpass', freq: 220, gain: 0.35 * k * (1 - 0.6 * glance) });
     if (k > 0.6) this.cheer(k);
+    if (impulse >= 0.06) this.thump(impulse);
+  }
+
+  // Low body under a heavy hit (contact-feel spec 2): a short sine drop that
+  // gets louder and lower up to impulse 0.2. Throttled so a rally can't stack voices.
+  thump(impulse) {
+    if (!this.ok) return;
+    const now = this.ctx.currentTime;
+    if (now - (this._thumpAt ?? -1) < 0.09) return;
+    this._thumpAt = now;
+    const k = Math.min(1, Math.max(0, (impulse - 0.06) / 0.14));
+    this.tone(90 - 20 * k, 0.12, { type: 'sine', gain: 0.2 + 0.2 * k, attack: 0.003, slideTo: 45 - 8 * k });
+  }
+
+  // Short swell of crowd noise for a ring-out. Rides the ambience bus.
+  crowdGasp(strength = 1) {
+    if (!this.ok) return;
+    const now = this.ctx.currentTime;
+    if (now - (this._gaspAt ?? -1) < 0.5) return;
+    this._gaspAt = now;
+    const k = Math.min(1.5, Math.max(0, strength));
+    this.noise(0.6, { type: 'bandpass', freq: 500, sweepTo: 1500, q: 0.7, gain: 0.2 * k, attack: 0.22, dest: this.amb });
   }
 
   wall(impulse) {
@@ -182,6 +204,7 @@ export class AudioEngine {
 
   ringOut() {
     this.tone(600, 0.6, { type: 'sawtooth', gain: 0.08, slideTo: 120 });
+    this.crowdGasp(1);
     this.cheer(1);
   }
 

@@ -18,6 +18,7 @@ import { beastImg, fmtTime, fmtRpm } from '../widgets.js';
 import { ResultsScreen, BattleScreenRef } from './results.js';
 import { SettingsScreen } from './settings.js';
 import { HitStop } from '../hitStop.js';
+import { whyTag, makeTagTracker } from '../../game/whyTag.js';
 
 const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', mechanism: 'Part mechanisms', damping: 'Wobble damping', clamp: 'Safety limits', numerical: 'Numerical' };
 
@@ -104,8 +105,9 @@ export class BattleScreen {
     // with slow motion off, and with Reduce effects on
     const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
     this.hitStop = new HitStop({ phone: coarse });
-    this.hitStopOn = !s.labTools && !s.replayTools && battle.rules.slowmo !== false && !app.settings.gameplay.reduceEffects;
+    this.hitStopOn = !s.labTools && !s.replayTools && battle.rules.slowmo !== false && !app.settings.graphics.reducedEffects;
     this.biggestHit = 0;
+    this.tagTracker = makeTagTracker();
     battle.on('roundStart', () => this.onRoundStart());
     battle.on('*', (type, e) => this.onEvent(type, e));
     battle.update(0);
@@ -184,6 +186,7 @@ export class BattleScreen {
     const app = this.app;
     const b = this.battle;
     app.renderer.onBattleEvent(type, e, b);
+    this.tagTracker?.onEvent(type, e, b.battleTime);
     if (this.objectives) this.objectives.onEvent(type, e, b, b.fighters.findIndex((f) => f.human));
     if (this.session.labTools && type === 'launch' && e.fighter.human) this.logLaunch(e.result);
     const human = b.fighters.find((f) => f.human);
@@ -251,7 +254,12 @@ export class BattleScreen {
         this.hitStop?.finish();
         if (e.how === 'burst') app.audio.burst();
         else if (e.how === 'out') app.audio.ringOut();
-        this.bigText(e.how === 'burst' ? 'SHATTER!' : e.how === 'out' ? 'RING OUT!' : 'SPIN FINISH!', 'finish');
+        {
+          // the tag under the finish word: why the other top won (1v1 only)
+          const others = b.fighters.filter((f) => f !== e.fighter && f.top?.active);
+          const why = others.length === 1 ? whyTag(b, { winner: others[0], loser: e.fighter, how: e.how }, this.tagTracker) : null;
+          this.bigText(e.how === 'burst' ? 'SHATTER!' : e.how === 'out' ? 'RING OUT!' : 'SPIN FINISH!', 'finish', why?.tag);
+        }
         if (involvesHuman(e.fighter)) app.input.rumble(1, 1, 400);
         break;
       case 'roundEnd': this.showRoundResult(e); this.ui.refreshPrompts(); break;
@@ -526,13 +534,24 @@ export class BattleScreen {
     while (this.notifs.length > 4) this.notifs.shift().el.remove();
   }
 
-  bigText(text, kind) {
-    const el = h('div', { class: 'big-text ' + kind }, text);
+  bigText(text, kind, sub = null) {
+    const el = h('div', { class: 'big-text ' + kind }, text, sub ? h('div', { class: 'why-tag' }, sub) : null);
     this.el.append(el);
-    setTimeout(() => el.remove(), 1200);
+    setTimeout(() => el.remove(), sub ? 1800 : 1200);
   }
 
   // ------------------------------------------------------------ round / match
+
+  // One bold line on the round card: why the round was won, with a hint
+  // when the player lost.
+  roundWhy(rr) {
+    const b = this.battle;
+    if (rr.winner == null || b.fighters.length !== 2) return null;
+    const winner = b.fighters[rr.winner], loser = b.fighters[1 - rr.winner];
+    const why = whyTag(b, { winner, loser, how: rr.how }, this.tagTracker);
+    if (!why) return null;
+    return h('div', { class: 'result-why' }, why.tag, loser.human && why.advice ? h('span', { class: 'advice' }, ` · ${why.advice}`) : null);
+  }
 
   showRoundResult(rr) {
     const b = this.battle;
@@ -543,6 +562,7 @@ export class BattleScreen {
     bn.append(
       h('div', { class: 'bn-finish' }, FINISH_NAMES[rr.how] || rr.how),
       h('div', { class: 'bn-winner' }, winner ? `${winner.name} wins the round` : 'Draw'),
+      this.roundWhy(rr),
       h('div', { class: 'bn-expl' }, rr.explanation),
       ...(rr.adapt || []).filter((a) => !b.fighters[a.index].human).map((a) => h('div', { class: 'bn-adapt' }, `${a.name} adapts: ${a.note}.`)),
       h('div', { class: 'bn-cont' }, h('kbd', {}, this.app.input.glyph('confirm', 'menu')), b.phase === 'matchOver' ? ' Match summary' : ' Next round'));
