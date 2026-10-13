@@ -9,6 +9,7 @@ import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { aiReleaseCharge, MAX_LEAN } from './launch.js';
 import * as dm from '../core/dmath.js';
 import { TECHNIQUE_DEFS } from './abilities.js';
+import { openness } from './skillRules.js';
 
 const CLASH_BAND = 0.15; // as battle.js: a striker must close this much faster
 
@@ -108,11 +109,11 @@ export class AIController {
 
   // ------------------------------------------------------------ battle
 
-  observe(t, me, opp, meSpirit, oppSpirit, oppWindup = null) {
+  observe(t, me, opp, meSpirit, oppSpirit, oppWindup = null, oppOpen = 0) {
     this.history.push({
       t,
       opp: { p: opp.p.clone(), v: opp.v.clone(), spinFrac: opp.spinFraction(), active: opp.active, spirit: oppSpirit,
-        windup: oppWindup ? { dx: oppWindup.dir.x, dz: oppWindup.dir.z, startT: oppWindup.startT } : null },
+        windup: oppWindup ? { dx: oppWindup.dir.x, dz: oppWindup.dir.z, startT: oppWindup.startT } : null, open: oppOpen },
       me: { p: me.p.clone(), v: me.v.clone(), spinFrac: me.spinFraction(), spirit: meSpirit },
     });
     while (this.history.length > 2 && this.history[1].t <= t - this.profile.reaction) this.history.shift();
@@ -171,7 +172,7 @@ export class AIController {
     const P = this.profile;
     const { time, me, opp, arena, ability, oppAbility } = ctx;
     if (P.passive) return c;
-    this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0, oppAbility?.windup);
+    this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0, oppAbility?.windup, openness(opp.top, opp.assembly?.summary?.critSpin).degree);
     const snap = this.delayed();
     if (!snap || !me.top.active) return c;
 
@@ -207,7 +208,7 @@ export class AIController {
 
     if (time >= this.nextDecision) {
       this.nextDecision = time + P.decisionInterval * this.rng.range(0.8, 1.2);
-      this.decide({ dist, closing, myR, oppR, mySpin, oppSpin, snap, me, oppF: opp, arena, ability, oppAbility });
+      this.decide({ time, dist, closing, myR, oppR, mySpin, oppSpin, snap, me, oppF: opp, arena, ability, oppAbility });
     }
 
     // steering target per plan
@@ -341,6 +342,16 @@ export class AIController {
     if (proj != null && proj > 0.12) { u.attack *= 0.35; u.koPush *= 0.5; u.center += 0.45 + proj; }
     // ...and one that would be outlasted leaves its comfortable spot to fight
     if (proj != null && proj < -0.15) u.center *= 0.5;
+    // reads (HUD-visible, seen `reaction` late, each a chance so the AI also
+    // misses): an open opponent (wobbling, critical, airborne) is worth
+    // attacking, and so is one that just whiffed a counter or had its dash
+    // broken (its counter is locked for 2.2 s)
+    const readSkill = P.readSkill ?? Math.min(0.95, 0.35 + 0.5 * (P.counterSkill || 0));
+    this.opening = false;
+    const openDeg = s.snap.opp.open || 0;
+    if (openDeg > 0 && this.rngRead.chance(readSkill)) { u.attack += 0.8 * openDeg; this.opening = true; }
+    const since = s.time - (oppAbility?.exposedAt ?? -9);
+    if (since > P.reaction && since < TECHNIQUE_DEFS.counter.whiff && this.rngRead.chance(readSkill)) { u.attack += 1.0 * readSkill; this.opening = true; }
     // hysteresis
     u[this.plan] = (u[this.plan] || 0) + 0.12;
     let best = 'center', bv = -1;
@@ -363,6 +374,8 @@ export class AIController {
     }
     // dash: committed attack inside striking range
     if (this.plan === 'attack' && dist > 0.045 && dist < 0.14 && rng.chance(P.dashUse * 0.35)) this.wantDash = true;
+    // an opening is worth committing to, from further out
+    if (this.plan === 'attack' && this.opening && dist > 0.045 && dist < 0.2 && this.rngRead.chance(0.3 + 0.5 * P.dashUse)) this.wantDash = true;
     if (this.plan === 'koPush' && dist < 0.08) {
       // only dash when lined up behind the opponent along the push direction
       const ax = (opp.p.x - me.top.p.x) / Math.max(1e-4, dist), az = (opp.p.z - me.top.p.z) / Math.max(1e-4, dist);

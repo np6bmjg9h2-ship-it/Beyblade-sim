@@ -47,6 +47,7 @@ export class AbilityRuntime {
     this.forces = []; // { dir, magnitude, remaining }
     this.bracing = false;
     this.windup = null; // { remaining, dir, startT }: a dash coiling
+    this.exposedAt = -9; // battle time of the last whiffed counter or broken dash (punishable)
     this.log = [];
     this.lastActivation = null;
     this.bondPower = beast ? 1 + (beast.bondLevel >= 7 ? 0.08 : 0) : 1;
@@ -269,6 +270,7 @@ export class AbilityRuntime {
         this.cool.counter = this.counter.source === 'technique' ? TECHNIQUE_DEFS.counter.whiff : this.cool.counter;
         top.nextHitStressMul = 1;
         this.counter = null;
+        this.exposedAt = this.f.battle.battleTime;
         this.f.battle.emit('counterWhiff', { fighter: this.f });
       }
     }
@@ -312,6 +314,7 @@ export class AbilityRuntime {
       this.windup = null;
       f.mods.removeTimed('dashWindup');
       this.cool.dash = TECHNIQUE_DEFS.dash.interruptCool;
+      this.exposedAt = f.battle.battleTime;
       f.battle.emit('dashInterrupted', { fighter: f, by: opponentAbility?.f });
     }
     // counter triggers: only on a hit the opponent made

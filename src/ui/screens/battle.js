@@ -236,6 +236,11 @@ export class BattleScreen {
       case 'abilityHit': this.notify(`${e.def.name} hit!`, 'crit'); break;
       case 'technique': if (e.name === 'dash') { if (e.phase === 'windup') { app.audio.dashWindup(); this.warnIncoming(e); } else app.audio.dash(); } break;
       case 'dashInterrupted': this.notify(`${e.fighter.name}: dash broken!`, involvesHuman(e.fighter) ? 'bad' : 'good'); break;
+      case 'skillMoment': {
+        const label = { openingStrike: 'OPENING STRIKE', punish: 'PUNISHED', interrupt: 'DASH BROKEN' }[e.kind];
+        if (label && involvesHuman(e.fighter)) this.notify(`${label} +10 spirit`, 'gold');
+        break;
+      }
       case 'staggered': this.notify(`${e.fighter.name} staggers!`, involvesHuman(e.fighter) ? 'bad' : 'gold'); break;
       case 'counter': app.audio.counter(); this.notify(`${e.fighter.name}: COUNTER!`, 'gold'); if (involvesHuman(e.fighter)) this.freeze(0, true); break;
       case 'counterWhiff': if (involvesHuman(e.fighter)) this.notify('Counter missed', 'info'); break;

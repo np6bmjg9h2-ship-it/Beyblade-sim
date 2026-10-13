@@ -53,7 +53,7 @@ function run(c, dtAt, limit = TICKS) {
     b.update(dtAt(k++), []);
     if (b.phase === 'roundOver') b.nextRound();
   }
-  return { b, hashes, frames: k };
+  return { b, hashes, frames: k, n };
 }
 
 function hitStopLike() {
@@ -89,7 +89,8 @@ const PATTERNS = {
 test('tick state is bit-identical at equal tick counts under very different dt patterns', () => {
   for (const c of CASES) {
     const ref = run(c, () => 1 / 60);
-    assert.ok(ref.b.sim.tickCount >= EVERY * 5, `reference battle ran (${ref.b.sim.tickCount} ticks, seed ${c[0]})`);
+    // n counts every round's ticks (b.sim.tickCount restarts each round)
+    assert.ok(ref.n >= EVERY * 5, `reference battle ran (${ref.n} ticks, seed ${c[0]})`);
     assert.ok(ref.hashes.size >= 5);
     for (const [name, make] of Object.entries(PATTERNS)) {
       const got = run(c, make());

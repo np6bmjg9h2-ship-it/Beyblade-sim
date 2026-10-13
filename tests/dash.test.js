@@ -107,7 +107,8 @@ test('the AI reads dash windups: a skilled counter AI stops many, an easier one 
   const hard = total('counter', 1.3), easy = total('counter', 0.8);
   assert.ok(hard.gos >= 15 && easy.gos >= 15, `enough dashes: ${hard.gos}, ${easy.gos}`);
   const rh = hard.counters / hard.gos, re = easy.counters / easy.gos;
-  assert.ok(rh >= 0.25, `difficulty 1.3 counters ${(rh * 100).toFixed(0)}% of dashes`);
+  // (S5: the counter AI now also attacks openings, so it waits to be struck less often)
+  assert.ok(rh >= 0.18, `difficulty 1.3 counters ${(rh * 100).toFixed(0)}% of dashes`);
   assert.ok(rh > re, `harder reads better (${(rh * 100).toFixed(0)}% vs ${(re * 100).toFixed(0)}%)`);
   assert.ok(rh <= 0.75, 'a dash is still worth trying');
 });

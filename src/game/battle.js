@@ -11,6 +11,7 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { Vec3, clamp } from '../core/math.js';
 import { Arena } from '../physics/arena.js';
 import { TopBody } from '../physics/topBody.js';
+import { openness, SKILL_SPIRIT, PUNISH_WINDOW } from './skillRules.js';
 import { Simulation, TICK } from '../physics/simulation.js';
 import { ARENA_INDEX } from '../data/arenas.js';
 import { BEAST_INDEX } from '../data/beasts.js';
@@ -610,6 +611,15 @@ export class Battle extends Emitter {
     }
   }
 
+  // A visible, rewarded piece of skill: spirit for the bonus kinds, a count
+  // in the fighter's stats, and an event the HUD and tags can show.
+  skillMoment(f, kind, J = 0) {
+    if (SKILL_SPIRIT[kind]) f.ability.gain(SKILL_SPIRIT[kind]);
+    f.stats.skillMoments = f.stats.skillMoments || {};
+    f.stats.skillMoments[kind] = (f.stats.skillMoments[kind] || 0) + 1;
+    this.emit('skillMoment', { fighter: f, kind, t: this.battleTime, J });
+  }
+
   onTopContact(e) {
     const fa = this.fighterOf(e.A), fb = this.fighterOf(e.B);
     const J = e.impulse;
@@ -627,8 +637,23 @@ export class Battle extends Emitter {
       } else f.ability.gain(Math.min(2, J * 60));
     }
     if (e.type === 'impact') {
+      // skill moments the striker earned, judged before the abilities react
+      const struckF = striker ? (striker === fa ? fb : fa) : null;
+      const moments = [];
+      if (striker) {
+        if (J >= 0.015 && !(this.battleTime < (striker.openingGuard ?? -1)) && openness(struckF.top, struckF.assembly.summary.critSpin).open) {
+          moments.push('openingStrike');
+          striker.openingGuard = this.battleTime + 1.5;
+        }
+        if (this.battleTime - struckF.ability.exposedAt <= PUNISH_WINDOW) moments.push('punish');
+      }
+      const coiling = struckF?.ability.windup, cA = fa.stats.counters, cB = fb.stats.counters;
       fa.ability.onImpact(e, fb.ability, striker === fb);
       fb.ability.onImpact(e, fa.ability, striker === fa);
+      if (coiling && !struckF.ability.windup) moments.push('interrupt');
+      for (const kind of moments) this.skillMoment(striker, kind, J);
+      if (fa.stats.counters > cA) this.skillMoment(fa, 'counter', J);
+      if (fb.stats.counters > cB) this.skillMoment(fb, 'counter', J);
       this.riftFx?.onImpact(fa, fb, e);
       this.itemFx?.onImpact(fa, fb, e);
       const critical = J > 0.06;
