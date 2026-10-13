@@ -112,10 +112,13 @@ export function judgeRelease(gear, techId, c) {
   const dev = c - PERFECT_CENTER;
   let label, energyMul, varMul;
   if (!gear.fixedPower && c >= gear.misfire) { label = 'Misfire'; energyMul = 0.45; varMul = 3.2; }
-  else if (Math.abs(dev) <= w) { label = 'Perfect'; energyMul = c + 0.04 + gear.mods.perfectBonus; varMul = 0.35; }
+  // Perfect is the best safe release (full energy wherever it lands in the
+  // window); a Good release is clearly weaker, a late Good no longer beats a
+  // Perfect, and Overcharge is the greedy gamble near the misfire cliff.
+  else if (Math.abs(dev) <= w) { label = 'Perfect'; energyMul = 1 + gear.mods.perfectBonus; varMul = 0.35; }
   else if (c > 1) { label = 'Overcharge'; energyMul = 1 + (c - 1) * 1.25; varMul = 1 + (c - 1) * 9; }
-  else if (c >= 0.75) { label = 'Good'; energyMul = c; varMul = 1 + gear.mods.missPenalty; }
-  else { label = 'Weak'; energyMul = Math.max(0.25, c); varMul = 1.35 + gear.mods.missPenalty; }
+  else if (c >= 0.75) { label = 'Good'; energyMul = dm.pow(Math.min(c, 0.97), 1.3); varMul = 1 + gear.mods.missPenalty; }
+  else { label = 'Weak'; energyMul = Math.max(0.2, dm.pow(Math.max(0, c), 1.6)); varMul = 1.35 + gear.mods.missPenalty; }
   if (T.perfectOnly && label !== 'Perfect') varMul *= 2.4;
   return { label, energyMul, varMul, deviation: dev, window: w, perfect: label === 'Perfect' };
 }
