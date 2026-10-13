@@ -1,17 +1,64 @@
-# Handoff — 2026-10-13
+# Handoff — 2026-10-13 (evening)
 
-Where everything stands and how to pick each piece back up. Read this
-first in a new session; `docs/STATUS.md` has the long-term picture.
+Read this first in a new session; `docs/STATUS.md` has the long-term picture.
 
-## At a glance
+## Where we stopped
 
-| Work | State | Next step |
-|---|---|---|
-| Research round (6 reports + 4 team reviews) | **Done**, filed in `../Beyblade-sim-research/2026-10-13/` | Work through `reports/improvement-plan.md` |
-| Same battle on every device (deterministic maths, replay v2, Workshop undo fix) | **Done** on the main branch | — |
-| Daily Seed (loot engine M5) | **Paused by request**, kept on branch `wip/daily-seed` (pushed) | Only if the user asks to bring it back |
-| `/doctor` cleanup | **Applied** 2026-10-13 (user: "Cleanup everything") | User: `/mcp` connectors and claude.ai synced plugins, see section 4 |
-| Permissions | **Applied** 2026-10-13: `defaultMode: auto` in `~/.claude/settings.json` (user asked) | — |
+Working on **skill over RPM** (spec: `.claude/research/reviews/skill-loop-spec.md`,
+build order S0-S9). Baseline (`npm run fairness`, 2,800 battles,
+`../Beyblade-sim-research/2026-10-13/reports/fairness-baseline.txt`): a
+no-input bot wins 46-57% vs the AI at every difficulty (target < 30%),
+difficulty steps flat (target >= 10 pts each), gear curve OK (Epic 66%).
+
+| Step | State |
+|---|---|
+| S1 launch judging (Perfect = best safe release) | committed c2a3311 |
+| S2 strike attribution, counters only when struck, stagger, RULES_REV 2 | committed 19d255e |
+| S3 spirit earned (passive 2.0 -> 1.0/s, struck 0.5x, clash 0.75x, Good launch +4) + AI counter read every tick (`readCounter`, own RNG stream) | **committed locally, NOT pushed: run `npm run balance:check` and `npm run test:browser` first, then push** |
+| Next | re-run `npm run fairness --n 200`; then S4 dash commitment + telegraphs, S5 openings/punish + AI reads, S6 terrain AI, S7 physics knobs, S8 Decision initiative weighting + format (user decision), S9 playtest |
+
+AI counter read result (12 bo3, counter vs striker at 1.3): 80 presses, 43
+counters landed (was 5 presses, 0 landed).
+
+Open user decisions (spec 5c): default format Points Race vs best of 3;
+dash windup 0.15 vs 0.12 s; passive spirit (1.0/s used, spec says 0.8);
+steering limited by tip grip (P10).
+
+## Done today (pushed)
+
+- Rendering: no double MSAA, composer/ink follow render scale, render stats
+  in the debug panel. Hit-stop (`src/ui/hitStop.js`), exact-length freezes.
+- Contact feel: "why it won" tags (`src/game/whyTag.js`), heavy-hit thump,
+  ring-out gasp, Accessibility > Reduced effects turns hit-stop off.
+- Names: Spirit Chip, spinner, countdown READY! SET! SPIN!!!
+- Loot curve: Legendary+ 3.5% (tier 0) to 10.1% (tier 4), soft bad-luck
+  ramp; `npm run loot:sim`. `npm run fairness` tool.
+- `/doctor` cleanup applied; `defaultMode: auto` set (the user presses
+  Shift+Tab in this old session; new sessions start in auto).
+
+## Agents
+
+Rules (Claude's memory: agent-team, agent-takeover, strict-boss): worktrees
+in `.claude/worktrees/<name>` (inside the project), every brief says read
+`.claude/research/reviews/LESSONS.md` and message `team-lead` when stuck,
+stuck 1-2 min = Claude takes over. Shell-using agents froze today (likely
+invisible permission prompts before auto mode); web-search/read-only agents
+work. A stray folder `.claude/worktrees$n` holds only a node_modules
+junction: leave it, or remove the junction with `cmd /c rmdir` (never a
+recursive delete, which would follow the link).
+Running at the break: fp-gen, fp-design, fp-tech (research for the user's
+first-person labyrinth Rift idea, reports to `.claude/research/reviews/
+fp-rift-*.md`; file into the research records when done).
+
+## Plans queued after skill over RPM
+
+Inventory sort/filter/bulk dismantle; Rift M6 (`rift-m6-spec.md`); playable
+build for the user; then graphics phase in the agreed order (Claude's
+memory next-phase-graphics): upgrade three.js (explain the install to the
+user), WebGPU trial + Blender rings/launchers (`ring-redesign-spec.md`,
+refs in `.claude/research/refs-web/`), built-in WebGPU effects; abilities
+feel (`ability-feel-spec.md`); launcher spec still unwritten (agent
+stalled). Then the first-person Rift.
 
 ## 1. Research and the plan
 

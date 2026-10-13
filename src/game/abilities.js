@@ -24,6 +24,7 @@ export const TECHNIQUE_DEFS = {
   surge: { name: 'Spirit Surge', cost: 25, cooldown: 4, duration: 2.5, desc: '25 spirit: steering force +60% and steering efficiency +50% for 2.5 s.' },
 };
 
+export const PASSIVE_SPIRIT = 1.0; // per second
 const _v = new Vec3();
 
 export class AbilityRuntime {
@@ -236,8 +237,9 @@ export class AbilityRuntime {
   update(dt, ctx) {
     for (const k in this.cool) if (this.cool[k] > 0) this.cool[k] = Math.max(0, this.cool[k] - dt);
     const top = this.f.top;
-    // passive spirit charge while spinning
-    if (top.active && this.enabled) this.gain(dt * 2.0);
+    // passive spirit charge while spinning (was 2.0/s: abilities came on a
+    // timer; now most spirit comes from striking, countering and launching)
+    if (top.active && this.enabled) this.gain(dt * PASSIVE_SPIRIT);
     // channel
     if (this.channel) {
       this.channel.remaining -= dt;

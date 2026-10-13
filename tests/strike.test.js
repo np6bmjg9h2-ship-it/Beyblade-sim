@@ -25,8 +25,10 @@ function counterMasher(seed) {
   });
   b.headless = true;
   const impacts = [], counters = [];
-  b.on('impact', (e) => impacts.push(e));
-  b.on('counter', (e) => counters.push({ f: e.fighter, t: b.battleTime, impact: impacts.at(-1) }));
+  // a counter is emitted just before the impact event it belongs to
+  let pending = null;
+  b.on('counter', (e) => { pending = { f: e.fighter, t: b.battleTime, impact: null }; counters.push(pending); });
+  b.on('impact', (e) => { impacts.push(e); if (pending) { pending.impact = e; pending = null; } });
   const c = emptyControls();
   let guard = 0;
   while (b.phase !== 'matchOver' && guard++ < 20000) {
@@ -69,9 +71,9 @@ test('mashing counter rarely pays; AI counters land on real strikes', () => {
     const b = new Battle({ arenaId: 'standard', format: 'bo3', seed, roundTime: 40, rules: { slowmo: false },
       participants: [participantFromDef(ARCHETYPE_INDEX.counter, { id: 'a', difficulty: 1.3 }), participantFromDef(ARCHETYPE_INDEX.striker, { id: 'b', difficulty: 1.3 })] });
     b.headless = true;
-    let last = null;
-    b.on('impact', (e) => { last = e; });
-    b.on('counter', (e) => { ai++; assert.ok(last?.striker && last.striker !== e.fighter, 'AI counter on an opponent strike'); });
+    let pending = null;
+    b.on('counter', (e) => { ai++; pending = e.fighter; });
+    b.on('impact', (e) => { if (pending) { assert.ok(e.striker && e.striker !== pending, 'AI counter on an opponent strike'); pending = null; } });
     b.runHeadless();
   }
   assert.ok(ai > 0, 'AI counters still happen');

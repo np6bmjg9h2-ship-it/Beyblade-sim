@@ -3,11 +3,14 @@
 // re-plans at a personality-specific interval rather than every frame.
 
 import { Vec3, clamp } from '../core/math.js';
-import { Rng } from '../core/rng.js';
+import { Rng, mixSeeds } from '../core/rng.js';
 import { scaledProfile } from '../data/aiProfiles.js';
 import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { aiReleaseCharge, MAX_LEAN } from './launch.js';
 import * as dm from '../core/dmath.js';
+import { TECHNIQUE_DEFS } from './abilities.js';
+
+const CLASH_BAND = 0.15; // as battle.js: a striker must close this much faster
 
 const TWEAK_LIMITS = { reaction: [0.06, 1] };
 export function applyTweaks(P, tweaks) {
@@ -34,6 +37,9 @@ export class AIController {
     this.adaptRounds = adaptRounds || this.profile.id === 'elite';
     this.adaptLog = [];
     this.rng = new Rng(seed);
+    // a separate stream for reading the opponent, so adding reads doesn't
+    // reshuffle every other AI decision
+    this.rngRead = new Rng(mixSeeds(seed, 'read'));
     this.knownTechniques = knownTechniques || null;
     this.history = []; // { t, opp:{p,v,spinFrac,spirit}, me }
     this.plan = 'center';
@@ -111,6 +117,28 @@ export class AIController {
 
   delayed() { return this.history[0]; }
 
+  // Counter as a read, checked every tick: from what it saw `reaction`
+  // seconds ago, the AI predicts when the opponent's strike lands and presses
+  // so the counter window covers it. Only when the opponent is the striker
+  // (counters never fire on your own hits or clashes); once per approach,
+  // landing with probability counterSkill, so the AI also misses.
+  readCounter(time, snap, me, opp, P) {
+    if (!(P.counterSkill > 0)) return;
+    const sm = snap.me, so = snap.opp;
+    const dx = so.p.x - sm.p.x, dz = so.p.z - sm.p.z, d = dm.hypot(dx, dz);
+    if (d < 1e-4) return;
+    const oppToward = -(dx * so.v.x + dz * so.v.z) / d, myToward = (dx * sm.v.x + dz * sm.v.z) / d;
+    const closing = oppToward + myToward;
+    const gap = d - (me.top.spec.radius + opp.top.spec.radius);
+    if (gap > 0.08 || closing < 0.05) { this.counteredApproach = false; return; }
+    if (this.counteredApproach || oppToward - myToward < CLASH_BAND || closing < 0.15) return;
+    const ttc = gap / closing - (time - snap.t); // seconds until contact, now
+    if (ttc < TECHNIQUE_DEFS.counter.window * 0.75 && ttc > -0.02) {
+      this.counteredApproach = true;
+      if (this.rngRead.chance(P.counterSkill)) this.wantCounter = true;
+    }
+  }
+
   update(dt, ctx) {
     const c = emptyControls();
     const P = this.profile;
@@ -131,6 +159,7 @@ export class AIController {
     const oppR = dm.hypot(oP.x, oP.z) / R;
     const mySpin = me.top.spinFraction();
     const oppSpin = snap.opp.spinFrac;
+    this.readCounter(time, snap, me, opp, P);
 
     // contact awareness: compare how much spin each side lost around recent
     // collisions (HUD-visible spin fractions); positive = contacts hurt me
@@ -310,12 +339,6 @@ export class AIController {
       const ax = (opp.p.x - me.top.p.x) / Math.max(1e-4, dist), az = (opp.p.z - me.top.p.z) / Math.max(1e-4, dist);
       if (ax * this.pushDir.x + az * this.pushDir.z > 0.8 && rng.chance(P.dashUse * 0.6)) this.wantDash = true;
     }
-    // counter an incoming strike
-    if (closing > 0.45 && dist < 0.08 && !this.counteredApproach) {
-      this.counteredApproach = true;
-      if (rng.chance(P.counterSkill)) this.wantCounter = true;
-    }
-    if (closing < 0.1 || dist > 0.12) this.counteredApproach = false;
     // brace when about to be hit near the edge
     if (closing > 0.35 && dist < 0.09 && myR > 0.55 && rng.chance(P.edgeCaution)) this.braceUntil = s.snap.t + 0.6;
     // abilities

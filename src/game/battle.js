@@ -98,6 +98,9 @@ export const CLASH_BAND = 0.15;
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
 export const RULES_REV = 2;
+
+// Spirit is earned by play more than by waiting (see abilities.js passive).
+export const SPIRIT = { struck: 0.5, clash: 0.75, goodLaunch: 4 };
 export function strikeOf(fa, fb, n) {
   const sA = (fa.preVx ?? 0) * n[0] + (fa.preVz ?? 0) * n[2];
   const sB = -((fb.preVx ?? 0) * n[0] + (fb.preVz ?? 0) * n[2]);
@@ -363,7 +366,7 @@ export class Battle extends Emitter {
     const q = r.quality;
     f.stats.launches.push({ round: this.round, spinDir: L.spin, r: dm.hypot(L.aim?.x || 0, L.aim?.z || 0), label: q.label, perfect: q.perfect, energy: r.energy, spin: Math.abs(r.spin), tilt: q.tiltDeg, technique: q.technique, techniqueSuccess: q.techniqueSuccess, poorAngle: q.poorAngle });
     if (q.perfect) { f.stats.perfectLaunches++; f.ability.gain(20); }
-    else if (q.label === 'Good') f.ability.gain(8);
+    else if (q.label === 'Good') f.ability.gain(SPIRIT.goodLaunch);
     f.stats.maxSpin = Math.max(f.stats.maxSpin, Math.abs(r.spin));
     // wear from the launch itself
     if (this.rules.durability) {
@@ -610,6 +613,7 @@ export class Battle extends Emitter {
   onTopContact(e) {
     const fa = this.fighterOf(e.A), fb = this.fighterOf(e.B);
     const J = e.impulse;
+    const { striker, closing } = e.type === 'impact' ? strikeOf(fa, fb, e.normal) : { striker: null, closing: 0 };
     for (const f of [fa, fb]) {
       f.lastCollision = this.battleTime;
       if (e.type === 'impact') {
@@ -617,11 +621,12 @@ export class Battle extends Emitter {
         f.stats.impulseTotal += J;
         f.stats.impulseMax = Math.max(f.stats.impulseMax, J);
         if (J > 0.06) f.stats.heavyHitsTaken++;
-        f.ability.gain(Math.min(25, J * 220));
+        // spirit rewards initiative: the striker gains in full, the struck
+        // top half, a clash three quarters each
+        f.ability.gain(Math.min(25, J * 220) * (!striker ? SPIRIT.clash : f === striker ? 1 : SPIRIT.struck));
       } else f.ability.gain(Math.min(2, J * 60));
     }
     if (e.type === 'impact') {
-      const { striker, closing } = strikeOf(fa, fb, e.normal);
       fa.ability.onImpact(e, fb.ability, striker === fb);
       fb.ability.onImpact(e, fa.ability, striker === fa);
       this.riftFx?.onImpact(fa, fb, e);
