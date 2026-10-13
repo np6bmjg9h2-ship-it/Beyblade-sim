@@ -81,7 +81,7 @@ export function buildBreakdown(profile, L) {
   const sk = computeSkillEffects(profile.player.skills);
   group('Skills', sk.sources.map((s) => h('div', { class: 'small bd-row' }, h('b', {}, s.name), ': ', (condText(s.cond) ? condText(s.cond) + ': ' : '') + deltasText(s.deltas.map(([c, v]) => [c, c === 'faceAngle' ? v * 180 / Math.PI : v]), 1))));
   const b = L.beast ? BEAST_INDEX[L.beast] : null;
-  if (b) group('Bit-Beast', [h('div', { class: 'small bd-row' }, h('b', {}, b.passive.name), ': ', b.passive.desc)]);
+  if (b) group('Spirit Chip', [h('div', { class: 'small bd-row' }, h('b', {}, b.passive.name), ': ', b.passive.desc)]);
   if (out.childElementCount === 1) out.append(h('div', { class: 'small muted' }, 'This loadout brings no extra effects: bare parts fight on their physics alone.'));
   return out;
 }

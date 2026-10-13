@@ -1,4 +1,4 @@
-// Bit-Beast manifestations: a translucent 3D spirit rises out of the top in
+// Spirit Chip manifestations: a translucent 3D spirit rises out of the top in
 // a pillar of light over a spinning sigil, performs its idle motion (coils,
 // wing beats, roars), faces the opponent and fades. Purely visual: it is
 // triggered by the ability event and never feeds back into the simulation.

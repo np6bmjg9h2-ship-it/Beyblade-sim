@@ -61,7 +61,7 @@ export const CONDITIONS = {
   earlyBattle: { label: () => 'During the first 8 s' },
   critical: { label: () => 'While this part is in Critical condition' },
   oppositeSpin: { label: () => 'Against opposite-spin opponents' },
-  abilityActive: { label: () => 'While a Bit-Beast ability is active' },
+  abilityActive: { label: () => 'While a Spirit Chip ability is active' },
   opponentFaster: { label: () => 'While the opponent has more spin than you' },
 };
 
@@ -207,13 +207,13 @@ cond({ id: 'edgeRecovery', name: 'Edge Recovery', family: 'mobility', slots: ['t
 // technical (ability)
 cond({ id: 'abilityFocus', name: 'Ability Focus', family: 'technical', slots: ['core', 'ring'], cond: { type: 'always' },
   fx: (m) => [['abilityDuration', L(0.08, 0.22, m)]],
-  desc: (m) => `Bit-Beast ability duration ${pct(L(0.08, 0.22, m))}.` });
+  desc: (m) => `Spirit Chip ability duration ${pct(L(0.08, 0.22, m))}.` });
 cond({ id: 'chargeConduit', name: 'Charge Conduit', family: 'technical', slots: ['core', 'ring', 'disc'], cond: { type: 'always' },
   fx: (m) => [['abilityCharge', L(0.1, 0.3, m)]],
-  desc: (m) => `Bit-Beast charge rate ${pct(L(0.1, 0.3, m))}.` });
+  desc: (m) => `Spirit Chip charge rate ${pct(L(0.1, 0.3, m))}.` });
 cond({ id: 'beastAttuned', name: 'Beast Attuned', family: 'technical', slots: ['core'], cond: { type: 'always' },
   fx: (m) => [['abilityPower', L(0.05, 0.15, m)]],
-  desc: (m) => `Bit-Beast ability power ${pct(L(0.05, 0.15, m))}.` });
+  desc: (m) => `Spirit Chip ability power ${pct(L(0.05, 0.15, m))}.` });
 
 // risk / reward
 cond({ id: 'berserker', name: 'Berserker', family: 'risk', slots: ['ring'], cond: { type: 'always' },

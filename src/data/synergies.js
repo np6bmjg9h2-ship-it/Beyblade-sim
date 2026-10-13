@@ -1,5 +1,5 @@
 // Cross-item synergies: rules over what a top carries (traits, trait
-// families, sets, part types, mastery, Bit-Beast, launcher, curses and, in a
+// families, sets, part types, mastery, Spirit Chip, launcher, curses and, in a
 // Rift Run, charms) that add an effect when every requirement holds. Rules
 // are plain data evaluated by systems/synergy.js; effects use the trait
 // vocabulary (data/channels.js deltas with an optional condition, a reactive
@@ -34,7 +34,7 @@ export const SYNERGIES = [
   { id: 'bladeDancer', name: 'Blade Dancer', requires: [{ family: 'offense', count: 2 }, { family: 'mobility', count: 1 }],
     effect: { deltas: [['steerForce', 0.08]], react: { on: 'hit', min: 0.012, cooldown: 1.5, effect: { deltas: [['faceAngle', 1]], duration: 1 } } },
     lore: 'Strike, slide, strike again.' },
-  { id: 'stormfront', name: 'Stormfront', hidden: true, hint: 'A storm-born Bit-Beast and crackling steel…',
+  { id: 'stormfront', name: 'Stormfront', hidden: true, hint: 'A storm-born Spirit Chip and crackling steel…',
     requires: [{ beastElement: ['storm', 'thunder'] }, { status: 'static' }],
     effect: { status: { static: 0.05 }, deltas: [['abilityCharge', 0.1]] },
     lore: 'The beast answers the spark in the steel.' },

@@ -160,7 +160,7 @@ if (C.mode === 'slot') {
 } else if (C.mode === 'arena') {
   renderArenaScene();
 } else if (C.mode === 'spirits') {
-  // every Bit-Beast spirit mid-manifestation, standing on a small top-sized disc
+  // every Spirit Chip spirit mid-manifestation, standing on a small top-sized disc
   const sys = new SpiritSystem(scene, C.quality || 'high');
   for (const beast of BEASTS) {
     const obj = new THREE.Group();

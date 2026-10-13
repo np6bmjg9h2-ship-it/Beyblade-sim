@@ -1,5 +1,5 @@
 // Bond-gated memories (unlocked at bond levels 2, 6 and 10) and Spirit Trial
-// conditions for recruiting each Bit-Beast.
+// conditions for recruiting each Spirit Chip.
 
 export const BEAST_LORE = {
   orrery: [

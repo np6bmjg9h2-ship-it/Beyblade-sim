@@ -25,7 +25,7 @@
 //   slot, parts (all parts of the build, mm data), spec (assembled physics
 //   spec), geo (spec.geometry: stack heights in mm), layer (this part's
 //   contact layer, metres, or null), mount (aux only), accent (player/top
-//   colour hex), beast (Bit-Beast definition or null), rarity ({id, rank,
+//   colour hex), beast (Spirit Chip definition or null), rarity ({id, rank,
 //   color} or null), quality ('high'|'medium'|'low'), spin ('R'|'L'|'dual').
 // }
 //

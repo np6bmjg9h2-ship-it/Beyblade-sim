@@ -1,4 +1,4 @@
-// Bit-Beast collection logic: recruitment through Spirit Trials, bond-gated
+// Spirit Chip collection logic: recruitment through Spirit Trials, bond-gated
 // unlocks, awakening eligibility and the battle sessions for trials.
 
 import { BEASTS, BEAST_INDEX, bondLevel, BOND_LEVELS } from '../data/beasts.js';

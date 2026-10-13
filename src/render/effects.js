@@ -357,7 +357,7 @@ export class Effects {
     }
   }
 
-  // Bit-Beast manifestation: a 3D spirit rises out of the top (render/spirits.js).
+  // Spirit Chip manifestation: a 3D spirit rises out of the top (render/spirits.js).
   // `height` is the spirit's height in metres; `face` is the opponent's visual.
   manifestation(target, beast, duration = 1.4, height = 0.13, face = null) {
     this.spirits.spawn(beast, target, { duration, height, face });

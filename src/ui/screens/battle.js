@@ -190,8 +190,8 @@ export class BattleScreen {
     const involvesHuman = (f) => f && f === human;
     switch (type) {
       case 'countdownStart': app.renderer.rig.override = 'launch'; this.ui.refreshPrompts(); break;
-      case 'countdown': app.audio.countdown(e.n); this.bigText(String(e.n), 'count'); break;
-      case 'ignite': app.audio.countdown(0); app.audio.ignite(); this.bigText('IGNITE!', 'ignite'); app.input.rumble(0.3, 0.6, 150); break;
+      case 'countdown': app.audio.countdown(e.n); if (e.n <= 2) this.bigText(e.n === 2 ? 'READY!' : 'SET!', 'count'); break;
+      case 'ignite': app.audio.countdown(0); app.audio.ignite(); this.bigText('SPIN!!!', 'ignite'); app.input.rumble(0.3, 0.6, 150); break;
       case 'release': if (involvesHuman(e.fighter)) app.input.rumble(0.2, 0.4, 120); break;
       case 'launch': {
         app.audio.launch(e.result.quality.label);
@@ -466,7 +466,7 @@ export class BattleScreen {
     el.innerHTML = '';
     // Element.append would print null as text: drop empty slots
     el.append(...[
-      h('div', { class: 'launch-head' }, b.phase === 'setup' ? 'LAUNCH SETUP' : 'CHARGE — RELEASE ON IGNITE'),
+      h('div', { class: 'launch-head' }, b.phase === 'setup' ? 'LAUNCH SETUP' : 'CHARGE — RELEASE ON SPIN!'),
       h('div', { class: 'launch-grid' },
         h('div', {}, h('div', { class: 'muted' }, 'Technique'), h('b', {}, T.name), h('div', { class: 'small' }, T.desc)),
         h('div', {}, h('div', { class: 'muted' }, 'Spin'), h('b', {}, L.spin === 'R' ? 'Right ⟳' : 'Left ⟲'), h('div', { class: 'small' }, L.spinOptions.length > 1 ? 'Switchable' : 'Fixed by launcher')),
@@ -478,12 +478,12 @@ export class BattleScreen {
         f.gear.readout ? h('div', { class: 'cm-lcd' }, `${Math.round(charge * 100)}%`) : null,
         h('div', { class: 'cm-fill', style: { width: scale(Math.min(charge, z.misfire + 0.05)) } }),
         h('div', { class: 'cm-mark', style: { left: scale(PERFECT_CENTER) } }),
-        b.phase === 'countdown' && L.meter.holding ? h('div', { class: 'cm-predict', style: { left: scale(Math.min(z.misfire + 0.04, charge + Math.max(0, 3 - b.phaseT) * f.gear.chargeRate * (charge > 1 ? 0.55 : 1))) }, title: 'Charge at IGNITE if you keep holding' }) : null),
-      b.phase === 'countdown' ? h('div', { class: 'cm-timeline' }, `IGNITE in ${Math.max(0, 3 - b.phaseT).toFixed(1)} s · full charge takes ${(1 / f.gear.chargeRate).toFixed(1)} s — start charging early enough to reach the gold window at IGNITE`) : null,
+        b.phase === 'countdown' && L.meter.holding ? h('div', { class: 'cm-predict', style: { left: scale(Math.min(z.misfire + 0.04, charge + Math.max(0, 3 - b.phaseT) * f.gear.chargeRate * (charge > 1 ? 0.55 : 1))) }, title: 'Charge at SPIN! if you keep holding' }) : null),
+      b.phase === 'countdown' ? h('div', { class: 'cm-timeline' }, `SPIN! in ${Math.max(0, 3 - b.phaseT).toFixed(1)} s · full charge takes ${(1 / f.gear.chargeRate).toFixed(1)} s — start charging early enough to reach the gold window at SPIN!`) : null,
       h('div', { class: 'launch-help' },
         b.phase === 'setup'
           ? [hint(g('aim_x'), 'move'), hint(g('lean_x'), 'lean'), hint(g('technique'), 'technique'), hint(g('switch_config'), 'spin'), hint(g('charge'), 'ready')]
-          : [hint(g('charge'), 'hold to charge'), hint(this.app.input.releaseOnChargeUp() ? g('charge') : g('release'), this.app.input.releaseOnChargeUp() ? 'let go to release' : 'release'), h('span', { class: 'small' }, 'Release in the gold window, right at IGNITE.')])].filter(Boolean));
+          : [hint(g('charge'), 'hold to charge'), hint(this.app.input.releaseOnChargeUp() ? g('charge') : g('release'), this.app.input.releaseOnChargeUp() ? 'let go to release' : 'release'), h('span', { class: 'small' }, 'Release in the gold window, right at SPIN!')])].filter(Boolean));
   }
 
   updateTelemetry() {

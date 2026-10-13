@@ -99,7 +99,7 @@ export class CustomBattleScreen {
       selector('Stadium', arenas.map((a) => ({ value: a.id, label: a.name, desc: a.desc })), c.arena, (v) => { c.arena = v; }, { id: 'cb-arena' }),
       selector('Format', Object.values(FORMATS).filter((f) => !f.hidden).map((f) => ({ value: f.id, label: f.name })), c.format, (v) => { c.format = v; }, { id: 'cb-format' }),
       selector('Round time limit', [60, 120, 180, 300].map((t) => ({ value: t, label: `${t} s` })), c.time, (v) => { c.time = v; }, { id: 'cb-time' }),
-      selector('Bit-Beast abilities', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], c.abilities, (v) => { c.abilities = v; }, { id: 'cb-abilities' }),
+      selector('Spirit Chip abilities', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], c.abilities, (v) => { c.abilities = v; }, { id: 'cb-abilities' }),
       selector('Durability wear', [{ value: false, label: 'Off' }, { value: true, label: 'On (normal rewards)' }], c.durability, (v) => { c.durability = v; }, { id: 'cb-durability', desc: 'With wear off, custom battles give half rewards and no loot.' }),
       selector('Impact slow-motion', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], c.slowmo, (v) => { c.slowmo = v; }, { id: 'cb-slowmo' }),
       btn(spectate ? 'Watch battle' : 'Start battle', () => this.start(), { class: 'primary big', id: 'cb-start' }));
@@ -147,7 +147,7 @@ export class ChallengesScreen {
     const detail = h('div', { class: 'col gap' },
       h('h2', {}, c.name), h('div', {}, c.desc),
       statRow('Opponent', opp), statRow('Stadium', ARENA_INDEX[c.arena].name), statRow('Format', FORMATS[c.format].name),
-      c.rules?.abilities === false ? statRow('Rule', 'No Bit-Beast abilities') : null,
+      c.rules?.abilities === false ? statRow('Rule', 'No Spirit Chip abilities') : null,
       statRow('First-clear reward', `${r.credits} cr · ${r.xp} XP${r.loot ? ` · ${r.loot.minRarity ? r.loot.minRarity + '+ ' : ''}${r.loot.slots ? r.loot.slots.join('/') : 'part'}` : ''}${r.title ? ` · title “${r.title}”` : ''}`),
       st.done ? h('div', { class: 'good small' }, `Completed ${new Date(st.done).toLocaleDateString()} — replays pay 10% credits.`) : null,
       loadoutSelector(this, 'ch-loadout'),

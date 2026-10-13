@@ -1,6 +1,6 @@
 // Original rival cast. Each rival has a battle personality (an AI profile plus
 // bounded behavioural tweaks — never physics advantages), build variants that
-// unlock by competitive tier, a Bit-Beast, an adaptation strength (how much
+// unlock by competitive tier, a Spirit Chip, an adaptation strength (how much
 // they change plans after seeing your habits) and dialogue. Story mode and
 // the tournament circuit both draw from this cast.
 //
@@ -24,7 +24,7 @@ export const CHARACTERS = [
     ],
     dialogue: {
       intro: ['{player}! You finally got a top? Then you\'re battling me. Right now. No take-backs!'],
-      pre: ['Let it rip! Zephyrax has been itching for this all day.', 'Don\'t blink, {player}. I\'m going straight through the middle.', 'Same plan as always: hit first, hit hardest!'],
+      pre: ['Ready, set, SPIN! Zephyrax has been itching for this all day.', 'Don\'t blink, {player}. I\'m going straight through the middle.', 'Same plan as always: hit first, hit hardest!'],
       preWonLast: ['I beat you last time, but don\'t you dare go easy on me now.'],
       preLostLast: ['I\'ve been practising my bank launch for a WEEK. Payback time.'],
       adapt: { stamina: 'You keep hiding in the middle and outspinning me... fine. I\'ll just hit you before you get comfy.', defense: 'That ball tip of yours is a wall. So I brought a lifter. Let\'s see it stay planted.', attack: 'Attack versus attack? Now THIS is a battle!' },

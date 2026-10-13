@@ -89,7 +89,7 @@ export const fusionKey = (a, b) => [a, b].sort().join('+');
 // Sweet spot: a chance that a hit lands perfectly (double lock stress, more knockback).
 export const SWEET_SPOT = { stressMul: 2, deltas: [['restitution', 0.12]] };
 
-// Bit-Beast elements map onto the three statuses (for element boons).
+// Spirit Chip elements map onto the three statuses (for element boons).
 export const ELEMENT_STATUS = {
   storm: 'static', thunder: 'static', phantom: 'static',
   solar: 'scorch', magma: 'scorch', celestial: 'scorch',
@@ -115,7 +115,7 @@ export const AFFIX_INDEX = Object.fromEntries(ELITE_AFFIXES.map((a) => [a.id, a]
 export const VAULT_RULES = [
   { id: 'ringout', name: 'Ring-Out Trial', desc: 'Win by Ring Out to claim the vault.', need: 'out' },
   { id: 'shatter', name: 'Shatter Trial', desc: 'The guardian\'s lock is weakened. Win by Shatter to claim the vault.', need: 'burst', oppMods: [['burstThreshold', -0.3]] },
-  { id: 'stillspirit', name: 'Still Spirit', desc: 'No Bit-Beast abilities for either side. Win to claim the vault.', rules: { abilities: false } },
+  { id: 'stillspirit', name: 'Still Spirit', desc: 'No Spirit Chip abilities for either side. Win to claim the vault.', rules: { abilities: false } },
   { id: 'giant', name: 'The Giant', desc: 'The guardian is Bulwark and Anchored. Win to claim the vault.', affixes: ['bulwark', 'anchored'] },
 ];
 export const VAULT_INDEX = Object.fromEntries(VAULT_RULES.map((v) => [v.id, v]));

@@ -1,7 +1,7 @@
 {
   "name": "chaos-spin-arena-zero",
   "version": "0.1.0",
-  "description": "Chaos Spin: Arena Zero — a physics-driven spinning-top RPG, loot system, Bit-Beast adventure and tournament simulator for the browser.",
+  "description": "Chaos Spin: Arena Zero — a physics-driven spinning-top RPG, loot system, Spirit Chip adventure and tournament simulator for the browser.",
   "private": true,
   "type": "module",
   "scripts": {

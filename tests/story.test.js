@@ -46,11 +46,11 @@ test('story data: six chapters, every speaker, opponent, stadium, part and tourn
       if (n.type === 'battle') assert.ok(n.win?.length && n.lose?.length, `${n.id} has win and lose lines`);
     }
   }
-  // chapter 1 covers the full opening: creation, training, rival, Bit-Beast discovery, choice, tournament
+  // chapter 1 covers the full opening: creation, training, rival, Spirit Chip discovery, choice, tournament
   const types = CHAPTERS[0].nodes.map((n) => n.type);
   for (const t of ['create', 'training', 'battle', 'tournament']) assert.ok(types.includes(t), `chapter 1 has a ${t} node`);
   assert.ok(CHAPTERS[0].nodes.some((n) => n.choice), 'chapter 1 has a choice');
-  assert.ok(CHAPTERS[0].nodes.some((n) => n.reward?.flags?.includes('ch1_orrery')), 'Bit-Beast discovery');
+  assert.ok(CHAPTERS[0].nodes.some((n) => n.reward?.flags?.includes('ch1_orrery')), 'Spirit Chip discovery');
   for (const s of STORY_STYLES) for (const it of s.items) assert.ok(baseOf(it.base));
 });
 

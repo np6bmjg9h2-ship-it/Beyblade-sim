@@ -93,7 +93,7 @@ export class AIController {
     }
     const risk = P.risk > 0.8 ? 0.6 : 0;
     const rel = aiReleaseCharge(rng, P.launchSkill, gear, tech, risk);
-    // release timing relative to IGNITE (seconds)
+    // release timing relative to SPIN! (seconds)
     const releaseOffset = Math.abs(rng.gauss(0.04, 0.12 * (1 - P.launchSkill))) - 0.02;
     return { aim: { x, z, lean, dir }, technique: tech, spin, charge: rel.charge, releaseOffset };
   }

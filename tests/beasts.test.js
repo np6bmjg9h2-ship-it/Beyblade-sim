@@ -1,4 +1,4 @@
-// Bit-Beasts: every ability has a defined, measurable effect in the real
+// Spirit Chips: every ability has a defined, measurable effect in the real
 // simulation, and different beasts produce different combat strategies.
 
 import test from 'node:test';
@@ -52,7 +52,7 @@ function measure(beastId, slot, ticks = 30) {
   return { before, afterNow, maxLift, maxForce, modsSeen, counterArmed, restored, A, B };
 }
 
-test('every Bit-Beast ability produces its defined physical effect', () => {
+test('every Spirit Chip ability produces its defined physical effect', () => {
   for (const b of BEASTS) {
     for (const slot of ['signature', 'secondary', 'ultimate']) {
       const d = b.abilities[slot];

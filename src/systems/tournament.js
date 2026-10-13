@@ -61,7 +61,7 @@ export function checkLoadoutRules(profile, L, def, t = null) {
   if (R.maxRarity) {
     for (const it of Object.values(parts)) if (it && rarityRank(it.rarity) > rarityRank(R.maxRarity)) errors.push(`${itemName(it)} exceeds the ${R.maxRarity} rarity limit.`);
   }
-  if (R.beasts === false && L.beast) errors.push('Bit-Beasts are not allowed in this tournament.');
+  if (R.beasts === false && L.beast) errors.push('Spirit Chips are not allowed in this tournament.');
   if (t?.loadout?.locked) {
     const lk = t.loadout.locked;
     const same = Object.entries(lk.parts).every(([s, uid]) => L.parts[s] === uid) && L.launcher === lk.launcher && L.cable === lk.cable;

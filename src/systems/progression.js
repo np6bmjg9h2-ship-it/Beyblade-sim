@@ -1,6 +1,6 @@
 // Post-match progression. Turns a finished battle into persistent change:
 // equipment wear, per-item XP / mastery / history, launcher and cable
-// progress, Bit-Beast bond, player XP and level, credits, materials,
+// progress, Spirit Chip bond, player XP and level, credits, materials,
 // research, loot, statistics and rival records. Rewards scale with
 // opponent difficulty and decay when farming the same opponent repeatedly.
 
@@ -125,7 +125,7 @@ export function processMatch(profile, result, session, battle) {
   for (const [k, v] of Object.entries(rw.materials)) profile.materials[k] = (profile.materials[k] || 0) + v;
   profile.stats.earnings = (profile.stats.earnings || 0) + rw.credits;
 
-  // ---------------------------------------------------------- Bit-Beast bond
+  // ---------------------------------------------------------- Spirit Chip bond
   const bid = L?.beast;
   if (bid && profile.beasts[bid]) {
     const bs = profile.beasts[bid];

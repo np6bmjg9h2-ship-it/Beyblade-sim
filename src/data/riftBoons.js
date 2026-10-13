@@ -1,5 +1,5 @@
 // Rift boons: upgrades offered after elites and bosses (pick one of three).
-// They grow with the Bit-Beast you bring: picking a boon again raises it a
+// They grow with the Spirit Chip you bring: picking a boon again raises it a
 // level (max 3). Some boons take their name and effect from the beast itself
 // (its signature ability, its element). Same fx schema as charms
 // (data/riftCharms.js).
@@ -26,7 +26,7 @@ export const BOONS = [
   { id: 'keenedge', max: 3, name: () => 'Keen Edge', desc: (l) => `Blade face +${l}° while the opponent closes in.`, fx: (l) => ({ mods: [{ cond: { type: 'opponentApproaching' }, deltas: [['faceAngle', l * D2R]] }] }) },
   { id: 'bulwark', max: 3, name: () => 'Bulwark', desc: (l) => `Lock strength +${pct(0.08 * l)}.`, fx: (l) => ({ mods: [{ deltas: [['burstThreshold', 0.08 * l]] }] }) },
   { id: 'glide', max: 3, name: () => 'Glide', desc: (l) => `Tip spin drag -${pct(0.05 * l)}.`, fx: (l) => ({ mods: [{ deltas: [['tipSpinDrag', -0.05 * l]] }] }) },
-  { id: 'touch', max: 3, name: (b) => `${STATUSES[touchStatus(b)].name} Touch`, desc: (l, b) => `Your hits inflict ${STATUSES[touchStatus(b)].name} ${pct(0.1 + 0.08 * (l - 1))} of the time (your Bit-Beast's element).`, fx: (l, b) => ({ status: { [touchStatus(b)]: 0.1 + 0.08 * (l - 1) } }) },
+  { id: 'touch', max: 3, name: (b) => `${STATUSES[touchStatus(b)].name} Touch`, desc: (l, b) => `Your hits inflict ${STATUSES[touchStatus(b)].name} ${pct(0.1 + 0.08 * (l - 1))} of the time (your Spirit Chip's element).`, fx: (l, b) => ({ status: { [touchStatus(b)]: 0.1 + 0.08 * (l - 1) } }) },
   { id: 'fortune', max: 3, name: () => 'Fortune', desc: (l) => `Sweet-spot chance +${pct(0.04 * l)}.`, fx: (l) => ({ sweet: 0.04 * l }) },
   { id: 'secondwind', max: 3, name: () => 'Second Wind', desc: (l) => `Once per round, dropping below 20% spin restores ${12 + 8 * (l - 1)}% of your launch spin.`, fx: (l) => ({ secondWind: 0.12 + 0.08 * (l - 1) }) },
   { id: 'awakened', max: 1, name: () => 'Awakened Spirit', desc: (l, b) => `${BEAST_INDEX[b?.id]?.abilities?.ultimate?.name || 'The ultimate'} is unlocked for this run.`, fx: () => ({ awaken: true }),

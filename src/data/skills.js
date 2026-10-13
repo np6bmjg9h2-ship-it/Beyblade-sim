@@ -9,7 +9,7 @@ export const SKILL_PATHS = [
   { id: 'guardian', name: 'Guardian', color: '#9ad0ff', desc: 'Defensive timing, recovery, stability and mitigation.' },
   { id: 'endurance', name: 'Endurance Specialist', color: '#7fe3a8', desc: 'Spin management and energy efficiency.' },
   { id: 'technician', name: 'Technician', color: '#ffd84d', desc: 'Launch consistency, equipment care, crafting and build flexibility.' },
-  { id: 'channeler', name: 'Bit-Beast Channeler', color: '#c6b8ff', desc: 'Ability timing, spirit flow, resonance and bond growth.' },
+  { id: 'channeler', name: 'Spirit Chip Channeler', color: '#c6b8ff', desc: 'Ability timing, spirit flow, resonance and bond growth.' },
 ];
 
 export const SKILLS = [

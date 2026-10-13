@@ -106,7 +106,7 @@ export class WorkshopScreen {
     const rows = h('div', { class: 'col gap', 'data-wrap': '', 'data-scroll': 'slots' },
       ...SLOTS.map((s) => slotRow(s, parts[s])),
       slotRow('launcher', launcher), slotRow('cable', cable),
-      selector('Bit-Beast', [{ value: null, label: 'None' }, ...owned.map((id) => ({ value: id, label: `${BEAST_INDEX[id].name} (Bond ${bondLevel(P.beasts[id].bondXp)})`, desc: BEAST_INDEX[id].lore }))], L.beast, (v) => { L.beast = v; this.ui.refresh(this); }, { id: 'beast' }),
+      selector('Spirit Chip', [{ value: null, label: 'None' }, ...owned.map((id) => ({ value: id, label: `${BEAST_INDEX[id].name} (Bond ${bondLevel(P.beasts[id].bondXp)})`, desc: BEAST_INDEX[id].lore }))], L.beast, (v) => { L.beast = v; this.ui.refresh(this); }, { id: 'beast' }),
       selector('Spin direction', [{ value: 'R', label: 'Right ⟳' }, { value: 'L', label: 'Left ⟲' }], L.spin, (v) => { L.spin = v; this.ui.refresh(this); }, { id: 'spin', desc: 'Must be supported by the launcher. Rings designed for one direction lose their blade faces in the other.' }),
       selector('Default technique', P.techniques.map((t) => ({ value: t, label: TECHNIQUE_INDEX[t].name, desc: TECHNIQUE_INDEX[t].desc })), L.technique, (v) => { L.technique = v; }, { id: 'tech' }),
       selector('Intended role', ROLES.map((r) => ({ value: r, label: r })), L.role || 'Balance', (v) => { L.role = v; }, { id: 'role' }),
@@ -156,7 +156,7 @@ export class WorkshopScreen {
       const res = S.beast.resonance;
       const setRes = res.set && items.some((it) => it.set === res.set);
       const affRes = coreAff && res.affinity.includes(coreAff);
-      out.append(h('h3', {}, 'Bit-Beast'), h('div', { class: 'row gap' }, beastImg(S.beast.id, 48), h('div', { class: 'small' }, h('b', {}, `${S.beast.name}, ${S.beast.title}`), h('div', {}, `Passive — ${S.beast.passive.name}: ${S.beast.passive.desc}`),
+      out.append(h('h3', {}, 'Spirit Chip'), h('div', { class: 'row gap' }, beastImg(S.beast.id, 48), h('div', { class: 'small' }, h('b', {}, `${S.beast.name}, ${S.beast.title}`), h('div', {}, `Passive — ${S.beast.passive.name}: ${S.beast.passive.desc}`),
         h('div', { class: setRes || affRes ? 'good' : 'muted' }, setRes || affRes ? `Resonating: ${res.desc}` : `No resonance. ${res.desc}`))));
     }
     return out;

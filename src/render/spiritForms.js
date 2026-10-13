@@ -1,4 +1,4 @@
-// Procedural 3D Bit-Beast spirit forms. Each form is built in local units
+// Procedural 3D Spirit Chip spirit forms. Each form is built in local units
 // (about 1 tall, base at y = 0, facing +z) from a few primitives merged per
 // material, plus a handful of animated parts (wings, jaws, rings). Every
 // vertex carries `aU` (0..1 along a body or tail) which the spirit shader

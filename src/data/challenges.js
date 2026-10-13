@@ -13,7 +13,7 @@ export const CHALLENGES = [
   { id: 'outlast', name: 'Outlast', desc: 'With a Stamina build, beat the Street Striker by Spin Finish or decision only.',
     opponent: { archetype: 'striker', difficulty: 0.85 }, arena: 'standard', format: 'bo3', constraint: { roles: ['stamina'] },
     goal: { finishAll: ['spin', 'decision'] }, reward: { credits: 400, xp: 220, loot: { tier: 1, minRarity: 'rare', slots: ['tip'] } } },
-  { id: 'pure_physics', name: 'Pure Physics', desc: 'No Bit-Beast abilities for anyone. Beat the All-Rounder at Veteran skill.',
+  { id: 'pure_physics', name: 'Pure Physics', desc: 'No Spirit Chip abilities for anyone. Beat the All-Rounder at Veteran skill.',
     opponent: { archetype: 'all', difficulty: 1.0 }, arena: 'vortex', format: 'bo3', rules: { abilities: false },
     goal: {}, reward: { credits: 450, xp: 260, loot: { tier: 2, minRarity: 'rare' } } },
   { id: 'blitz', name: 'Blitz', desc: 'Beat the Sky Lifter with every round you win lasting under 15 seconds.',

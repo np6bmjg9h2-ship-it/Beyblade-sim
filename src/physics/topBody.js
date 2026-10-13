@@ -23,7 +23,7 @@ const _q = new Quat();
 const _q2 = new Quat();
 
 // Modifier channels read by the simulation every substep. Traits, sets,
-// abilities, skills and Bit-Beast passives write into these (see
+// abilities, skills and Spirit Chip passives write into these (see
 // systems/modifiers.js). Multipliers default to 1, additive values to 0.
 export function defaultMods() {
   return {

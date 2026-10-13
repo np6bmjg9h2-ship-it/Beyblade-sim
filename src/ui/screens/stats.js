@@ -1,4 +1,4 @@
-// Statistics: overview, finishes, launches, stadiums, Bit-Beasts, builds,
+// Statistics: overview, finishes, launches, stadiums, Spirit Chips, builds,
 // records and recent battles, all from the saved profile.
 
 import { h, btn } from '../ui.js';
@@ -59,7 +59,7 @@ export class StatsScreen {
         h('h3', {}, 'Stadiums'), barList(top(S.arenaUse, (k) => ARENA_INDEX[k]?.name || k), { format: (v) => `${v} battles` }),
         h('h3', {}, 'Builds'), barList(top(S.buildUse, (k) => k), { format: (v) => `${v} battles` })),
       h('div', { class: 'panel scroll' },
-        h('h3', {}, 'Bit-Beasts'), barList(top(S.beastUse, (k) => BEAST_INDEX[k]?.name || k), { format: (v) => `${v} battles` }),
+        h('h3', {}, 'Spirit Chips'), barList(top(S.beastUse, (k) => BEAST_INDEX[k]?.name || k), { format: (v) => `${v} battles` }),
         ...Object.values(P.beasts).map((b) => statRow(BEAST_INDEX[b.id]?.name || b.id, `Bond ${bondLevel(b.bondXp)} · ${b.stats.winsWith || 0} wins together${b.awakened ? ' · Awakened' : ''}`))));
   }
 

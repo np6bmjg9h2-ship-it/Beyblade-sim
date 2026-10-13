@@ -14,7 +14,7 @@ export const MATERIALS = {
   polymer: { name: 'Tuned Polymer', desc: 'Refined plastic for rings and tips.' },
   alloy: { name: 'Precision Alloy', desc: 'High-grade metal for discs, locks and launchers.' },
   coreShard: { name: 'Core Shard', desc: 'Crystallised energy from rare parts. Used for rerolls and trait work.' },
-  spiritDust: { name: 'Spirit Dust', desc: 'Residue of Bit-Beast resonance. Used for bond and resonance work.' },
+  spiritDust: { name: 'Spirit Dust', desc: 'Residue of Spirit Chip resonance. Used for bond and resonance work.' },
   relicFragment: { name: 'Relic Fragment', desc: 'Fragments of ancient equipment. Used for the highest-tier crafting.' },
 };
 
@@ -115,7 +115,7 @@ export function normalizeProfile(p) {
     if (!p.settings[k] || typeof p.settings[k] !== 'object') p.settings[k] = structuredClone(ds[k]);
     else if (ds[k]) for (const [kk, vv] of Object.entries(ds[k])) if (p.settings[k][kk] === undefined) p.settings[k][kk] = vv;
   }
-  // a damaged Bit-Beast record keeps the beast (ownership) with a fresh bond
+  // a damaged Spirit Chip record keeps the beast (ownership) with a fresh bond
   for (const [id, b] of Object.entries(p.beasts)) {
     if (!isRecord(b)) { p.beasts[id] = { id, bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {}, nickname: null }; continue; }
     if (!isRecord(b.stats)) b.stats = {};
@@ -145,7 +145,7 @@ export function normalizeProfile(p) {
     for (const s of Object.keys(L.parts)) L.parts[s] = owned(L.parts[s]);
     L.launcher = owned(L.launcher);
     L.cable = owned(L.cable);
-    // no Bit-Beast is a valid choice (null); an unknown one falls back to Orrery
+    // no Spirit Chip is a valid choice (null); an unknown one falls back to Orrery
     if (L.beast != null && !(typeof L.beast === 'string' && p.beasts[L.beast])) L.beast = L.beast ? 'orrery' : null;
     if (L.spin !== 'R' && L.spin !== 'L') L.spin = 'R';
     if (typeof L.technique !== 'string') L.technique = 'normal';

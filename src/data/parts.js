@@ -66,7 +66,7 @@ export const PARTS = [
   core({ id: 'core_quad', name: 'Quad Core', arch: 'quad', mass: 7, radius: 9.5, height: 5.5, affinity: 'neutral', tier: 1, color: '#bfc8d4', desc: 'Four-tab reinforced core for heavy builds.' }),
   core({ id: 'core_apex', name: 'Apex Core', arch: 'apex', mass: 4, radius: 8.5, height: 3.5, affinity: 'neutral', tier: 2, color: '#e9eef5', desc: 'Low-profile core. Lowers the whole stack.' }),
   core({ id: 'core_lunar', name: 'Lunar Offset Core', arch: 'helix', mass: 6, radius: 9, height: 5, ecc: 0.28, affinity: 'abyss', tier: 2, color: '#a0b4ff', desc: 'Deliberately off-centre mass. Produces a walking, unpredictable path and vibration.' }),
-  core({ id: 'core_resonant', name: 'Resonant Core', arch: 'helix', mass: 5, radius: 9, height: 5.5, affinity: 'spirit', tier: 2, color: '#ffe08a', desc: 'Tuned crystal core that channels Bit-Beast energy more efficiently.' }),
+  core({ id: 'core_resonant', name: 'Resonant Core', arch: 'helix', mass: 5, radius: 9, height: 5.5, affinity: 'spirit', tier: 2, color: '#ffe08a', desc: 'Tuned crystal core that channels Spirit Chip energy more efficiently.' }),
   core({ id: 'core_gravity', name: 'Gravity Core', arch: 'quad', mass: 9, radius: 10, height: 4.5, affinity: 'iron', tier: 3, color: '#6d7480', desc: 'Dense tungsten-weighted core sitting low in the stack.' }),
   core({ id: 'core_storm', name: 'Storm Core', arch: 'helix', mass: 5, radius: 9, height: 5, affinity: 'storm', tier: 3, color: '#68c8ff', desc: 'Vented core with a storm-aligned resonance channel.' }),
   core({ id: 'core_solar', name: 'Solar Core', arch: 'quad', mass: 6, radius: 9.5, height: 5, affinity: 'solar', tier: 3, color: '#ffbe55', desc: 'Sun-glass core that stores ability charge.' }),

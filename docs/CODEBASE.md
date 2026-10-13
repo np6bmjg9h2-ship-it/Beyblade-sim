@@ -10,7 +10,7 @@ and a review checklist. Branch: `claude/chaos-spin-arena-zero-ynh785`.
 
 A single-player, browser-based 3D spinning-top battle RPG. Battles run on a
 custom rigid-body spinning-top simulation, and the game is built around
-it: modular parts with loot and traits, Bit-Beasts (spirit creatures with
+it: modular parts with loot and traits, Spirit Chips (spirit creatures with
 abilities), skills, a six-chapter story, tournaments, several modes,
 replays and saves. All characters, parts, names and art are original and
 generated in code (no image or model files).
@@ -138,7 +138,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `battle.js` | 795 | Match controller: formats (single, bo3, bo5, points, endless), phases, launches, finishes, scoring, stats, events, replay record and playback, debug finish. |
 | `launch.js` | 207 | Launch model: charge meter, gold window, techniques, lean/aim → initial spin, velocity and tilt; launcher and cable gear. |
 | `ai.js` | 360 | AI controller that produces the same control frame as a human; personalities, skill (reaction, accuracy), velocity-control steering, contact awareness, rival tweaks, adaptation between rounds. `pressWhenBehind` presses for a knock-out when losing the spin race; `readRace` projects that race from both builds' estimated spin time (`assembly.summary.estSpinTime`) and holds the centre when it would outlast the opponent. |
-| `abilities.js` | 301 | Spirit meter, Bit-Beast abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
+| `abilities.js` | 301 | Spirit meter, Spirit Chip abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
 | `humanController.js` | 163 | Turns input actions into the control frame. |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
 | `../physics/mechanisms.js` | 140 | Classic-series moving parts inside the simulation (spec.mech from assembly): magnet forces between tops (substep), spring tips (absorb when struck, hop), clutches (energy stored at launch, released on a hit or at low spin, tip change), automatic tip shifts. Booked to the `mechanism` ledger; emits `mechanism` events. TopBody keeps a live `tip` copy that these change. |
@@ -198,7 +198,7 @@ modules from `tools/blender/`: never hand-edit; regenerate with Blender and
 | `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids. Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
 | `arenaMesh.js` | 1168 | Cel-shaded stadiums built from the same arena definition as the physics (floor lathe of the height profile, walls, exits, crowd, backdrop). |
 | `effects.js` | 483 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Shatter debris (detached part groups), ring-out bursts, wobble warnings, head-on vs graze impact sprays (`glance` from the impact event). Pools are rebuilt when quality changes their size. Hosts the `SpiritSystem`. |
-| `spirits.js` | 261 | Bit-Beast manifestations: spirit shader (cel rim, scan stripes, lower-body fade), light pillar, sigil laid on the bowl slope, rise/fade timeline, pooling, shader warm-up and per-battle preload (no first-summon stall). Visual only. |
+| `spirits.js` | 261 | Spirit Chip manifestations: spirit shader (cel rim, scan stripes, lower-body fade), light pillar, sigil laid on the bowl slope, rise/fade timeline, pooling, shader warm-up and per-battle preload (no first-summon stall). Visual only. |
 | `spiritForms.js` | 333 | One procedural 3D form per beast emblem (coil dragon/serpent, phoenix, raven, manta, wolf, lion, stag, tortoise, scorpion, orrery) built from merged primitives; `aU` per vertex drives the body wave. |
 | `inspect.js` | 154 | Inspect turntable stage (own scene and camera): explode, focus and ghost, assembly replay. |
 | `camera.js`, `emblems.js` | ~300 | Camera modes (broadcast, tracking, player, overhead, launch, victory; tracking and player pull back near the wall during ring-out threats); procedural beast emblems. |

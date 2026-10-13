@@ -7,7 +7,7 @@
 //   tournament  a story bracket run on the tournament engine
 // Rewards on any node are granted once. Lines may carry a condition:
 //   { flag: 'x' } | { notFlag: 'x' } | { choice: ['key', 'value'] }
-// Placeholders: {player} {beast} (your bonded Bit-Beast's name)
+// Placeholders: {player} {beast} (your bonded Spirit Chip's name)
 
 const L = (speaker, text, cond) => (cond ? [speaker, text, cond] : [speaker, text]);
 
@@ -83,11 +83,11 @@ export const CHAPTERS = [
           L('orrery', '...Rotation. Yes. You are the one who launched me.'),
           L('orrery', 'I am Orrery. I was counting before your stadiums were built. I have been counting inside this chip for a very long time.'),
           L('orrery', 'Your grandmother called me a partner. I would like to learn what that word means.'),
-          L('hollis', '...So it wasn\'t a story after all. A Bit-Beast.'),
+          L('hollis', '...So it wasn\'t a story after all. A Spirit Chip.'),
           L('hollis', 'Listen to me, {player}. A spirit doesn\'t make a top spin faster. It gives you choices — abilities, timing, a meter you fill by battling well. Use them wisely.'),
         ],
         reward: { flags: ['ch1_orrery'] },
-        tutorial: 'Bit-Beasts fill a Spirit meter from collisions and perfect launches. Spend it on abilities (RT / LT on a controller, F / G on the keyboard). Open Bit-Beasts in the main menu to read bond, lore and abilities.' },
+        tutorial: 'Spirit Chips fill a Spirit meter from collisions and perfect launches. Spend it on abilities (RT / LT on a controller, F / G on the keyboard). Open Spirit Chips in the main menu to read bond, lore and abilities.' },
       { id: 'ch1_gift', type: 'scene', location: 'Hollis Workshop',
         lines: [
           L('hollis', 'If you\'re going to battle, you need parts that suit how you battle. I\'ve got three things in the back. Pick one.'),
@@ -138,7 +138,7 @@ export const CHAPTERS = [
       { id: 'ch1_end', type: 'scene', location: 'Harbor Stadium — after the final',
         lines: [
           L('narrator', 'As the crowd thins out, a man in a grey coat stays in the top row, perfectly still.'),
-          L('valen', 'An unregistered Bit-Beast. Unknown origin. Rotational signature... unusual.'),
+          L('valen', 'An unregistered Spirit Chip. Unknown origin. Rotational signature... unusual.'),
           L('valen', 'Congratulations, {player}. Enjoy the city circuit. The Syndicate will be watching your numbers.'),
           L('orrery', '...That one. His spirit is very quiet. Too quiet.'),
           L('hollis', 'Never mind him. You\'ve earned a stadium pass — the Vortex Bowl is open to you now. Chapter one of a long story, kid.'),
@@ -188,7 +188,7 @@ export const CHAPTERS = [
         lose: [L('hollis', 'Top two gets you to the regional. Go again.')] },
       { id: 'ch2_end', type: 'scene', location: 'City Open — locker room',
         lines: [
-          L('agent', 'Battler {player}. The Null Syndicate is recruiting promising data points. Your Bit-Beast would be... optimised.'),
+          L('agent', 'Battler {player}. The Null Syndicate is recruiting promising data points. Your Spirit Chip would be... optimised.'),
           L('orrery', 'No.'),
           L('agent', 'Interesting. It speaks. Mr. Crowe will want to hear about that.'),
           L('sora', 'Hey! Get lost, creep!'),
@@ -234,7 +234,7 @@ export const CHAPTERS = [
         lose: [L('kaela', 'Heat got to you, huh? Cool off and come back.')] },
       { id: 'ch3_end', type: 'scene', location: 'Crater Road',
         lines: [
-          L('valen', 'Rotational output up forty percent since the harbor. Your Bit-Beast is... learning.'),
+          L('valen', 'Rotational output up forty percent since the harbor. Your Spirit Chip is... learning.'),
           L('valen', 'The Syndicate believes spirit is noise in the data. Remove the noise and battles become clean. Fair.'),
           L('player', 'Battles aren\'t supposed to be clean.'),
           L('valen', 'We will see. Skyfall Plateau, {player}. The national qualifiers. I\'ll be there.'),
@@ -319,7 +319,7 @@ export const CHAPTERS = [
           L('orrery', 'A strange spirit is listening to us from the dark, {player}. It sounds lonely. Perhaps one day it will battle beside you.'),
         ],
         reward: { flags: ['ch5_done'], xp: 1100, credits: 1200, materials: { relicFragment: 1, spiritDust: 6 } },
-        tutorial: 'A cold silence answers challenges now: Vexscor\'s Spirit Trial can appear in Bit-Beasts once you reach player level 14.' },
+        tutorial: 'A cold silence answers challenges now: Vexscor\'s Spirit Trial can appear in Spirit Chips once you reach player level 14.' },
     ],
   },
 

@@ -220,7 +220,7 @@ function rivalDetail(P, id) {
   if (!r.met) {
     return h('div', { class: 'col gap' },
       h('div', { class: 'row gap' }, beastImg(c.beast, 90), h('div', {}, h('h2', { style: { color: c.color } }, c.name), h('div', { class: 'muted' }, `${c.title} · ${c.home}`), h('div', { class: 'small' }, c.bio))),
-      statRow('Personality', `${prof.name} — ${prof.desc}`), statRow('Bit-Beast', BEAST_INDEX[c.beast]?.name || '—'),
+      statRow('Personality', `${prof.name} — ${prof.desc}`), statRow('Spirit Chip', BEAST_INDEX[c.beast]?.name || '—'),
       h('h3', {}, 'Signature'), h('div', { class: 'small' }, c.signature),
       h('div', { class: 'muted small' }, 'Battle them to record a head-to-head and the builds they use against you.'));
   }
@@ -229,7 +229,7 @@ function rivalDetail(P, id) {
     statRow('Head to head', `You ${r.playerWins} – ${r.playerLosses} ${c.name.split(' ')[0]}${r.draws ? ` (${r.draws} draws)` : ''}`),
     statRow('Last result', r.lastResult === 'win' ? 'You won' : r.lastResult === 'loss' ? 'You lost' : 'Draw'),
     statRow('Personality', `${prof.name} — ${prof.desc}`),
-    statRow('Bit-Beast', BEAST_INDEX[c.beast]?.name || '—'),
+    statRow('Spirit Chip', BEAST_INDEX[c.beast]?.name || '—'),
     statRow('Adaptability', c.adapt >= 0.8 ? 'Very high: changes builds to counter your latest style' : c.adapt >= 0.5 ? 'High: counters your favourite style' : c.adapt >= 0.3 ? 'Moderate' : 'Low: sticks to their style'),
     h('h3', {}, 'Signature'), h('div', { class: 'small' }, c.signature),
     h('h3', {}, 'Builds seen'), ...(r.buildsSeen.length ? r.buildsSeen.map((b) => { const B = c.builds.find((x) => x.id === b); return h('div', { class: 'small' }, B ? `${B.name} (${ROLE_NAMES[B.role]}) — ${Object.values(B.parts).map((p) => PART_INDEX[p]?.name).join(', ')}` : b); }) : [h('div', { class: 'small muted' }, 'None recorded yet.')]),
@@ -512,7 +512,7 @@ export class ScoutScreen {
           h('div', { class: 'row gap' }, beastImg(e.beast, 80), h('div', {}, h('h2', { style: { color: e.color } }, e.name), h('div', { class: 'muted small' }, ch ? `${ch.title} · ${ch.home}` : 'Open entrant'), ch ? h('div', { class: 'small' }, ch.bio) : null)),
           statRow('Style', `${ROLE_NAMES[role]} build`),
           statRow('Personality', `${prof.name}`), h('div', { class: 'small muted' }, prof.desc),
-          statRow('Bit-Beast', p.beast ? `${BEAST_INDEX[p.beast.id]?.name} (bond ${p.beast.bondLevel}${p.beast.awakened ? ', awakened' : ''})` : 'None'),
+          statRow('Spirit Chip', p.beast ? `${BEAST_INDEX[p.beast.id]?.name} (bond ${p.beast.bondLevel}${p.beast.awakened ? ', awakened' : ''})` : 'None'),
           statRow('Spin', `${p.spin === 'L' ? 'Left' : 'Right'}${p.spin !== mySpin ? ' — opposite to yours: contacts equalise spin' : ' — same as yours: contacts repel hard'}`),
           statRow('Launch technique', p.technique),
           asm ? statRow('Mass', `${s.massG.toFixed(1)} g · lock ${s.lockNotches} notches · tip ${s.tipFlatMm > 0.5 ? 'flat' : 'point/ball'}`) : null,

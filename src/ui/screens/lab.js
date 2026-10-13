@@ -88,7 +88,7 @@ export class PracticeLabScreen {
         h('h3', {}, 'Sparring'),
         this.loadoutSel(), this.arenaSel(),
         selector('Target', TARGETS.map((x) => ({ value: x.id, label: x.name, desc: x.desc })), this.cfg.target, (v) => { this.cfg.target = v; this.ui.refresh(this); }, { id: 'lab-target' }),
-        selector('Bit-Beast abilities', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], this.cfg.abilities, (v) => { this.cfg.abilities = v; }, { id: 'lab-abilities' }),
+        selector('Spirit Chip abilities', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], this.cfg.abilities, (v) => { this.cfg.abilities = v; }, { id: 'lab-abilities' }),
         selector('Physics debug overlay', [{ value: true, label: 'On' }, { value: false, label: 'Off' }], this.cfg.debug, (v) => { this.cfg.debug = v; }, { id: 'lab-debug', desc: 'Contact points, normals, velocity vectors, spin axis, angular momentum and centre of mass.' }),
         btn('Start sparring', () => this.start('spar'), { class: 'primary big', id: 'lab-spar' })),
       h('div', { class: 'panel col gap' }, h('h3', {}, t.name), h('div', { class: 'small' }, t.desc),

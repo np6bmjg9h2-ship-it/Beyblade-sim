@@ -1,4 +1,4 @@
-// Bit-Beast collection: identities, lore unlocked through bond, abilities
+// Spirit Chip collection: identities, lore unlocked through bond, abilities
 // with activation/cost/cooldown/counterplay, resonance, awakening progress,
 // Spirit Trials (recruitment) and Awakening Trials.
 
@@ -29,7 +29,7 @@ export class BeastsScreen {
       list.append(el);
     }
     return h('div', { class: 'std-screen beasts' },
-      h('div', { class: 'screen-head' }, h('h1', {}, 'Bit-Beasts'), h('span', { class: 'muted' }, `${Object.keys(P.beasts).length}/${BEASTS.length} bonded`)),
+      h('div', { class: 'screen-head' }, h('h1', {}, 'Spirit Chips'), h('span', { class: 'muted' }, `${Object.keys(P.beasts).length}/${BEASTS.length} bonded`)),
       h('div', { class: 'ws-cols two-wide beast-cols' }, h('div', { class: 'panel scroll' }, list), h('div', { class: 'panel scroll', 'data-scroll': 'beast' }, this.detail(this.sel))));
   }
 

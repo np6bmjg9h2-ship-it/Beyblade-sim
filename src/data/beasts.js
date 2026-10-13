@@ -1,4 +1,4 @@
-// Bit-Beasts. Original spirit creatures bound into spirit chips. Every ability
+// Spirit Chips. Original spirit creatures bound into the chips. Every ability
 // is a list of physical "ops" interpreted by game/abilities.js:
 //   mods      : timed modifier channels (restitution, friction, damping...)
 //   dash      : instantaneous velocity change, paid from spin energy (60% efficient)

@@ -62,7 +62,7 @@ export class ResultsScreen {
   onBack() { this.opts.onExit(); return true; }
 }
 
-const ORIGIN_NAMES = { trait: 'trait', set: 'set', skill: 'skill', beast: 'Bit-Beast', resonance: 'resonance', synergy: 'synergy', rift: 'Rift', ability: 'ability', item: 'item', affix: 'affix' };
+const ORIGIN_NAMES = { trait: 'trait', set: 'set', skill: 'skill', beast: 'Spirit Chip', resonance: 'resonance', synergy: 'synergy', rift: 'Rift', ability: 'ability', item: 'item', affix: 'affix' };
 
 // Effect sources by time active and triggers fired (game/battle.js stats.sources).
 function poweredBy(f) {

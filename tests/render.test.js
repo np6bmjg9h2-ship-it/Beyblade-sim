@@ -1,4 +1,4 @@
-// Renderer logic that runs without WebGL: Bit-Beast spirit forms (every beast
+// Renderer logic that runs without WebGL: Spirit Chip spirit forms (every beast
 // has its own sound, stadium-sized 3D form) and the camera rig's framing.
 
 import test from 'node:test';
@@ -24,7 +24,7 @@ function measure(group) {
   return { box, tris, meshes, finite, hasWave };
 }
 
-test('every Bit-Beast has its own spirit form', () => {
+test('every Spirit Chip has its own spirit form', () => {
   for (const b of BEASTS) assert.ok(SPIRIT_FORMS[b.emblem], `${b.id} (${b.emblem}) has a dedicated form`);
   assert.equal(new Set(BEASTS.map((b) => b.emblem)).size, BEASTS.length, 'no two beasts share a form');
 });

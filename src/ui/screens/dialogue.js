@@ -1,4 +1,4 @@
-// Dialogue overlay: speaker portrait (Bit-Beast emblem or initials), name and
+// Dialogue overlay: speaker portrait (Spirit Chip emblem or initials), name and
 // typewriter text. Confirm completes the current line or advances; Back skips
 // the rest. Used for rival pre-match lines and story scenes.
 

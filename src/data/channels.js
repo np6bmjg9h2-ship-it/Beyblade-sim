@@ -1,5 +1,5 @@
 // Modifier channels and battle conditions shared by traits, sets, synergies,
-// relics, Bit-Beast passives and Rift effects. The physics reads the final
+// relics, Spirit Chip passives and Rift effects. The physics reads the final
 // channel values every tick (TopBody.mods); systems/modifiers.js combines the
 // sources and clamps them to these limits.
 
@@ -42,6 +42,6 @@ export const CONDITIONS = {
   earlyBattle: { label: () => 'During the first 8 s' },
   critical: { label: () => 'While this part is in Critical condition' },
   oppositeSpin: { label: () => 'Against opposite-spin opponents' },
-  abilityActive: { label: () => 'While a Bit-Beast ability is active' },
+  abilityActive: { label: () => 'While a Spirit Chip ability is active' },
   opponentFaster: { label: () => 'While the opponent has more spin than you' },
 };

@@ -1,4 +1,4 @@
-// Ability runtime for one fighter: the spirit meter, Bit-Beast abilities and
+// Ability runtime for one fighter: the spirit meter, Spirit Chip abilities and
 // the built-in battle techniques (dash, brace, counter stance, spirit guard,
 // spirit surge). Every effect is a defined physical change with an explicit
 // energy source:

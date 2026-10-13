@@ -1,4 +1,4 @@
-// Modifier stack: turns traits, set bonuses, skills, Bit-Beast passives,
+// Modifier stack: turns traits, set bonuses, skills, Spirit Chip passives,
 // resonance and active abilities into the per-tick modifier channels that the
 // physics reads (TopBody.mods). Rules:
 //   * duplicate traits never stack (highest magnitude wins)

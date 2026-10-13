@@ -1,6 +1,6 @@
 // Property-based battle checks (fast-check): full battles through the real
 // loadout path (sets, skills, synergies, elemental statuses, reactive
-// traits, Bit-Beasts, launch gear) with random loot on both sides.
+// traits, Spirit Chips, launch gear) with random loot on both sides.
 //   * the same seed and loadouts give the same battle, event for event
 //   * every effect that fires belongs to something the top carries
 //   * battles always finish with finite state and no instability recovery

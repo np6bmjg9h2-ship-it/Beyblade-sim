@@ -54,7 +54,7 @@ export const RELICS = [
   {
     id: 'masterworkPivot', name: 'Masterwork Pivot', slot: 'tip', base: 'tip_needle', color: '#d9c38a', accent: '#4ef08f',
     signature: 'craftsmansPoise', traits: [['lowFrictionCoat', 0.7]],
-    lore: 'Only given to bladers who have truly learned one part. Its point never wavers.',
+    lore: 'Only given to spinners who have truly learned one part. Its point never wavers.',
     earn: { text: 'Reach Masterwork mastery on any part.', progress: (p) => [Math.min(MASTERWORK_XP, Math.max(0, ...Object.values(p.inventory || {}).map((i) => i.xp || 0))), MASTERWORK_XP] },
   },
   {
@@ -66,8 +66,8 @@ export const RELICS = [
   {
     id: 'bondkeepersSeal', name: "Bondkeeper's Seal", slot: 'disc', base: 'disc_ten', color: '#4ef08f', accent: '#ffffff',
     signature: 'kindredBond', traits: [['shockBrace', 0.85]],
-    lore: 'Pressed the day a Bit-Beast first woke beside its blader.',
-    earn: { text: 'Awaken a Bit-Beast.', progress: (p) => done(Object.values(p.beasts || {}).some((b) => b?.awakened)) },
+    lore: 'Pressed the day the spirit in a Spirit Chip first woke beside its spinner.',
+    earn: { text: 'Awaken a Spirit Chip.', progress: (p) => done(Object.values(p.beasts || {}).some((b) => b?.awakened)) },
   },
   {
     id: 'laurelLauncher', name: 'Laurel Launcher', slot: 'launcher', base: 'launcher_precision', color: '#ffe14d', accent: '#4ef08f',

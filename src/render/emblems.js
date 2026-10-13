@@ -1,4 +1,4 @@
-// Procedural, original emblem art for each Bit-Beast, drawn with Canvas 2D
+// Procedural, original emblem art for each Spirit Chip, drawn with Canvas 2D
 // paths. Used for HUD icons, menus, core-cap decals and 3D manifestations.
 
 const cache = new Map();

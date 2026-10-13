@@ -1,7 +1,7 @@
 # Chaos Spin: Arena Zero
 
 A browser-based 3D spinning-top battle RPG. Every battle runs on a custom
-rigid-body spinning-top simulation; equipment, loot, Bit-Beasts, skills,
+rigid-body spinning-top simulation; equipment, loot, Spirit Chips, skills,
 tournaments, a six-chapter story and several extra modes are built around it.
 All characters, parts, creatures, places and names are original.
 
@@ -43,7 +43,7 @@ options. Unplugging a controller mid-battle pauses the game.
 | Launch: technique / spin direction | X / Y | T / R |
 | Battle: steer | Left stick | WASD |
 | Dash / Grip Brace / Counter Stance | A / B (hold) / X | Space / Shift / L |
-| Bit-Beast abilities: signature / secondary | RT / LT | F / G |
+| Spirit Chip abilities: signature / secondary | RT / LT | F / G |
 | Ultimate | LB + RB together | R or V |
 | Spirit Guard / Spirit Surge | LB / RB | Q / E |
 | Camera / telemetry / pause | Y / View / Menu | C / Tab / Esc |
@@ -53,7 +53,7 @@ options. Unplugging a controller mid-battle pauses the game.
 - **Story** — six chapters (Harbor District → Arena Zero). Battler creation
   (name, colour, pronouns, battle style with starter parts), guided training
   with objectives measured from real battle events, rival battles, choices
-  that change later scenes, Bit-Beast discovery and story brackets. Losing
+  that change later scenes, Spirit Chip discovery and story brackets. Losing
   never blocks progress: retry, change your loadout, or lower the story
   difficulty (which only changes AI skill, never physics).
 - **Quick Battle** — any unlocked stadium, opponent archetype, difficulty and
@@ -69,7 +69,7 @@ options. Unplugging a controller mid-battle pauses the game.
   boss each) on a branching map: battles, elites, vault challenges, traders,
   forges, shrines, camps and unknown events. Run-only loot (parts with
   elements, 38 charms in six resonating families including cursed ones,
-  levelled boons tied to your Bit-Beast), Scorch / Static / Rust statuses
+  levelled boons tied to your Spirit Chip), Scorch / Static / Rust statuses
   that fuse, sweet-spot hits, hearts instead of one life, and Essence that
   buys permanent Rift Talents. Depths 0-8 add rules for more Essence and
   rarer parts. The Rift is the loot grind: beating a Rift's boss secures the
@@ -93,7 +93,7 @@ options. Unplugging a controller mid-battle pauses the game.
   Lab) sells six one-of-a-kind prototype parts and a launcher designed by the
   game each day (`src/systems/partGen.js`): new names, numbers and models
   drawn inside the catalogue's ranges, each sold once.
-- **Bit-Beasts**, **Skills** (five paths, respec), **Statistics** (records,
+- **Spirit Chips**, **Skills** (five paths, respec), **Statistics** (records,
   charts, history and **replays**).
 
 ## How it works
@@ -137,7 +137,7 @@ names such as "Honed Gale Fang of Fury", colour and finish variants) with
 bad-luck protection, and every item is validated before it enters an
 inventory or a battle (old saves quarantine broken items instead of losing
 them). 19 synergies (`src/data/synergies.js`, some hidden until found) combine
-traits, sets, mastery, curses, part types, the Bit-Beast and Rift charms;
+traits, sets, mastery, curses, part types, the Spirit Chip and Rift charms;
 the Workshop's Synergies tab shows which items feed each one and what is one
 step away, and the results screen lists what powered your top. Picking a
 part shows how it changes the finished top before you equip it.
@@ -173,7 +173,7 @@ together at the start of a battle, fly apart on a Shatter, and can be
 inspected one by one in the Workshop's Inspect 3D view. Stadiums, effects
 (star hit flashes, speed-line sparks, ring-out bursts, wobble warnings) and
 the interface (Bangers and Chakra Petch display fonts, OFL, embedded) share
-the same anime style. Bit-Beast abilities summon the beast itself: a
+the same anime style. Spirit Chip abilities summon the spirit itself: a
 translucent 3D spirit, one procedural form per beast (`spirits.js`,
 `spiritForms.js`), rising in a pillar of light over a sigil. It is purely
 visual and fades low down so the top and its collisions stay readable.

@@ -111,7 +111,7 @@ export function checkRequirement(q, ctx) {
   if (q.spin) return out(ctx.spin === q.spin, [], q.spin === 'L' ? 'left spin' : 'right spin');
   if (q.beastElement) {
     const el = BEAST_INDEX[ctx.beast?.id]?.element;
-    return out(!!el && q.beastElement.includes(el), [], `a ${q.beastElement.join(' or ')} Bit-Beast`);
+    return out(!!el && q.beastElement.includes(el), [], `a ${q.beastElement.join(' or ')} Spirit Chip`);
   }
   if (q.launcherMech) {
     const L = baseOf(ctx.launcher) || ctx.launcher;

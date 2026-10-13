@@ -4,7 +4,7 @@
 //            art (canvas map) and drops into the attack ring's hole
 //   tab ring the clamp plate whose tabs reach over the ring (or, when there
 //            is no headroom above the ring, short lugs inside the hole)
-//   bezel    the frame around the Bit-Beast chip (round, polygonal or star)
+//   bezel    the frame around the Spirit Chip (round, polygonal or star)
 //   chip     emblem disc (emissive, pulsed through `glows`)
 //   lens     domed clear plastic over the chip with a printed glint
 //   hardware merged screws/bolts/weights (one metal mesh)

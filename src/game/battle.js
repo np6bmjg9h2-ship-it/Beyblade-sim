@@ -1,7 +1,7 @@
 // Battle controller: one match between two fighters.
 //
 // Flow per round: setup (aim/technique/spin) -> countdown (charge during
-// 3-2-1, release at IGNITE) -> battle (fixed-tick simulation, controls,
+// 3-2-1, release at SPIN!) -> battle (fixed-tick simulation, controls,
 // abilities, modifiers) -> finishing (slow motion) -> roundOver -> ... ->
 // matchOver. Runs identically headless (AI vs AI, tests, tournament sims)
 // and in the browser (renderer/UI subscribe to events).
@@ -370,7 +370,7 @@ export class Battle extends Emitter {
       return;
     }
     // Countdown, launch and battle all advance in fixed ticks, so charge,
-    // IGNITE and spawn times land on the same tick whatever the frame rate.
+    // SPIN! and spawn times land on the same tick whatever the frame rate.
     // Slow motion only changes how many ticks run per real second.
     if (this.slowmoT > 0) { this.slowmoT -= dt; if (this.slowmoT <= 0) this.timeScale = 1; }
     this.acc += dt * this.timeScale * (this.speedMul || 1);
@@ -405,7 +405,7 @@ export class Battle extends Emitter {
     const sec = Math.ceil(COUNTDOWN - t);
     if (sec !== prevSec && sec > 0) this.emit('countdown', { n: sec });
     if (this.replay && this.replay.v < 2) {
-      // v1 recordings: releases come from the recording at IGNITE; spawns happen in tick()
+      // v1 recordings: releases come from the recording at SPIN!; spawns happen in tick()
       if (!this.ignited && t >= COUNTDOWN) {
         this.ignited = true;
         this.emit('ignite', {});
@@ -652,7 +652,7 @@ export class Battle extends Emitter {
     if (e.how === 'out') f.outAngle = dm.atan2(f.top.p.z, f.top.p.x);
     this.roundFinishes.push({ fighter: f, how: e.how, time: this.battleTime });
     this.emit('topFinished', { fighter: f, how: e.how });
-    // After IGNITE a top can finish before the opponent has even spawned (a late
+    // After SPIN! a top can finish before the opponent has even spawned (a late
     // release); that still decides the round, it must not wait for the other top.
     if (this.phase === 'battle' || (this.phase === 'countdown' && this.ignited)) {
       // resolve at the end of this tick (both may finish on the same tick)

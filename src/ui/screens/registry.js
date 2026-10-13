@@ -24,9 +24,9 @@ export const MENU_ENTRIES = [
   { id: 'tournaments', label: 'Tournaments', desc: 'The competitive circuit: brackets, leagues, rivals, scouting and your career record.', screen: () => new TournamentsScreen({ openActive: true }), badge: (p) => !!p.tournaments.active },
   { id: 'workshop', label: 'Workshop', desc: 'Assemble loadouts, manage inventory, repair, upgrade, craft and browse your collection.', screen: () => new WorkshopScreen() },
   { id: 'store', label: 'Store', desc: 'Main Store: packs, capsules, bundles and daily deals for CR. Daily Store: one-of-a-kind prototype parts and launchers, new every day.', screen: () => new StoreScreen(), badge: (p) => dealsUnseen(p) },
-  { id: 'beasts', label: 'Bit-Beasts', desc: 'Your spirit partners: bond, lore, abilities, resonance, Spirit Trials and Awakening.', screen: () => new BeastsScreen(), badge: (p) => BEASTS.some((b) => trialStatus(p, b.id).available) },
+  { id: 'beasts', label: 'Spirit Chips', desc: 'Your spirit partners: bond, lore, abilities, resonance, Spirit Trials and Awakening.', screen: () => new BeastsScreen(), badge: (p) => BEASTS.some((b) => trialStatus(p, b.id).available) },
   { id: 'skills', label: 'Skills', desc: 'Spend skill points across five paths: Aggressor, Guardian, Endurance, Technician and Channeler. Respec any time.', screen: () => new SkillsScreen(), badge: (p) => p.player.skillPoints > 0 },
-  { id: 'stats', label: 'Statistics', desc: 'Your records, finishes, launches, stadium, build and Bit-Beast usage, and recent battles.', screen: () => new StatsScreen() },
+  { id: 'stats', label: 'Statistics', desc: 'Your records, finishes, launches, stadium, build and Spirit Chip usage, and recent battles.', screen: () => new StatsScreen() },
   { id: 'settings', label: 'Settings', desc: 'Graphics, audio, controls, controller calibration and accessibility.', screen: () => new SettingsScreen() },
   { id: 'save', label: 'Save Game', desc: 'Write your progress to this save slot now.', action: async (app) => { if (await app.save()) app.ui.toast('Game saved.', 'good'); } },
 ];
