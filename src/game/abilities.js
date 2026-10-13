@@ -19,7 +19,7 @@ const DASH_EFF = 0.6;
 export const TECHNIQUE_DEFS = {
   dash: { name: 'Dash', cooldown: 2.2, speed: 0.42, desc: 'Spirit-step in the stick direction (toward the opponent with no input). Costs spin.' },
   brace: { name: 'Grip Brace', desc: 'Hold: tip grip +35% and tip drag +40%. Resists knockback at a stamina cost.' },
-  counter: { name: 'Counter Stance', cooldown: 1.6, whiff: 3.5, window: 0.35, desc: 'A 0.35 s window: a collision inside it is countered (restitution when struck +25%, 1.3× lock stress back, +12 spirit, wobble damping after).' },
+  counter: { name: 'Counter Stance', cooldown: 1.2, whiff: 2.2, window: 0.22, staggerT: 0.6, staggerGuard: 2, desc: 'A 0.22 s window: if the opponent strikes you inside it, the hit is countered (restitution when struck +45%, 1.6× lock stress back, +25 spirit, wobble damping after) and the striker staggers (steering −50% for 0.6 s). Your own strikes and even clashes never trigger it. A miss locks it for 2.2 s.' },
   guard: { name: 'Spirit Guard', cost: 25, cooldown: 4, duration: 2, desc: '25 spirit: lock strength +40% and wobble damping +5/s for 2 s.' },
   surge: { name: 'Spirit Surge', cost: 25, cooldown: 4, duration: 2.5, desc: '25 spirit: steering force +60% and steering efficiency +50% for 2.5 s.' },
 };
@@ -198,9 +198,9 @@ export class AbilityRuntime {
       case 'counter': {
         if (this.cool.counter > 0 || this.counter) return false;
         const win = T.window + (sk.counterWindow || 0);
-        this.counter = { remaining: win, op: { deltas: [['nutationDamping', 8]], duration: 0.5, stressMul: 1.3, spirit: 12 }, def: { name: T.name, id: 'counterStance' }, source: 'technique' };
-        mods.addTimed('counterWindow', T.name, [['restitutionWhenHit', 0.25 + (sk.counterPower || 0)]], win, 'technique');
-        top.nextHitStressMul = 1.3;
+        this.counter = { remaining: win, op: { deltas: [['nutationDamping', 8]], duration: 0.5, stressMul: 1.6, spirit: 25, stagger: true }, def: { name: T.name, id: 'counterStance' }, source: 'technique' };
+        mods.addTimed('counterWindow', T.name, [['restitutionWhenHit', 0.45 + (sk.counterPower || 0)]], win, 'technique');
+        top.nextHitStressMul = 1.6;
         f.battle.emit('technique', { fighter: f, name: 'counter' });
         return true;
       }
@@ -275,20 +275,29 @@ export class AbilityRuntime {
   }
 
   // Called by the battle for each top/top impact this fighter took part in.
-  onImpact(ev, opponentAbility) {
+  // struck: the opponent was the striker (battle.js decides; false when this
+  // top struck or the two met evenly). Counters trigger only when struck.
+  onImpact(ev, opponentAbility, struck = true) {
     const f = this.f;
     // channelled restore is interrupted by a hit
     if (this.channel && this.channel.interruptible) {
       f.battle.emit('interrupted', { fighter: f, name: this.channel.name });
       this.channel = null;
     }
-    // counter triggers
-    if (this.counter) {
+    // counter triggers: only on a hit the opponent made
+    if (this.counter && struck) {
       const op = this.counter.op;
       f.mods.removeTimed('counterWindow');
       if (op.deltas) f.mods.addTimed('counterFollow', this.counter.def.name, op.deltas.filter(([c]) => c !== 'restitutionWhenHit'), op.duration || 0.5, 'ability');
       if (op.spirit) this.gain(op.spirit);
       if (op.shockwave && opponentAbility) this.sim.applyShockwave(f.top, opponentAbility.f.top, op.shockwave, 0.14);
+      // the striker staggers (no re-stagger within staggerGuard seconds)
+      const T = TECHNIQUE_DEFS.counter, of = opponentAbility?.f, now = f.battle.battleTime;
+      if (op.stagger && of && !(now < (opponentAbility.staggerGuardUntil ?? -1))) {
+        of.mods.addTimed('countered', 'Countered', [['steerForce', -0.5]], T.staggerT, 'ability');
+        opponentAbility.staggerGuardUntil = now + T.staggerGuard;
+        f.battle.emit('staggered', { fighter: of, by: f });
+      }
       f.stats.counters = (f.stats.counters || 0) + 1;
       this.cool.counter = this.counter.source === 'technique' ? TECHNIQUE_DEFS.counter.cooldown : this.cool.counter;
       f.battle.emit('counter', { fighter: f, def: this.counter.def });

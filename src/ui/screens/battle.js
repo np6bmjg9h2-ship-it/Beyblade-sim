@@ -5,7 +5,7 @@
 
 import { ObjectiveTracker } from '../../game/objectives.js';
 import { h, btn } from '../ui.js';
-import { Battle, FINISH_NAMES } from '../../game/battle.js';
+import { Battle, FINISH_NAMES, RULES_REV } from '../../game/battle.js';
 import { HumanController } from '../../game/humanController.js';
 import { ARENA_INDEX } from '../../data/arenas.js';
 import { TECHNIQUE_INDEX } from '../../data/launchers.js';
@@ -98,6 +98,7 @@ export class BattleScreen {
         participants: s.participants, rules: { slowmo: app.settings.gameplay.slowmo, ...(s.rules || {}) }, record: hasHuman && s.mode !== 'lab',
       });
     this.battle = battle;
+    if (R && (R.rulesRev ?? 1) < RULES_REV) this.notify('Recorded under older battle rules: this replay may play out differently.', 'bad');
     this.humans = R ? [] : battle.fighters.filter((f) => f.human).map((f) => new HumanController(app, battle, f.index));
     this.objectives = s.objectives ? new ObjectiveTracker(s.objectives) : null;
     this.objectivesDoneT = null;

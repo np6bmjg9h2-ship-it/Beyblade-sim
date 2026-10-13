@@ -88,6 +88,24 @@ class Fighter {
   }
 }
 
+// Who struck whom: the top moving faster into the other along the contact
+// normal (A to B) just before the step. Within CLASH_BAND m/s of each other
+// it is a clash (striker null). Same test as the physics uses for
+// restitutionWhenHit, plus the band.
+export const CLASH_BAND = 0.15;
+
+// Battle rules revision, stored in replays. Raise it whenever a rule change
+// makes the same inputs play out differently (older replays then show a
+// notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
+export const RULES_REV = 2;
+export function strikeOf(fa, fb, n) {
+  const sA = (fa.preVx ?? 0) * n[0] + (fa.preVz ?? 0) * n[2];
+  const sB = -((fb.preVx ?? 0) * n[0] + (fb.preVz ?? 0) * n[2]);
+  const closing = Math.max(sA, sB);
+  if (Math.abs(sA - sB) < CLASH_BAND) return { striker: null, closing };
+  return { striker: sA > sB ? fa : fb, closing };
+}
+
 export class Battle extends Emitter {
   constructor(opts) {
     super();
@@ -487,6 +505,8 @@ export class Battle extends Emitter {
     }
     this.riftFx?.preTick();
     this.itemFx?.preTick();
+    // velocities before the step: who was moving into whom at a contact
+    for (const f of this.fighters) { f.preVx = f.top.v.x; f.preVz = f.top.v.z; }
     const events = sim.tick();
     this.roundTicks++;
     if (this.phase === 'battle' || this.phase === 'countdown') this.battleTime += TICK;
@@ -512,7 +532,7 @@ export class Battle extends Emitter {
   replayData() {
     if (!this.rec || !this.result) return null;
     return {
-      v: 1, seed: this.seed, arenaId: this.arenaDef.id, format: this.format.id, roundTime: this.roundTime, mode: this.mode,
+      v: 1, rulesRev: RULES_REV, seed: this.seed, arenaId: this.arenaDef.id, format: this.format.id, roundTime: this.roundTime, mode: this.mode,
       rules: { ...this.rules }, rec: this.rec,
       summary: { winner: this.result.winner, rounds: this.result.rounds.map((r) => ({ winner: r.winner, how: r.how, time: +r.time.toFixed(3) })) },
     };
@@ -601,13 +621,15 @@ export class Battle extends Emitter {
       } else f.ability.gain(Math.min(2, J * 60));
     }
     if (e.type === 'impact') {
-      fa.ability.onImpact(e, fb.ability);
-      fb.ability.onImpact(e, fa.ability);
+      const { striker, closing } = strikeOf(fa, fb, e.normal);
+      fa.ability.onImpact(e, fb.ability, striker === fb);
+      fb.ability.onImpact(e, fa.ability, striker === fa);
       this.riftFx?.onImpact(fa, fb, e);
       this.itemFx?.onImpact(fa, fb, e);
       const critical = J > 0.06;
       const { glance, tangent } = glanceOf(e.normal, fa.top.v, fb.top.v, e.approach);
-      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy };
+      const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy, striker, struck: striker ? (striker === fa ? fb : fa) : null, closing };
+      if (striker) striker.stats.strikes = (striker.stats.strikes || 0) + 1;
       this.lastImpact = ev;
       this.roundNotable.push(ev);
       this.emit('impact', ev);
