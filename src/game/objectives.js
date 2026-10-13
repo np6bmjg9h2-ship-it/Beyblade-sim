@@ -32,7 +32,7 @@ export class ObjectiveTracker {
         case 'hits':
           if (type === 'impact' && (e.A === me || e.B === me) && e.impulse > 0.008) this.mark(o, 1, o.n || 1);
           break;
-        case 'dash': if (type === 'technique' && e.fighter === me && e.name === 'dash') this.mark(o); break;
+        case 'dash': if (type === 'technique' && e.fighter === me && e.name === 'dash' && e.phase !== 'windup') this.mark(o); break;
         case 'counter': if (type === 'counter' && e.fighter === me) this.mark(o); break;
         case 'ability': if (type === 'ability' && e.fighter === me) this.mark(o); break;
         case 'roundWin': if (type === 'roundEnd' && e.winner === hi) this.mark(o, 1, o.n || 1); break;

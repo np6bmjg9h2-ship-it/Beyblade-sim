@@ -51,6 +51,8 @@ export class AIController {
     this.braceUntil = 0;
     this.wantDash = false;
     this.wantCounter = false;
+    this.counterAt = null; // a counter press scheduled from a windup read
+    this.readWindupT = null;
     this.wantAbility = null;
     this.noise = new Vec3();
     this.pushDir = new Vec3(1, 0, 0);
@@ -106,16 +108,40 @@ export class AIController {
 
   // ------------------------------------------------------------ battle
 
-  observe(t, me, opp, meSpirit, oppSpirit) {
+  observe(t, me, opp, meSpirit, oppSpirit, oppWindup = null) {
     this.history.push({
       t,
-      opp: { p: opp.p.clone(), v: opp.v.clone(), spinFrac: opp.spinFraction(), active: opp.active, spirit: oppSpirit },
+      opp: { p: opp.p.clone(), v: opp.v.clone(), spinFrac: opp.spinFraction(), active: opp.active, spirit: oppSpirit,
+        windup: oppWindup ? { dx: oppWindup.dir.x, dz: oppWindup.dir.z, startT: oppWindup.startT } : null },
       me: { p: me.p.clone(), v: me.v.clone(), spinFrac: me.spinFraction(), spirit: meSpirit },
     });
     while (this.history.length > 2 && this.history[1].t <= t - this.profile.reaction) this.history.shift();
   }
 
   delayed() { return this.history[0]; }
+
+  // A coiling dash is the clearest read in the game (the HUD shows it). Seen
+  // `reaction` late: if it is aimed at me and close, the AI either schedules
+  // a counter so the window covers the landing, or sidesteps when its counter
+  // is not ready. Once per windup, landing with probability counterSkill.
+  readWindup(time, snap, me, ability, P) {
+    const w = snap.opp.windup;
+    if (!w || w.startT === this.readWindupT) return;
+    this.readWindupT = w.startT;
+    const dx = me.top.p.x - snap.opp.p.x, dz = me.top.p.z - snap.opp.p.z, d = dm.hypot(dx, dz);
+    if (d < 1e-4 || d > 0.16 || (w.dx * dx + w.dz * dz) / d < 0.8) return;
+    if (!this.rngRead.chance(P.counterSkill || 0)) return;
+    this.counteredApproach = true; // no reflex press on top of the read
+    const T = TECHNIQUE_DEFS;
+    if (ability && ability.cool.counter <= 0 && !ability.counter) {
+      const gap = Math.max(0, d - 0.05);
+      const landing = w.startT + T.dash.windup + gap / T.dash.speed;
+      this.counterAt = Math.max(time, landing - T.counter.window * 0.6);
+    } else {
+      this.plan = 'evade';
+      this.nextDecision = Math.max(this.nextDecision, time + 0.3);
+    }
+  }
 
   // Counter as a read, checked every tick: from what it saw `reaction`
   // seconds ago, the AI predicts when the opponent's strike lands and presses
@@ -135,7 +161,8 @@ export class AIController {
     const ttc = gap / closing - (time - snap.t); // seconds until contact, now
     if (ttc < TECHNIQUE_DEFS.counter.window * 0.75 && ttc > -0.02) {
       this.counteredApproach = true;
-      if (this.rngRead.chance(P.counterSkill)) this.wantCounter = true;
+      // a reflex on raw closing speed lands half as often as a windup read
+      if (this.rngRead.chance(P.counterSkill * 0.5)) this.wantCounter = true;
     }
   }
 
@@ -144,7 +171,7 @@ export class AIController {
     const P = this.profile;
     const { time, me, opp, arena, ability, oppAbility } = ctx;
     if (P.passive) return c;
-    this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0);
+    this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0, oppAbility?.windup);
     const snap = this.delayed();
     if (!snap || !me.top.active) return c;
 
@@ -159,6 +186,8 @@ export class AIController {
     const oppR = dm.hypot(oP.x, oP.z) / R;
     const mySpin = me.top.spinFraction();
     const oppSpin = snap.opp.spinFrac;
+    this.readWindup(time, snap, me, ability, P);
+    if (this.counterAt !== null && time >= this.counterAt) { this.wantCounter = true; this.counterAt = null; }
     this.readCounter(time, snap, me, opp, P);
 
     // contact awareness: compare how much spin each side lost around recent

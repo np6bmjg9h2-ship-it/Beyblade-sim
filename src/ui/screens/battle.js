@@ -234,7 +234,9 @@ export class BattleScreen {
       }
       case 'shockwave': app.audio.shockwave(); break;
       case 'abilityHit': this.notify(`${e.def.name} hit!`, 'crit'); break;
-      case 'technique': if (e.name === 'dash') app.audio.dash(); break;
+      case 'technique': if (e.name === 'dash') { if (e.phase === 'windup') { app.audio.dashWindup(); this.warnIncoming(e); } else app.audio.dash(); } break;
+      case 'dashInterrupted': this.notify(`${e.fighter.name}: dash broken!`, involvesHuman(e.fighter) ? 'bad' : 'good'); break;
+      case 'staggered': this.notify(`${e.fighter.name} staggers!`, involvesHuman(e.fighter) ? 'bad' : 'gold'); break;
       case 'counter': app.audio.counter(); this.notify(`${e.fighter.name}: COUNTER!`, 'gold'); if (involvesHuman(e.fighter)) this.freeze(0, true); break;
       case 'counterWhiff': if (involvesHuman(e.fighter)) this.notify('Counter missed', 'info'); break;
       case 'interrupted': this.notify(`${e.name} interrupted!`, 'bad'); break;
@@ -378,6 +380,17 @@ export class BattleScreen {
   }
 
   // ------------------------------------------------------------ HUD
+
+  // An opponent dash is coiling and aimed at the player's top: say so, so it
+  // can be countered or dodged (the same windup the AI reads).
+  warnIncoming(e) {
+    const me = this.battle.fighters.find((f) => f.human && f !== e.fighter);
+    if (!me?.top?.active || this.battle.replay) return;
+    const dx = me.top.p.x - e.fighter.top.p.x, dz = me.top.p.z - e.fighter.top.p.z, d = Math.hypot(dx, dz);
+    if (d < 1e-4 || d > 0.16 || (e.dir.x * dx + e.dir.z * dz) / d < 0.8) return;
+    this.notify('INCOMING DASH: counter or step aside!', 'crit');
+    this.app.input.rumble(0.3, 0.3, 80);
+  }
 
   stability(f) {
     const t = f.top;

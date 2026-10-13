@@ -339,6 +339,18 @@ export class Effects {
     slot.mesh.visible = true;
   }
 
+  // dash telegraph: a ring that tightens over the 0.15 s windup and a
+  // streak of glow on the floor pointing where the dash will go
+  dashWindup(p, dir, color) {
+    this.ring([p.x, p.y, p.z], 0.055, 0.02, 0.15, color);
+    const c = this.color(color);
+    for (let i = 1; i <= 8; i++) {
+      const d = 0.012 * i;
+      this.glow.emit(p.x + dir.x * d, p.y + 0.003, p.z + dir.z * d, dir.x * 0.05, 0.01, dir.z * 0.05, 0.3, c.r, c.g, c.b);
+    }
+    this.scratch(p, dir, 0.06);
+  }
+
   launchFlash(p, color) {
     this.ring([p.x, p.y, p.z], 0.01, 0.07, 0.5, color);
     const c = this.color(color);

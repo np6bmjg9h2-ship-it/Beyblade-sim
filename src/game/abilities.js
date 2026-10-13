@@ -14,10 +14,14 @@ import { GRAVITY } from '../physics/topBody.js';
 import * as dm from '../core/dmath.js';
 
 export const SPIRIT_MAX = 100;
-const DASH_EFF = 0.6;
+const DASH_EFF = 0.6; // Spirit Chip dash ops
+// the Dash technique is a commitment: a visible windup, a real spin cost
+// (45% conversion and at least 1.2% of the spin energy), then a short recovery
+const TECH_DASH_EFF = 0.45;
+const DASH_MIN_SPIN = 0.012;
 
 export const TECHNIQUE_DEFS = {
-  dash: { name: 'Dash', cooldown: 2.2, speed: 0.42, desc: 'Spirit-step in the stick direction (toward the opponent with no input). Costs spin.' },
+  dash: { name: 'Dash', cooldown: 3.0, speed: 0.65, windup: 0.15, recovery: 0.35, interruptJ: 0.04, interruptCool: 1.5, desc: 'Coil for 0.15 s, then spirit-step in the direction you chose (toward the opponent with no input). The coil is visible: a hit while coiling cancels the dash. Costs spin; steering is weaker for 0.35 s after.' },
   brace: { name: 'Grip Brace', desc: 'Hold: tip grip +35% and tip drag +40%. Resists knockback at a stamina cost.' },
   counter: { name: 'Counter Stance', cooldown: 1.2, whiff: 2.2, window: 0.22, staggerT: 0.6, staggerGuard: 2, desc: 'A 0.22 s window: if the opponent strikes you inside it, the hit is countered (restitution when struck +45%, 1.6× lock stress back, +25 spirit, wobble damping after) and the striker staggers (steering −50% for 0.6 s). Your own strikes and even clashes never trigger it. A miss locks it for 2.2 s.' },
   guard: { name: 'Spirit Guard', cost: 25, cooldown: 4, duration: 2, desc: '25 spirit: lock strength +40% and wobble damping +5/s for 2 s.' },
@@ -42,6 +46,7 @@ export class AbilityRuntime {
     this.nextHit = null; // { remaining, stressMul, id }
     this.forces = []; // { dir, magnitude, remaining }
     this.bracing = false;
+    this.windup = null; // { remaining, dir, startT }: a dash coiling
     this.log = [];
     this.lastActivation = null;
     this.bondPower = beast ? 1 + (beast.bondLevel >= 7 ? 0.08 : 0) : 1;
@@ -188,12 +193,14 @@ export class AbilityRuntime {
     switch (name) {
       case 'dash': {
         if (this.cool.dash > 0) return false;
+        if (this.windup) return false;
         const dir = this.direction('stick', ctx);
         if (!dir) return false;
-        this.sim.applyDash(top, dir, T.speed * (1 + (sk.dashPower || 0)), DASH_EFF * top.mods.steerEfficiency);
+        // the direction is latched now; the step comes after the windup
+        this.windup = { remaining: T.windup, dir, startT: f.battle.battleTime };
         this.cool.dash = T.cooldown * (1 - (sk.dashCooldown || 0));
-        f.stats.dashes = (f.stats.dashes || 0) + 1;
-        f.battle.emit('technique', { fighter: f, name: 'dash', dir });
+        mods.addTimed('dashWindup', T.name, [['steerForce', -0.5]], T.windup, 'technique');
+        f.battle.emit('technique', { fighter: f, name: 'dash', phase: 'windup', dir });
         return true;
       }
       case 'counter': {
@@ -240,6 +247,11 @@ export class AbilityRuntime {
     // passive spirit charge while spinning (was 2.0/s: abilities came on a
     // timer; now most spirit comes from striking, countering and launching)
     if (top.active && this.enabled) this.gain(dt * PASSIVE_SPIRIT);
+    if (this.windup) {
+      this.windup.remaining -= dt;
+      if (!top.active) this.windup = null;
+      else if (this.windup.remaining <= 1e-9) this.releaseDash();
+    }
     // channel
     if (this.channel) {
       this.channel.remaining -= dt;
@@ -276,6 +288,15 @@ export class AbilityRuntime {
     this.forces = this.forces.filter((x) => x.remaining > 0);
   }
 
+  releaseDash() {
+    const f = this.f, top = f.top, T = TECHNIQUE_DEFS.dash, dir = this.windup.dir;
+    this.windup = null;
+    this.sim.applyDash(top, dir, T.speed * (1 + (this.skills.dashPower || 0)), TECH_DASH_EFF * top.mods.steerEfficiency, DASH_MIN_SPIN * top.spinEnergy());
+    f.mods.addTimed('dashRecovery', 'Overextended', [['steerForce', -0.4]], T.recovery, 'technique');
+    f.stats.dashes = (f.stats.dashes || 0) + 1;
+    f.battle.emit('technique', { fighter: f, name: 'dash', phase: 'go', dir });
+  }
+
   // Called by the battle for each top/top impact this fighter took part in.
   // struck: the opponent was the striker (battle.js decides; false when this
   // top struck or the two met evenly). Counters trigger only when struck.
@@ -285,6 +306,13 @@ export class AbilityRuntime {
     if (this.channel && this.channel.interruptible) {
       f.battle.emit('interrupted', { fighter: f, name: this.channel.name });
       this.channel = null;
+    }
+    // a solid hit taken while coiling cancels the dash
+    if (this.windup && struck && ev.impulse >= TECHNIQUE_DEFS.dash.interruptJ) {
+      this.windup = null;
+      f.mods.removeTimed('dashWindup');
+      this.cool.dash = TECHNIQUE_DEFS.dash.interruptCool;
+      f.battle.emit('dashInterrupted', { fighter: f, by: opponentAbility?.f });
     }
     // counter triggers: only on a hit the opponent made
     if (this.counter && struck) {

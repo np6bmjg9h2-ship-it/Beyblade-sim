@@ -14,8 +14,9 @@ difficulty steps flat (target >= 10 pts each), gear curve OK (Epic 66%).
 |---|---|
 | S1 launch judging (Perfect = best safe release) | committed c2a3311 |
 | S2 strike attribution, counters only when struck, stagger, RULES_REV 2 | committed 19d255e |
-| S3 spirit earned (passive 2.0 -> 1.0/s, struck 0.5x, clash 0.75x, Good launch +4) + AI counter read every tick (`readCounter`, own RNG stream) | **committed locally, NOT pushed: run `npm run balance:check` and `npm run test:browser` first, then push** |
-| Next | re-run `npm run fairness --n 200`; then S4 dash commitment + telegraphs, S5 openings/punish + AI reads, S6 terrain AI, S7 physics knobs, S8 Decision initiative weighting + format (user decision), S9 playtest |
+| S3 spirit earned (passive 2.0 -> 1.0/s, struck 0.5x, clash 0.75x, Good launch +4) + AI counter read every tick (`readCounter`, own RNG stream) | committed b58c726, pushed (balance 55/39/60/46/50, browser 17/17) |
+| S4 dash commitment: 0.15 s windup with latched direction (`ability.windup`, `releaseDash()`), speed 0.65, cooldown 3.0, 45% conversion + 1.2% spin floor, 0.35 s recovery, a struck hit >= 0.04 cancels the windup (`dashInterrupted`); telegraph ring + floor streak + whine; "INCOMING DASH" HUD warning; AI `readWindup` (counter timed to the landing, or sidestep), reflex counter halved; RULES_REV 3; `tests/dash.test.js` | see git log (counter AI stops 42% of dashes at 1.3, 17% at 0.8) |
+| Next | `npm run fairness -- --n 200`; then S5 openings/punish + AI reads, S6 terrain AI, S7 physics knobs, S8 Decision initiative weighting + format (user decision), S9 playtest |
 
 AI counter read result (12 bo3, counter vs striker at 1.3): 80 presses, 43
 counters landed (was 5 presses, 0 landed).
@@ -46,9 +47,13 @@ invisible permission prompts before auto mode); web-search/read-only agents
 work. A stray folder `.claude/worktrees$n` holds only a node_modules
 junction: leave it, or remove the junction with `cmd /c rmdir` (never a
 recursive delete, which would follow the link).
-Running at the break: fp-gen, fp-design, fp-tech (research for the user's
-first-person labyrinth Rift idea, reports to `.claude/research/reviews/
-fp-rift-*.md`; file into the research records when done).
+Finished and filed (research records `reports/team-reviews/`):
+`loot-patch-notes.md` (keep 3-10% Legendary; ideas for later: dedicated
+drops per rival, guaranteed first clears, duplicate protection, capped
+reroll cost, drop-only greater traits) and `fp-rift-generation.md`,
+`fp-rift-design.md`, `fp-rift-tech.md` (first-person Rift: grid-step
+movement, coarse room-cell maze with loops, a `MazeStage` scene like
+Inspect, plain WebGL).
 
 ## Plans queued after skill over RPM
 

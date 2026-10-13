@@ -46,7 +46,7 @@ export class ItemEffects {
     this.state = battle.fighters.map(() => ({ armed: 0, speed: 0, low: {}, edge: false }));
     this.off = [
       battle.on('ability', (e) => this.onEvent(e.fighter, 'ability')),
-      battle.on('technique', (e) => { if (e.name === 'dash' || e.name === 'counter') this.onEvent(e.fighter, e.name); }),
+      battle.on('technique', (e) => { if ((e.name === 'dash' && e.phase !== 'windup') || e.name === 'counter') this.onEvent(e.fighter, e.name); }),
     ];
   }
 

@@ -217,6 +217,9 @@ export class AudioEngine {
 
   shockwave() { this.tone(70, 0.5, { type: 'sine', gain: 0.45, slideTo: 35 }); this.noise(0.4, { type: 'lowpass', freq: 900, gain: 0.35 }); }
 
+  // a short rising whine while a dash coils (0.15 s)
+  dashWindup() { this.tone(500, 0.15, { type: 'sawtooth', gain: 0.05, slideTo: 1400 }); }
+
   dash() { this.noise(0.18, { type: 'bandpass', freq: 1500, sweepTo: 400, q: 1.5, gain: 0.2 }); }
 
   counter() { this.tone(1320, 0.15, { type: 'square', gain: 0.08 }); this.tone(1760, 0.2, { type: 'triangle', gain: 0.08, at: 0.05 }); }

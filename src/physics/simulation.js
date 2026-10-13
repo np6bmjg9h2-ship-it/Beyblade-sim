@@ -874,12 +874,12 @@ export class Simulation {
   // All three book their energy changes to the 'ability' ledger.
 
   // Instantaneous velocity change along dir, paid for with spin energy.
-  applyDash(t, dir, speed, efficiency = 0.6) {
+  applyDash(t, dir, speed, efficiency = 0.6, minDrain = 0) {
     if (!t.active) return 0;
     const before = t.linearEnergy();
     t.v.addScaled(dir, speed);
     const work = t.linearEnergy() - before;
-    const drained = t.drainSpinEnergy(Math.max(0.01, work) / Math.max(0.1, efficiency));
+    const drained = t.drainSpinEnergy(Math.max(Math.max(0.01, work) / Math.max(0.1, efficiency), minDrain));
     t.ledger.ability += work - drained;
     this.events.push({ type: 'dash', top: t, speed, time: this.time });
     return drained;

@@ -394,7 +394,8 @@ export class GameRenderer {
       case 'shockwave': fx.shockwave(e.fighter.top.p, e.range, BEAST_INDEX[e.fighter.p.beast?.id]?.colors.primary || '#ffffff'); break;
       case 'counter': fx.ring([e.fighter.top.p.x, e.fighter.top.p.y, e.fighter.top.p.z], 0.02, 0.06, 0.3, '#7fffd4'); break;
       case 'technique':
-        if (e.name === 'dash') fx.dustPuff(e.fighter.top.p, 8);
+        if (e.name === 'dash' && e.phase === 'windup') fx.dashWindup(e.fighter.top.p, e.dir, colorOf(e.fighter));
+        else if (e.name === 'dash') fx.dustPuff(e.fighter.top.p, 8);
         if (e.name === 'guard' || e.name === 'surge') fx.ring([e.fighter.top.p.x, e.fighter.top.p.y, e.fighter.top.p.z], 0.02, 0.05, 0.4, e.name === 'guard' ? '#9ad0ff' : '#ffd36b');
         break;
       case 'topFinished': {
