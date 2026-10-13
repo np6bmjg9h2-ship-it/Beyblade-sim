@@ -13,6 +13,7 @@ import { StatsScreen } from './stats.js';
 import { RiftScreen } from './rift.js';
 import { StoreScreen } from './store.js';
 import { dealsUnseen } from '../../systems/store.js';
+import { dailyState } from '../../systems/daily.js';
 import { trialStatus } from '../../systems/beasts.js';
 import { BEASTS } from '../../data/beasts.js';
 
@@ -20,7 +21,7 @@ export const MENU_ENTRIES = [
   { id: 'story', label: 'Story', desc: 'Six chapters from the harbor rooftops to Arena Zero: rivals, training, tournaments and the secret of Orrery.', primary: true, screen: () => new StoryScreen(), badge: (p) => !p.story?.completed?.length },
   { id: 'rift', label: 'Rift Run', desc: 'Roguelite runs: pick your path through four Rifts, grab parts and charms, earn boons, and push deeper for Essence.', screen: () => new RiftScreen(), badge: (p) => !!p.rift?.active },
   { id: 'quick', label: 'Quick Battle', desc: 'Jump straight into a match against an AI opponent.', screen: () => new QuickBattleScreen() },
-  { id: 'modes', label: 'Modes', desc: 'Practice Lab, Custom Battle, Challenges, Survival and League.', screen: () => new ModesScreen(), badge: (p) => !!(p.survival?.active || p.league?.active) },
+  { id: 'modes', label: 'Modes', desc: 'Daily Seed, Practice Lab, Custom Battle, Challenges, Survival and League.', screen: () => new ModesScreen(), badge: (p) => { const d = dailyState(p); return !!(p.survival?.active || p.league?.active || d.run || !d.best); } },
   { id: 'tournaments', label: 'Tournaments', desc: 'The competitive circuit: brackets, leagues, rivals, scouting and your career record.', screen: () => new TournamentsScreen({ openActive: true }), badge: (p) => !!p.tournaments.active },
   { id: 'workshop', label: 'Workshop', desc: 'Assemble loadouts, manage inventory, repair, upgrade, craft and browse your collection.', screen: () => new WorkshopScreen() },
   { id: 'store', label: 'Store', desc: 'Main Store: packs, capsules, bundles and daily deals for CR. Daily Store: one-of-a-kind prototype parts and launchers, new every day.', screen: () => new StoreScreen(), badge: (p) => dealsUnseen(p) },

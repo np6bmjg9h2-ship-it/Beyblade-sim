@@ -14,6 +14,7 @@ import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
 import { DEG } from '../core/math.js';
 import { GRAVITY } from '../physics/topBody.js';
+import * as dm from '../core/dmath.js';
 
 const MM = 0.001;
 const G = 0.001;
@@ -236,7 +237,7 @@ export function assembleTop(build, opts = {}) {
   const M = bodies.reduce((s, b) => s + b.m, 0);
   const zCom = bodies.reduce((s, b) => s + b.m * b.z, 0) / M;
   const I3 = bodies.reduce((s, b) => s + b.Ia, 0);
-  const I1 = bodies.reduce((s, b) => s + b.It + b.m * (b.z - zCom) ** 2, 0);
+  const I1 = bodies.reduce((s, b) => s + b.It + b.m * (b.z - zCom) * (b.z - zCom), 0);
   const ecc = bodies.reduce((s, b) => s + b.m * b.ecc, 0) / M; // COM offset from geometric axis
 
   const rel = (zMm) => zMm * MM - zCom;
@@ -280,7 +281,7 @@ export function assembleTop(build, opts = {}) {
   const radius = Math.max(...layers.map((l) => l.radius), P.disc.rOut * MM);
   const topZ = zCore0 + P.core.height;
   const aeroC = (P.ring.aero || 0.015) + 0.004 + (P.aux?.layer && !P.aux.layer.freeSpin ? 0.004 : 0);
-  const aero = 1.6 * aeroC * Math.pow(radius, 5);
+  const aero = 1.6 * aeroC * dm.pow(radius, 5);
 
   const spec = {
     mass: M, I3, I1, axisOffset: [-ecc, 0, 0],

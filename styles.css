@@ -941,3 +941,15 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 .imprint-row { padding: 6px 10px; background: rgba(4,5,11,0.35); border-left: 4px solid var(--accent); }
 .coll-item[data-focus] { cursor: pointer; }
 .coll-item.focused { background: var(--focus); color: var(--focus-ink); }
+/* Daily Seed (ui/screens/daily.js) */
+.daily-twist { padding: 8px 12px; border-left: 6px solid var(--gold); background: rgba(4,5,11,0.4); display: flex; flex-direction: column; gap: 3px; }
+.daily-opp { padding: 5px 10px; margin: 3px 0; border-left: 4px solid var(--line); background: rgba(4,5,11,0.3); font-size: 13px; display: flex; align-items: baseline; gap: 6px; }
+.daily-opp.won { border-left-color: var(--good); }
+.daily-opp.lost { border-left-color: var(--bad); opacity: 0.8; }
+.daily-opp.next { border-left-color: var(--focus); }
+.daily-mark { margin-left: auto; font: italic 700 12px var(--ui); }
+.daily-run { margin: 10px 0 6px; font-size: 15px; }
+.daily-hearts { color: var(--hot); font-size: 20px; letter-spacing: 2px; }
+.daily-offer { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 6px 0; border: 2px solid var(--line); background: rgba(4,5,11,0.3); }
+.daily-code { width: 100%; font: 12px/1.35 monospace; background: #0b0f24; color: #dce4f7; border: 2px solid var(--ink); padding: 6px 8px; resize: vertical; -webkit-user-select: text; user-select: text; }
+.daily-verified { border-color: var(--good); }

@@ -5,6 +5,7 @@
 import { createItem } from './items.js';
 import { validateItem } from './itemValidate.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
+import * as dm from '../core/dmath.js';
 
 export const SCHEMA_VERSION = 4;
 
@@ -26,7 +27,7 @@ export const STARTER_PARTS = [
   ['launcher', 'launcher_spark'], ['cable', 'cable_standard'],
 ];
 
-export const PLAYER_LEVEL_XP = (lv) => Math.round(120 * Math.pow(lv, 1.45));
+export const PLAYER_LEVEL_XP = (lv) => Math.round(120 * dm.pow(lv, 1.45));
 
 export function defaultSettings() {
   return {
@@ -66,6 +67,7 @@ export function newProfile(seed = Date.now()) {
     relics: { earned: {}, casts: {} }, // handcrafted relics earned (data/relics.js)
     imprints: [], // traits kept from dismantled parts, ready to engrave
     journal: { claimed: {} }, // Journal milestone rewards collected
+    daily: { best: {}, history: [], streak: 0, bestStreak: 0, attempts: {}, lastDay: null, active: null }, // Daily Seed
     tutorial: {},
     settings: defaultSettings(),
     undo: [],

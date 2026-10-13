@@ -166,3 +166,41 @@ test('the default player launch circles the bowl instead of charging the centre'
     assert.equal(Math.sign(Math.sin(L.aim.dir)), Math.sign(L.aim.x) * (spin === 'L' ? -1 : 1));
   }
 });
+
+test('launch changes during the countdown replay exactly, and AI launches are recomputed', () => {
+  for (const seed of [5, 17, 42]) {
+    const fr = new Rng(seed);
+    const me = { ...participantFromDef(ARCHETYPE_INDEX.all, { id: 'player' }), human: true, name: 'Tester', knownTechniques: ['normal', 'power', 'controlled', 'bank'] };
+    const opp = participantFromDef(ARCHETYPE_INDEX.striker, { id: 'cpu', difficulty: 1 });
+    opp.technique = 'lance';
+    opp.knownTechniques = [...(opp.knownTechniques || []), 'lance'];
+    const parts = () => [structuredClone(me), structuredClone(opp)];
+    const b = new Battle({ arenaId: 'standard', format: 'bo3', seed, participants: parts(), rules: {}, record: true, roundTime: 30 });
+    b.headless = true;
+    const techs = ['normal', 'power', 'bank', 'controlled'];
+    let guard = 0;
+    while (b.phase !== 'matchOver' && guard++ < 200000) {
+      if (b.phase === 'setup') b.confirmSetup(0);
+      if (b.phase === 'countdown') {
+        const L = b.fighters[0].launch;
+        if (!L.released) {
+          // keep moving the aim and switching technique and spin while charging
+          b.setAim(0, { x: -0.08 + fr.next() * 0.05, z: fr.next() * 0.04 - 0.02, lean: fr.next() * 0.15, dir: fr.next() * 6 });
+          if (fr.next() < 0.1) b.setTechnique(0, techs[Math.floor(fr.next() * techs.length)]);
+          if (fr.next() < 0.05) b.setSpin(0, fr.next() < 0.5 ? 'L' : 'R');
+          b.chargeInput(0, true, 1);
+          if (L.meter.charge >= 0.8 + fr.next() * 0.15 && fr.next() < 0.3) b.release(0);
+        }
+      }
+      b.update(0.004 + fr.next() * 0.03, [emptyControls()]);
+      if (b.phase === 'roundOver') b.nextRound();
+    }
+    const data = JSON.parse(JSON.stringify(b.replayData()));
+    assert.equal(data.rec.v, 2);
+    assert.ok(data.rec.launch.length > 3, 'countdown changes were recorded');
+    assert.ok(Object.values(data.rec.releases).every((r) => !r[1]), 'AI releases are not recorded');
+    const rp = playReplay(data, parts(), (k) => (k % 3 ? 1 / 60 : 1 / 25));
+    const got = { winner: rp.result.winner, rounds: rp.result.rounds.map((r) => ({ winner: r.winner, how: r.how, time: +r.time.toFixed(3) })) };
+    assert.deepEqual(got, data.summary, `seed ${seed}`);
+  }
+});

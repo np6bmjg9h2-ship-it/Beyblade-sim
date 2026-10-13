@@ -8,6 +8,7 @@
 // terms is clockwise seen from above, i.e. spin sign -1.
 
 import { TAU, smoothstep } from '../core/math.js';
+import * as dm from '../core/dmath.js';
 
 // Returns { radius, face } where face in [0,1] is how much of the blade face
 // angle is engaged at this azimuth for the given spin direction.
@@ -49,7 +50,7 @@ export function profileOutline(layer, segments = 256, spinSign = 1) {
   for (let i = 0; i < segments; i++) {
     const psi = (i / segments) * TAU;
     sampleProfile(layer, psi, spinSign, tmp);
-    pts.push([Math.cos(psi) * tmp.radius, -Math.sin(psi) * tmp.radius]);
+    pts.push([dm.cos(psi) * tmp.radius, -dm.sin(psi) * tmp.radius]);
   }
   return pts;
 }

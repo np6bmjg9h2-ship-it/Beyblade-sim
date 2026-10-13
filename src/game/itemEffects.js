@@ -11,6 +11,7 @@
 import { Rng, mixSeeds } from '../core/rng.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { effMag, requirementsMet, HEAVY_HIT } from '../systems/effectSpec.js';
+import * as dm from '../core/dmath.js';
 
 const MIN_HIT = 0.008; // N·s: lighter touches never trigger anything
 const EDGE_IN = 0.78, EDGE_OUT = 0.6; // fraction of the stadium radius
@@ -67,11 +68,12 @@ export class ItemEffects {
     }
     if (x.spirit) f.ability.gain(x.spirit);
     if (x.stress) this.state[f.index].armed = Math.max(this.state[f.index].armed, x.stress);
+    let energy = 0; // spin energy restored (the ledger nets it with ability costs)
     if (x.spin && f.top.active) {
       const top = f.top, w = top.spinAbs, w2 = Math.min(top.maxSpinRate, w + x.spin * top.maxSpinRate);
-      if (w2 > w) this.b.sim.restoreSpin(top, 0.5 * top.I3 * (w2 * w2 - w * w));
+      if (w2 > w) energy = this.b.sim.restoreSpin(top, 0.5 * top.I3 * (w2 * w2 - w * w));
     }
-    this.b.emit('itemEffect', { fighter: f, id: e.id, name: e.name, origin: e.origin });
+    this.b.emit('itemEffect', { fighter: f, id: e.id, name: e.name, origin: e.origin, energy });
     return true;
   }
 
@@ -93,13 +95,13 @@ export class ItemEffects {
       if (!top?.active || !f.launch?.launched) continue;
       const S = this.state[f.index];
       if (S.armed) top.nextHitStressMul = Math.max(top.nextHitStressMul || 1, S.armed);
-      S.speed = Math.hypot(top.v.x, top.v.z);
+      S.speed = dm.hypot(top.v.x, top.v.z);
       if (this.b.phase !== 'battle') continue;
       const spin = top.spinFraction();
       for (const e of this.list[f.index]) {
         if (e.r.on === 'lowSpin' && !S.low[e.id] && spin < e.r.value) { S.low[e.id] = true; this.fire(f, e); }
       }
-      const r = Math.hypot(top.p.x, top.p.z) / R;
+      const r = dm.hypot(top.p.x, top.p.z) / R;
       if (r > EDGE_IN) S.edge = true;
       else if (S.edge && r < EDGE_OUT) { S.edge = false; this.onEvent(f, 'edgeEscape'); }
     }

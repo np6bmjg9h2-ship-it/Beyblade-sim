@@ -47,7 +47,7 @@ dist/chaos-spin.js    GENERATED bundle (do not edit)
 src/
   main.js             boot: creates App
   app.js              application shell: input, audio, renderer, UI, saves, showcase scene, main loop
-  core/               math (vectors/quaternions), seedable RNG, event emitter: no DOM, no Three.js
+  core/               math (vectors/quaternions), deterministic maths (dmath), seedable RNG, event emitter: no DOM, no Three.js
   physics/            spinning-top simulation: pure math, deterministic, no DOM/Three.js
   game/               battle controller, launch model, AI, abilities, objectives, background sims
   systems/            persistent game logic on plain data: assembly, items, loot, saves, story, tournaments…
@@ -168,6 +168,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `store.js` | 150 | Shop: odds per offer from the loot rarity weights, packs/capsules/bundles via `rollLoot` (deterministic per profile, guaranteed first item), crates, daily deals (exact items from a day-seeded stream, bought once per day). Catalogue in `data/store.js`, screens in `ui/screens/store.js`. |
 | `rift.js` | 386 | Rift Run state on `profile.rift`: seeded act maps, start, node flow, battle results, hearts, reward queue and picking, bag, end of run (Essence, Locker, career rewards), talents. |
 | `riftBattle.js`, `riftLoot.js`, `riftNodes.js` | ~560 | Run effects (charms, resonance, boons) → battle participants and opponents (elite affixes, vault rules); counter-seeded loot, prices, forge jobs, shrine and event rolls; trader, forge, shrine, camp and event actions. Everything rolls from `runRng(run, label…)`, so a run replays from its seed. |
+| `daily.js`, `dailyCode.js` | ~440 | Daily Seed: `dailyChallenge(day)` builds the day from the UTC date alone (fixed top, launcher, cable and Bit-Beast; 5 opponents, a rival last; a stadium twist as an always-on modifier source on both tops; 4 offers of 3 parts that fit the day's frame and tip socket); participants and battle sessions; scoring; the run, best, streak and once-a-day reward on `profile.daily`; `verifyRun` re-simulates a shared run's battles and recomputes its score. Never reads the player's own parts, skills or Bit-Beast bonds, so any save verifies any run. `dailyCode.js` packs a run into a `CS1z.`/`CS1r.` code and back (JSON header, varint control changes, deflate-raw, base64url). Rules, scoring and twists in `data/daily.js`, screen in `ui/screens/daily.js`. |
 
 ### data/ (content)
 Parts (63 across 6 slots, 14 of them the classic series), traits (99, declarative specs in `traits.js`, channels and conditions in `channels.js`), synergies (19, `synergies.js`), sets (6), rarity (7), launchers (12) and
@@ -210,8 +211,8 @@ prompts with device glyphs, toasts, modals), `widgets.js`, `charts.js`,
 breakdown, journal), and
 `screens/` (title, main menu, quick battle, battle HUD 630 lines, results and
 replays, workshop 590, inspect, beasts, skills, stats, settings, story 408,
-dialogue, tournament 580, modes and lab, Rift Run hub/map, loot and node
-screens). Style objects passed to `h()` support CSS custom properties
+dialogue, tournament 580, modes and lab, Daily Seed, Rift Run hub/map, loot
+and node screens). Style objects passed to `h()` support CSS custom properties
 (`'--rc': color`). Screens are classes with `render()`
 returning DOM, optional `onEnter`, `onExit`, `update`, `handleInput`,
 `onNav`, `onTab`, `onAlt`, `onFocus`, `prompts()`.
@@ -240,6 +241,14 @@ context; the simulation worker entry.
    `physics/`, `core/`, or the simulation path of `game/`. All randomness
    comes from `core/rng.js`. `Math.random` appears only to pick a default
    seed (`battle.js`, `items.js`) and in visual effects.
+   **Same bits on every device:** code that decides an outcome (physics,
+   launches, AI, abilities, item effects, assembly, loot, rivals,
+   tournaments) uses `core/dmath.js` (`dm.sin`, `dm.atan2`, `dm.pow`,
+   `dm.hypot`, ...) instead of `Math.sin` and friends, whose last bits
+   differ between engines, and never `**` with a non-integer result. Only
+   `+ - * /`, `Math.sqrt` and rounding are allowed raw. Rendering, audio and
+   UI may use `Math.*`. Checked by `node tests/browser/determinism.js`
+   (Node, Chromium, Firefox, WebKit must match exactly).
 2. **Fixed timestep.** Simulation results must not depend on render frame
    rate (TICK 1/120 s, 16 substeps). This includes the countdown: charge,
    IGNITE and spawns advance in ticks (`Battle.step`), tested at 30/60/144 fps.

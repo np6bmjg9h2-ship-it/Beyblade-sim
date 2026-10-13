@@ -1,6 +1,8 @@
 // Core math primitives used by the simulation. Independent of Three.js so the
 // physics can run headless (tests, balance simulations, tournament sims).
 
+import * as dm from './dmath.js';
+
 export class Vec3 {
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
   set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
@@ -53,8 +55,8 @@ export class Quat {
   clone() { return new Quat(this.x, this.y, this.z, this.w); }
   identity() { return this.set(0, 0, 0, 1); }
   setAxisAngle(axis, angle) {
-    const h = angle * 0.5, s = Math.sin(h);
-    this.x = axis.x * s; this.y = axis.y * s; this.z = axis.z * s; this.w = Math.cos(h);
+    const h = angle * 0.5, s = dm.sin(h);
+    this.x = axis.x * s; this.y = axis.y * s; this.z = axis.z * s; this.w = dm.cos(h);
     return this;
   }
   // this = a * b
@@ -98,8 +100,8 @@ export class Quat {
     let k0, k1;
     if (cos > 0.9995) { k0 = 1 - t; k1 = t; }
     else {
-      const s = Math.sqrt(1 - cos * cos), ang = Math.atan2(s, cos);
-      k0 = Math.sin((1 - t) * ang) / s; k1 = Math.sin(t * ang) / s;
+      const s = Math.sqrt(1 - cos * cos), ang = dm.atan2(s, cos);
+      k0 = dm.sin((1 - t) * ang) / s; k1 = dm.sin(t * ang) / s;
     }
     this.x = a.x * k0 + bx * k1; this.y = a.y * k0 + by * k1;
     this.z = a.z * k0 + bz * k1; this.w = a.w * k0 + bw * k1;

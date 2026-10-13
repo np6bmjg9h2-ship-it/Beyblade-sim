@@ -262,7 +262,7 @@ export function trainWithDuplicate(profile, targetUid, donorUid) {
   const xp = Math.min(MASTERY_CAP - (target.xp || 0), trainGain(donor));
   target.xp = (target.xp || 0) + xp;
   delete profile.inventory[donorUid];
-  pushUndo(profile, { type: 'train', item: donor, targetUid, xp, label: `Train with ${itemName(donor)}` });
+  pushUndo(profile, { type: 'train', item: donor, targetUid, xp, at: Date.now(), label: `Train with ${itemName(donor)}` });
   const after = masteryOf(target.xp);
   return { ok: true, xp, mastery: after, rankUp: after.index > before.index };
 }
@@ -460,18 +460,40 @@ export function pushUndo(profile, entry) {
   while (profile.undo.length > 12) profile.undo.shift();
 }
 
+// Why an undo can't be applied (checked before the entry is taken off the
+// list, so a refused undo stays available), or null.
+function undoBlocked(profile, e) {
+  if (!['dismantle', 'train', 'field', 'equip'].includes(e.type)) return 'Cannot undo';
+  if (e.type === 'dismantle') {
+    if (e.imprint && (profile.imprints || []).findIndex((x) => x.src === e.item.uid) < 0) return 'Its imprint was already engraved or discarded';
+    for (const [k, v] of Object.entries(e.yield)) {
+      if (k === 'research' ? profile.currency.research < v : (profile.materials[k] || 0) < v) return k === 'research' ? 'Research already spent' : 'Materials already spent';
+    }
+  }
+  if (e.type === 'train') {
+    const t = profile.inventory[e.targetUid];
+    if (!t) return null;
+    // whatever the gained mastery unlocked must not be in use
+    const xp = Math.max(0, (t.xp || 0) - e.xp);
+    if ((t.tuning?.length || 0) > tuningSlots(xp)) return 'The tuning slot this training unlocked is in use: remove that tuning first';
+    if ((t.upgrades?.length || 0) > maxUpgrades({ ...t, xp })) return 'The extra upgrade slot this training unlocked is in use: remove that upgrade first';
+    const top = MASTERY_CAP;
+    const relicAt = profile.relics?.earned?.masterworkPivot?.at;
+    if ((t.xp || 0) >= top && xp < top && relicAt && relicAt >= (e.at || 0)) return 'This training earned the Masterwork Pivot relic, so it cannot be undone';
+  }
+  return null;
+}
+
 export function undo(profile) {
-  const e = profile.undo?.pop();
-  if (!e) return fail('Nothing to undo');
+  const last = profile.undo?.[profile.undo.length - 1];
+  if (!last) return fail('Nothing to undo');
+  const blocked = undoBlocked(profile, last);
+  if (blocked) return fail(blocked);
+  const e = profile.undo.pop();
   switch (e.type) {
     case 'dismantle': {
-      // its imprint must still be in the case (engraving it already used the trait)
+      // checked in undoBlocked: the imprint is still in the case, the yield unspent
       const ii = e.imprint ? (profile.imprints || []).findIndex((x) => x.src === e.item.uid) : -1;
-      if (e.imprint && ii < 0) return fail('Its imprint was already engraved or discarded');
-      // check everything before taking anything back
-      for (const [k, v] of Object.entries(e.yield)) {
-        if (k === 'research' ? profile.currency.research < v : (profile.materials[k] || 0) < v) return fail(k === 'research' ? 'Research already spent' : 'Materials already spent');
-      }
       for (const [k, v] of Object.entries(e.yield)) { if (k === 'research') profile.currency.research -= v; else profile.materials[k] -= v; }
       if (ii >= 0) profile.imprints.splice(ii, 1);
       profile.inventory[e.item.uid] = e.item;

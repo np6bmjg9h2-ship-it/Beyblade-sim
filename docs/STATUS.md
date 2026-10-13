@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-12 (safety nets after the tool audit). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-13 (Daily Seed finished; replays identical on every device). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -13,6 +13,15 @@ tablet, open the shared artifact link and hold the phone sideways: touch
 controls appear in battles (sticks float under your thumbs; hold LAUNCH and
 let go in the gold window), menus are tapped, and pressing and holding an
 item gives its second action (favourite, slot options).
+
+The Daily Seed is in Modes: one challenge per UTC day, the same for every
+player. After a finished run, "Copy my best run's code" copies the whole
+run (picks and every input) as one line of text starting `CS1`. Paste a
+code under "Check a friend's code" and choose Verify code: your game
+replays every battle and shows whether the claimed score is real. Codes
+from earlier days verify too; no server is involved. A code recorded on a
+phone verifies on a PC and the other way round: the battle maths gives the
+same bits in every browser. Quitting a Daily battle counts as a loss.
 
 ## Done
 
@@ -31,9 +40,10 @@ item gives its second action (favourite, slot options).
 | Loot engine M1-M2 | 93c163e, b2d57b5 | Swap comparison in the Workshop; declarative traits with generated text (99), reactive traits, elemental/mastery/part-synergy/curse traits, 19 synergies with a Synergies tab and journal, generation v2 (budgets, names, variants, bad-luck protection), item validation and quarantine (save v4), "What powered your top". Plan and log: `docs/loot-engine.md` |
 | 5 Balance pass 2, career loop, final QA | 70aaa89 | Every type 40-60%: AI reads the spin race (`readRace`), Pivot Ball / Comet Arc / Semi-Flat / Quad Spike tuned (Clutch Charger 29% -> 47%); career loop played end to end (browser scenario `career`); gaps fixed (upgrade/reroll feedback, prize launchers for the other spin offer a spin switch, squashed panels, newer-version saves warn); per-tick physics allocations removed (bit-identical results); findings register closed except the "Bit-Beast" name |
 | Loot engine M3 | 03f76b5, 086f67e | Realistic art style (PBR materials, arena environment, bloom), opt-in play data to the shared artifact's database, item finishes on the 3D parts, Blender-rendered hall panorama and crowd |
-| Safety nets | (this commit) | From the tool audit (report: claude.ai artifact "SPINFORGE Tool Audit"): fast-check property tests (`tests/properties-*.test.js`: any two legal loot tops never gain energy from a collision and stay finite; same seed, same simulation and same full battle; generated items stay valid, in budget and rebuild exactly; bad-luck protection; every trait finite at any magnitude; channels always within limits; synergies consistent; saves round-trip). They found that one damaged item made a whole save unreadable: saves now set damaged items aside, repair damaged loadouts, Bit-Beasts and fields, fall back to the backup and else salvage what can be read (30,000 fuzzed damaged saves load). tinybench perf gate (`npm run perf`, `npm run perf:check`, baseline per CPU in `tools/perf-baseline.json`), `npm run test:deep` (1,000 runs per property) |
+| Safety nets | dba7fd8 | From the tool audit (report: claude.ai artifact "SPINFORGE Tool Audit"): fast-check property tests (`tests/properties-*.test.js`: any two legal loot tops never gain energy from a collision and stay finite; same seed, same simulation and same full battle; generated items stay valid, in budget and rebuild exactly; bad-luck protection; every trait finite at any magnitude; channels always within limits; synergies consistent; saves round-trip). They found that one damaged item made a whole save unreadable: saves now set damaged items aside, repair damaged loadouts, Bit-Beasts and fields, fall back to the backup and else salvage what can be read (30,000 fuzzed damaged saves load). tinybench perf gate (`npm run perf`, `npm run perf:check`, baseline per CPU in `tools/perf-baseline.json`), `npm run test:deep` (1,000 runs per property) |
 | iPhone and touch | 124494e | On-screen controls as a virtual gamepad (floating aim/steer and lean/camera sticks; LAUNCH hold-and-release; DASH, GRIP, CNTR, SKILL, SKILL 2, GUARD, SURGE, ULT mirroring each ability's ready/cooldown/locked state; CAM, pause, Continue); tappable prompt buttons; press-and-hold for secondary actions; phones zoom the menus to fit and ask to be turned sideways; phones start on Medium graphics; iOS audio unlock on touch end; fixed mouse clicks in menus (a UI layer swallowed them); browser scenario `touch` (iPhone-sized, real touch events) |
-| Loot engine M4 | (this commit) | 12 handcrafted relics with signature powers and earn paths (story chapters 3-6, Arena Zero Championship, Rift Depth 3, Masterwork, 60 traits, awakening, Division 1, all rivals, Survival 12), recast if lost; the Journal (Relics, Parts with where to find them, Traits, Sets, Milestones with rewards, bad-luck counters); imprints from dismantling and engraving; spare copies train mastery; relic rarity reserved for relics |
+| Loot engine M4 | a7658da | 12 handcrafted relics with signature powers and earn paths (story chapters 3-6, Arena Zero Championship, Rift Depth 3, Masterwork, 60 traits, awakening, Division 1, all rivals, Survival 12), recast if lost; the Journal (Relics, Parts with where to find them, Traits, Sets, Milestones with rewards, bad-luck counters); imprints from dismantling and engraving; spare copies train mastery; relic rarity reserved for relics |
+| Loot engine M5 | (this commit) | Review fixes + cross-device determinism (`core/dmath.js`, `tests/browser/determinism.js`), first-run score; see docs/loot-engine.md M5. Daily Seed in Modes: one challenge per UTC day built from the date alone (fixed top, launcher, cable and Bit-Beast; 5 opponents of rising skill, a rival last; one of 8 stadium twists), 3 hearts, a pick of 3 parts after battles 1-4, points for wins, finishes, speed, perfect launches and hearts left; best, streak and a once-a-day reward (Relic Fragments every 7th streak day); replay codes (`CS1z.`: the run's compressed inputs) that any save re-simulates to check the claimed score, which is why the player's own parts, skills and Bit-Beast bonds are left out |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
@@ -52,7 +62,12 @@ Guard: `npm run balance:check` (25-70% band). Experiments:
 
 ## Next steps (after the plan)
 
-Current work: the loot-engine milestones in `docs/loot-engine.md` (next: M5 Daily Seed; then Rift integration, tools, story).
+Current work: the ranked plan from the 2026-10-13 research and team review,
+`../Beyblade-sim-research/2026-10-13/reports/improvement-plan.md` (copy in
+`.claude/research/`, not in git): quick tech wins, contact feel (hit-stop,
+finish slow-mo, why a hit won), loot curve and simulation harness,
+inventory filters, then M6 Rift integration, AI and fairness gates. The
+loot-engine milestones stay in `docs/loot-engine.md`.
 
 1. Playtest and tune Rift Run's economy and difficulty, the Store prices and
    the Daily Store prototypes (all first estimates).

@@ -17,6 +17,8 @@ import {
 } from '../../systems/modes.js';
 import { markSeen } from '../../systems/rivals.js';
 import { BattleScreen } from './battle.js';
+import { DailyScreen } from './daily.js';
+import { dailyState } from '../../systems/daily.js';
 import { WorkshopScreen } from './workshop.js';
 import { PracticeLabScreen } from './lab.js';
 import { TournamentHubScreen } from './tournament.js';
@@ -37,6 +39,7 @@ function playerReady(scr) {
 // ====================================================================== hub
 
 const MODES = [
+  { id: 'mode-daily', name: 'Daily Seed', desc: 'One challenge a day, the same for everyone: a fixed top, five opponents, a stadium twist and three part picks. Share your run as a code.', make: () => new DailyScreen() },
   { id: 'mode-lab', name: 'Practice Lab', desc: 'Launch range, sparring targets, physics debug overlay and the Build Lab.', make: () => new PracticeLabScreen() },
   { id: 'mode-custom', name: 'Custom Battle', desc: 'Pick both sides, the stadium, format and rules — or watch two AIs battle.', make: () => new CustomBattleScreen() },
   { id: 'mode-challenges', name: 'Challenges', desc: 'Hand-made battles with build constraints and specific goals.', make: () => new ChallengesScreen() },
@@ -48,7 +51,8 @@ export class ModesScreen {
   static screenName = 'ModesScreen';
   render() {
     const P = this.app.profile;
-    const extra = { 'mode-challenges': `${Object.keys(P.stats.challengesDone || {}).length}/${CHALLENGES.length} complete`, 'mode-survival': `Best: ${P.survival?.best || 0} wins${P.survival?.active ? ' · run in progress' : ''}`, 'mode-league': `${DIVISIONS.find((d) => d.n === leagueState(P).division).name}${P.league?.active ? ' · season in progress' : ''}` };
+    const ds = dailyState(P);
+    const extra = { 'mode-daily': ds.run ? 'Run in progress' : ds.best ? `Today's best: ${ds.best.score.toLocaleString()}${ds.streak ? ` · streak ${ds.streak}` : ''}` : `New today${ds.streak ? ` · streak ${ds.streak}` : ''}`, 'mode-challenges': `${Object.keys(P.stats.challengesDone || {}).length}/${CHALLENGES.length} complete`, 'mode-survival': `Best: ${P.survival?.best || 0} wins${P.survival?.active ? ' · run in progress' : ''}`, 'mode-league': `${DIVISIONS.find((d) => d.n === leagueState(P).division).name}${P.league?.active ? ' · season in progress' : ''}` };
     return h('div', { class: 'std-screen modes' }, h('div', { class: 'screen-head' }, h('h1', {}, 'Modes')),
       h('div', { class: 'menu-grid modes-grid', 'data-wrap': '' }, MODES.map((m) => btn(h('div', { class: 'tile' }, h('div', { class: 'tile-title' }, m.name), h('div', { class: 'tile-desc' }, m.desc), extra[m.id] ? h('div', { class: 'tile-desc gold' }, extra[m.id]) : null), () => this.ui.push(m.make()), { class: 'tile-btn', id: m.id, desc: m.desc }))));
   }

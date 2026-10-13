@@ -14,6 +14,7 @@ import { BEAST_INDEX } from '../data/beasts.js';
 import { setSources } from '../data/sets.js';
 import { createItem } from './items.js';
 import { Rng, mixSeeds } from '../core/rng.js';
+import * as dm from '../core/dmath.js';
 
 export const ROLES = ['attack', 'defense', 'stamina', 'balance', 'burst', 'upper'];
 export const ROLE_NAMES = { attack: 'Attack', defense: 'Defense', stamina: 'Stamina', balance: 'Balance', burst: 'Burst', upper: 'Upper' };
@@ -72,12 +73,12 @@ export function measureHabits(result, hi, arenaRadius = 0.21) {
     const me0 = a.f[hi], me1 = b.f[hi], op1 = b.f[1 - hi];
     if (!me1?.active || !op1?.active) continue;
     samples++;
-    if (Math.hypot(me1.x, me1.z) > 0.7 * arenaRadius) edge++;
+    if (dm.hypot(me1.x, me1.z) > 0.7 * arenaRadius) edge++;
     const dx = me1.x - me0.x, dz = me1.z - me0.z;
-    const step = Math.hypot(dx, dz);
+    const step = dm.hypot(dx, dz);
     if (step < 0.008) continue; // < 8 cm/s: drifting, not moving with intent
     const ox = op1.x - me1.x, oz = op1.z - me1.z;
-    const od = Math.hypot(ox, oz);
+    const od = dm.hypot(ox, oz);
     if (od < 0.07) continue; // already in contact range: shuffling, not approaching
     moving++;
     if ((dx * ox + dz * oz) / (step * od) > 0.5) approach++;

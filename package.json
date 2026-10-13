@@ -11,6 +11,7 @@
     "serve": "node tools/serve.js",
     "test": "node --test tests/*.test.js",
     "test:browser": "node tools/build.js && node tests/browser/run.js",
+    "test:determinism": "node tests/browser/determinism.js",
     "balance": "node tools/balance-par.js",
     "balance:check": "node tools/balance-par.js 6 all --check 25-70",
     "test:deep": "node tools/test-deep.js",

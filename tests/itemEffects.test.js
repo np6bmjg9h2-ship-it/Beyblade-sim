@@ -25,7 +25,7 @@ function withTraits(defId, traitsBySlot, opts = {}) {
 function run(pa, pb, seed = 7, arenaId = 'standard', roundTime = 60) {
   const b = new Battle({ arenaId, format: 'single', seed, headless: true, participants: [pa, pb], rules: { durability: false, slowmo: false }, roundTime });
   const fired = [];
-  b.on('itemEffect', (e) => fired.push({ who: e.fighter.index, id: e.id, t: +b.battleTime.toFixed(4) }));
+  b.on('itemEffect', (e) => fired.push({ who: e.fighter.index, id: e.id, t: +b.battleTime.toFixed(4), energy: e.energy }));
   const result = b.runHeadless();
   return { b, result, fired };
 }
@@ -49,12 +49,22 @@ test('reactive traits fire from real events and show in the breakdown', () => {
 test('once-per-round low-spin triggers fire once and restore spin through the ledger', () => {
   const pa = withTraits('drifter', { tip: ['secondBreath'], core: ['lastLight'] }, { id: 'A' });
   const pb = participantFromDef(ARCHETYPE_INDEX.drifter, { id: 'B' });
-  const { b, fired } = run(pa, pb, 3, 'vortex', 400); // long enough for the spin race to run down
-  const mine = (id) => fired.filter((x) => x.who === 0 && x.id === id).length;
-  const rounds = b.result.rounds.length;
-  assert.ok(mine('trait:secondBreath') >= 1 && mine('trait:secondBreath') <= rounds);
-  assert.ok(mine('trait:lastLight') <= rounds);
-  if (mine('trait:lastLight')) assert.ok((b.fighters[0].stats.energy.ability || 0) > 0, 'restored spin is booked to the ability ledger');
+  // which seeds reach a low-spin moment depends on the battle, so try a few:
+  // it must fire at least once overall and never more than once per round
+  let total = 0, lights = 0;
+  for (const seed of [3, 4, 5, 6, 7]) {
+    const { b, fired } = run(structuredClone(pa), structuredClone(pb), seed, 'vortex', 400); // long enough for the spin race to run down
+    const mine = (id) => fired.filter((x) => x.who === 0 && x.id === id).length;
+    const rounds = b.result.rounds.length;
+    assert.ok(mine('trait:secondBreath') <= rounds);
+    assert.ok(mine('trait:lastLight') <= rounds);
+    for (const x of fired.filter((y) => y.who === 0 && y.id === 'trait:lastLight')) assert.ok(x.energy > 0, 'Last Light restored spin through the ledger');
+    total += mine('trait:secondBreath');
+    lights += mine('trait:lastLight');
+    if (total >= 2 && lights >= 1) break;
+  }
+  assert.ok(total >= 1, 'Second Breath fired');
+  assert.ok(lights >= 1, 'Last Light fired');
 });
 
 test('same seed, same battle; trait-free battles are untouched', () => {

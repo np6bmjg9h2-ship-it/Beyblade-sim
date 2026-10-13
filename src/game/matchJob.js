@@ -11,6 +11,7 @@ import { assembleTop } from '../systems/assembly.js';
 import { ModifierStack, collectTraitSources } from '../systems/modifiers.js';
 import { resolveLaunchGear, computeLaunch, PERFECT_CENTER } from './launch.js';
 import { Rng } from '../core/rng.js';
+import * as dm from '../core/dmath.js';
 
 export function createJobBattle(job) {
   const b = new Battle({
@@ -67,7 +68,7 @@ export function runSpinTest(job) {
   let next = 0;
   while (top.active && sim.time < maxT) {
     if (sim.time >= next) {
-      const ctx = { spinFrac: top.spinFraction(), oppSpinFrac: 0, speed: Math.hypot(top.v.x, top.v.z), rFrac: Math.hypot(top.p.x, top.p.z) / arena.radius, oppRFrac: 1, approaching: false, time: sim.time, sinceCollision: 99, surfaceTag: arena.surfaceTag, oppositeSpin: false, abilityActive: false };
+      const ctx = { spinFrac: top.spinFraction(), oppSpinFrac: 0, speed: dm.hypot(top.v.x, top.v.z), rFrac: dm.hypot(top.p.x, top.p.z) / arena.radius, oppRFrac: 1, approaching: false, time: sim.time, sinceCollision: 99, surfaceTag: arena.surfaceTag, oppositeSpin: false, abilityActive: false };
       mods.evaluate(ctx, top.mods);
       samples.push([+sim.time.toFixed(2), Math.round((top.spinAbs * 60) / (2 * Math.PI)), +(top.tilt * 57.2958).toFixed(1)]);
       next += job.sampleDt || 0.5;

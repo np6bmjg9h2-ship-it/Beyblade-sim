@@ -273,3 +273,95 @@ artifact and patch notes updated, and a log entry below.
   and Masterwork Pivot were toned down from +18 and +23.
 - Tests: 155/155 unit (relics 7, Workshop property 1 new), 17/17 browser
   (`relics` new), balance guard unchanged (50 / 46 / 57 / 46 / 51).
+
+### M5: Daily Seed (2026-10-12)
+
+- Files: `src/data/daily.js` (new: rules, scoring, 8 stadium twists),
+  `src/systems/daily.js` (new: the day's challenge, participants and battle
+  sessions, scoring, the run on the save with best, streak and rewards,
+  `verifyRun`), `src/systems/dailyCode.js` (new: replay codes),
+  `src/ui/screens/daily.js` (new: the Daily Seed screen with the challenge,
+  picks, scores, and copying and checking codes), `src/ui/screens/modes.js`
+  (Daily Seed tile first, with today's best and the streak),
+  `src/ui/screens/registry.js` (Modes badge until today's run is finished),
+  `src/systems/profile.js` (`daily` record; older saves get it from
+  `normalizeProfile`), `styles.css`; test `daily` (new).
+- The mode: one challenge per UTC day, built from the date alone so every
+  player gets the same one: a fixed top (Uncommon tier 1-2 parts, launcher,
+  cable, spin direction and a Bit-Beast at bond 3), a random stadium with
+  one of 8 twists (always-on modifiers for both tops: ice floor, thick air,
+  spring walls, spirit storm, brittle locks, heavy hitters, grip floor, calm
+  day) and five battles against opponents of 80-120% skill, a rival last.
+  Three hearts; a loss costs one. After battles 1-4 the player takes one of
+  three parts (Rare, Rare, Epic, Epic; ring, disc, tip or lock, all fitting
+  the day's frame and tip socket) or keeps the top. A win scores 1,000 ×
+  the opponent's skill plus a finish bonus (Ring Out 300, Shatter 400, Spin
+  Finish 200, Judge Decision 100), up to 300 for speed (full at 10 s, none
+  at 50 s) and 100 for a perfect launch; each heart left adds 250. Any
+  number of runs a day: the best counts, and the day's first finished run is
+  kept apart as the "first run" score, which practice can't change (the
+  Dead Cells model from the 2026-10-13 research). The first finished run of the day
+  with at least one battle pays 200 CR plus a twentieth of the score and a
+  Core Shard (2 from 4,000 points) and moves the streak on (a missed day
+  resets it); every seventh streak day adds 2 Relic Fragments. The battles
+  give no loot, XP or wear; abandoning ends the run with its points so far
+  but no bonus for hearts left. Quitting a battle, or closing the game in
+  the middle of one, counts as a loss (no points, one heart), so a battle
+  can't be retried. A run still going at UTC midnight is finished and
+  scored on its own day; the next day's challenge opens when it ends.
+- Replay codes: `CS1z.` + base64url of the deflate-raw compressed run
+  (`CompressionStream`: browsers and Node 18+), or `CS1r.` uncompressed
+  where that is missing. Inside (format v2): a JSON header (day, name,
+  claimed score, picks; per battle the seed and the human's launch: the
+  setup at Ready, every change of aim, technique or spin during the
+  countdown with its tick, and the release with its tick and charge; or a
+  forfeit), then each battle's control changes as varints: round and tick as
+  deltas, fighter, button flags and steering, which the battle already
+  quantises to 1/64. Only the human's inputs are in a code. `verifyRun`
+  rebuilds the day from the code's date, refuses battles not played on that
+  day's seeds and recordings older than v2, and re-simulates every battle
+  under the standard Daily rules and round time whatever the code says: the
+  AI launches from its own plan (an aimed AI shot sees the human's aim at the
+  moment it releases), false starts and spawns are computed, recorded setups
+  go through the same clamps as live input, and every pick must be one of
+  the offered parts and leave a legal top. Hearts and the score are
+  recomputed; the claimed score is only compared. The screen re-plays in
+  slices with a progress line. A full run is usually 5,000-20,000
+  characters; codes over 200,000 characters (or 2 MB unpacked) are refused.
+  Codes from earlier days verify too; no server is involved.
+- Same result on every device (2026-10-13): JavaScript engines return
+  different last bits for `Math.sin`, `cos`, `atan2`, `exp`, `log`, `pow`,
+  `hypot` and the rest (measured with `tests/browser/mathprobe.js`: Node,
+  Chromium, Firefox and WebKit all disagree, Node and Chromium too), and a
+  battle is chaotic, so a code recorded on a phone would not have verified
+  on a PC. Everything that decides a battle now uses `src/core/dmath.js`
+  (fdlibm's algorithms on `+ - * /` and `Math.sqrt` only, which are exact in
+  every engine): physics, launches, AI, abilities, item effects, assembly,
+  loot weights, rivals, tournaments; 111 calls in 20 files, plus one `** 2`.
+  `tests/browser/determinism.js` plays five Daily battles in Node,
+  Chromium, Firefox and WebKit and compares the top specs before tick 0 and
+  a hash of every top's exact state every 120 ticks, then every engine
+  re-plays Chromium's recordings: all identical. Balance moved within noise
+  (attack 52, defense 42, stamina 57, balance 47, burst 51%; before 50, 46,
+  58, 46, 51) and the perf gate is unchanged (physics -0.3%).
+- Left out on purpose: the player's own parts, skills and Bit-Beast bonds.
+  The day's top brings its own Bit-Beast at a fixed bond, and only its own
+  traits, sets and synergies apply. Nothing in a battle comes from the
+  save, so any save rebuilds the same participants and can verify any run,
+  and every player starts equal.
+- Review fixes (2026-10-13): countdown changes replay (above); `verifyRun`
+  trusts nothing but the human's inputs (above); quit means loss; Workshop
+  undo is checked before it is taken off the list, and undoing a training
+  is refused while what it unlocked is in use (a tuning slot, the extra
+  upgrade slot, or the Masterwork Pivot relic it earned); runs cross
+  midnight. Trait events now report the spin energy they restored
+  (`itemEffect.energy`), since the ability ledger also books ability costs.
+- Tests: `daily` 12 (challenge, scoring, run and streak, code round trip and
+  forgery, tampered rules/AI data/picks/old recordings, quit and
+  closed-game forfeits, midnight, no `Math.random`/clock in the sim, cut
+  and oversized codes, first run kept apart); `replay` +1 (countdown changes
+  with an aimed AI, 3 seeds); `progression` +1 (training undo refused while
+  its unlock is in use); `dmath` 5 (accuracy against `Math` within a few
+  ulp, exactness of the module); `itemEffects` and `rift` low-spin triggers
+  now try several seeds. Unit 172/172. Cross-engine `determinism.js`: OK in
+  Node, Chromium, Firefox, WebKit. Balance check and perf gate pass.

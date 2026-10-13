@@ -12,6 +12,7 @@ import { LAUNCHER_INDEX, CABLE_INDEX, TECHNIQUE_INDEX } from '../data/launchers.
 import { TRAIT_INDEX } from '../data/traits.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
+import * as dm from '../core/dmath.js';
 
 export const PERFECT_CENTER = 0.92;
 export const BASE_MISFIRE = 1.12;
@@ -146,40 +147,40 @@ export function computeLaunch({ gear, techId, charge, aim, spinDir, topSpec, rng
   // intended lean (technique scales it), phantom perfect = upright
   let lean = clamp(clamp(aim.lean, 0, MAX_LEAN) * T.lean, 0, MAX_LEAN);
   if (T.perfectOnly && judge.perfect) lean = 0;
-  const lx = Math.sin(lean) * Math.cos(aim.dir) + Math.sin(errMag) * Math.cos(errDir);
-  const lz = Math.sin(lean) * Math.sin(aim.dir) + Math.sin(errMag) * Math.sin(errDir);
+  const lx = dm.sin(lean) * dm.cos(aim.dir) + dm.sin(errMag) * dm.cos(errDir);
+  const lz = dm.sin(lean) * dm.sin(aim.dir) + dm.sin(errMag) * dm.sin(errDir);
   const ly = Math.sqrt(Math.max(0.05, 1 - lx * lx - lz * lz));
   const axis = new Vec3(lx, ly, lz).normalize();
-  const totalTilt = Math.acos(clamp(axis.y, -1, 1));
+  const totalTilt = dm.acos(clamp(axis.y, -1, 1));
 
   // position (clamped to the launch ring)
   let px = aim.x, pz = aim.z;
-  const pr = Math.hypot(px, pz);
+  const pr = dm.hypot(px, pz);
   const maxR = Math.min(LAUNCH_RING, arena.radius * 0.62);
   if (pr > maxR) { px *= maxR / pr; pz *= maxR / pr; }
-  const floorY = arena.heightAtR(Math.hypot(px, pz));
+  const floorY = arena.heightAtR(dm.hypot(px, pz));
   const tipPos = new Vec3(px, floorY + 0.012, pz);
 
   // initial velocity: launch speed along the lean direction, technique-shaped
-  const baseSpeed = 0.15 + 0.9 * Math.sin(lean);
-  let vx = Math.cos(aim.dir) * baseSpeed * T.speed * 0.6;
-  let vz = Math.sin(aim.dir) * baseSpeed * T.speed * 0.6;
+  const baseSpeed = 0.15 + 0.9 * dm.sin(lean);
+  let vx = dm.cos(aim.dir) * baseSpeed * T.speed * 0.6;
+  let vz = dm.sin(aim.dir) * baseSpeed * T.speed * 0.6;
   if (T.tangential) {
-    const r = Math.max(0.02, Math.hypot(px, pz));
+    const r = Math.max(0.02, dm.hypot(px, pz));
     const s = 0.6 * T.speed * 0.6 * (-spinSign);
     vx = (-pz / r) * s; vz = (px / r) * s;
   }
   if (T.aimed && opponentAim) {
     const dx = opponentAim.x - px, dz = opponentAim.z - pz;
-    const d = Math.max(0.01, Math.hypot(dx, dz));
+    const d = Math.max(0.01, dm.hypot(dx, dz));
     const s = 1.0;
     vx = (dx / d) * s; vz = (dz / d) * s;
   }
   // a catapult launcher throws the top out faster
   vx *= gear.speedMul || 1; vz *= gear.speedMul || 1;
   // angle error also kicks the release sideways
-  vx += Math.sin(errMag) * Math.cos(errDir) * 0.8;
-  vz += Math.sin(errMag) * Math.sin(errDir) * 0.8;
+  vx += dm.sin(errMag) * dm.cos(errDir) * 0.8;
+  vz += dm.sin(errMag) * dm.sin(errDir) * 0.8;
   const velocity = new Vec3(vx, -0.25, vz);
 
   let label = judge.label;

@@ -21,6 +21,7 @@ import { resolveLaunchGear, ChargeMeter, computeLaunch, MAX_LEAN, LAUNCH_RING } 
 import { AIController, emptyControls } from './ai.js';
 import { RiftEffects, hasRiftEffects } from './riftEffects.js';
 import { ItemEffects } from './itemEffects.js';
+import * as dm from '../core/dmath.js';
 
 export const FORMATS = {
   single: { id: 'single', name: 'Single Round', roundsToWin: 1 },
@@ -37,7 +38,7 @@ export const FINISH_NAMES = { spin: 'Spin Finish', out: 'Ring Out', burst: 'Shat
 // presentation only (sparks, sound); the physics already handled the contact.
 export function glanceOf(normal, va, vb, approach) {
   const rx = vb.x - va.x, rz = vb.z - va.z, rn = rx * normal[0] + rz * normal[2];
-  const tx = rx - rn * normal[0], tz = rz - rn * normal[2], vt = Math.hypot(tx, tz);
+  const tx = rx - rn * normal[0], tz = rz - rn * normal[2], vt = dm.hypot(tx, tz);
   return { glance: vt / (vt + Math.max(1e-6, approach)), tangent: vt > 1e-6 ? [tx / vt, 0, tz / vt] : [0, 0, 0] };
 }
 
@@ -116,8 +117,11 @@ export class Battle extends Emitter {
     this.ignited = false;
     this.headless = !!opts.headless;
     this.cameraYaw = 0;
-    // deterministic replays: record the human's inputs, or play them back
-    this.rec = opts.record ? { v: 1, setups: {}, releases: {}, spawns: {}, controls: [] } : null;
+    // deterministic replays: record the human's inputs, or play them back.
+    // v2 records only what the human did (setup, launch changes during the
+    // countdown, release tick and charge, controls); AI launches, false starts
+    // and spawns are recomputed on playback, never read from the recording.
+    this.rec = opts.record ? { v: 2, setups: {}, launch: [], releases: {}, controls: [] } : null;
     this.replay = opts.replay ? new ReplayInput(opts.replay) : null;
     this.roundTicks = 0;
   }
@@ -127,7 +131,9 @@ export class Battle extends Emitter {
   startRound() {
     this.round++;
     this.roundTicks = 0;
+    this.cdTicks = 0;
     this._recLast = {};
+    this._launchKey = {};
     this.phase = this.fighters.some((f) => f.human) && !this.replay ? 'setup' : 'countdown';
     this.phaseT = 0;
     this.battleTime = 0;
@@ -161,7 +167,7 @@ export class Battle extends Emitter {
       // opponent lands (that made ~1 Rookie Cup round in 6 an instant clash).
       const along = Math.sign(sx) * (spin0 === 'L' ? -1 : 1);
       f.launch = {
-        aim: { x: sx, z: 0, lean: 0.12, dir: Math.atan2(along, 0) },
+        aim: { x: sx, z: 0, lean: 0.12, dir: dm.atan2(along, 0) },
         technique: p.technique || 'normal',
         spin: spin0,
         spinOptions: spinOpts,
@@ -184,10 +190,14 @@ export class Battle extends Emitter {
     if (this.replay) {
       this.replay.startRound(this.round);
       for (const f of this.fighters) {
+        if (this.replay.v >= 2 && !f.human) continue;
         const su = this.replay.setup(this.round, f.index);
         if (!su) continue;
-        f.launch.aim = { ...su.aim }; f.launch.technique = su.technique; f.launch.spin = su.spin;
-        f.launch.meter.setTechnique(su.technique);
+        if (this.replay.v >= 2) this.applyLaunchSetup(f, su);
+        else {
+          f.launch.aim = { ...su.aim }; f.launch.technique = su.technique; f.launch.spin = su.spin;
+          f.launch.meter.setTechnique(su.technique);
+        }
         f.launch.confirmed = true;
       }
     }
@@ -229,7 +239,7 @@ export class Battle extends Emitter {
   setAim(i, aim) {
     const L = this.fighters[i].launch;
     if (L.released) return;
-    const r = Math.hypot(aim.x, aim.z);
+    const r = dm.hypot(aim.x, aim.z);
     const maxR = Math.min(LAUNCH_RING, this.arena.radius * 0.62);
     if (r > maxR) { aim.x *= maxR / r; aim.z *= maxR / r; }
     aim.lean = clamp(aim.lean, 0, MAX_LEAN);
@@ -250,6 +260,7 @@ export class Battle extends Emitter {
     const cf = this.fighters[i];
     if (this.rec && cf.human && !cf.launch.confirmed) {
       (this.rec.setups[this.round] = this.rec.setups[this.round] || {})[i] = { aim: { ...cf.launch.aim }, technique: cf.launch.technique, spin: cf.launch.spin };
+      this._launchKey[i] = launchKey(cf.launch);
     }
     cf.launch.confirmed = true;
     if (this.phase === 'setup' && this.fighters.every((f) => f.launch.confirmed)) {
@@ -258,6 +269,37 @@ export class Battle extends Emitter {
       this.emit('countdownStart', {});
     }
   }
+  // A recorded launch setup, applied through the same clamps and checks as
+  // live input (aim radius and lean, known techniques, the launcher's spins).
+  applyLaunchSetup(f, su) {
+    const L = f.launch, a = su.aim || {};
+    const num = (v, d) => (Number.isFinite(v) ? v : d);
+    this.setAim(f.index, { x: num(a.x, L.aim.x), z: num(a.z, L.aim.z), lean: num(a.lean, L.aim.lean), dir: num(a.dir, L.aim.dir) });
+    if ((f.p.knownTechniques || ['normal']).includes(su.technique)) this.setTechnique(f.index, su.technique);
+    if (typeof su.spin === 'string') this.setSpin(f.index, su.spin);
+  }
+  replayCharge(f, c) { return clamp(Number.isFinite(c) ? c : 0, 0, f.gear.fixedPower ? 1 : f.gear.misfire + 0.05); }
+
+  // Countdown changes made since the last tick (recording), or the recorded
+  // ones due now (playback). inStep: releases made inside a tick (auto release).
+  recordLaunchChanges() {
+    for (const f of this.fighters) if (f.human && !f.launch.released) this.recordLaunchChange(f);
+  }
+  recordLaunchChange(f) {
+    const L = f.launch, k = launchKey(L);
+    if (this._launchKey[f.index] === k) return;
+    this._launchKey[f.index] = k;
+    this.rec.launch.push([this.round, this.cdTicks, f.index, L.aim.x, L.aim.z, L.aim.lean, L.aim.dir, L.technique, L.spin]);
+  }
+  replayLaunchEvents(inStep) {
+    for (const f of this.fighters) {
+      if (!f.human || f.launch.released) continue;
+      if (!inStep) for (const e of this.replay.launchAt(this.round, this.cdTicks, f.index)) this.applyLaunchSetup(f, { aim: { x: e[3], z: e[4], lean: e[5], dir: e[6] }, technique: e[7], spin: e[8] });
+      const r = this.replay.release(this.round, f.index);
+      if (r && !!r.inStep === inStep && r.ct === this.cdTicks) this.doRelease(f, this.replayCharge(f, r.charge));
+    }
+  }
+
   chargeInput(i, holding, amount = 1) { this.fighters[i]._chargeHold = holding; this.fighters[i]._chargeAmt = amount; }
   release(i) {
     const f = this.fighters[i];
@@ -273,7 +315,11 @@ export class Battle extends Emitter {
     L.meter.released = true;
     if (forced) L.falseStart = !!forced.falseStart;
     else if (this.phase === 'countdown' && this.phaseT < FALSE_START) L.falseStart = true;
-    if (this.rec) (this.rec.releases[this.round] = this.rec.releases[this.round] || {})[f.index] = { charge, falseStart: !!L.falseStart };
+    if (this.rec && f.human) {
+      // a change made just before the release belongs to this launch
+      if (!this._inStep) this.recordLaunchChange(f);
+      (this.rec.releases[this.round] = this.rec.releases[this.round] || {})[f.index] = { charge, ct: this.cdTicks, inStep: !!this._inStep, falseStart: !!L.falseStart };
+    }
     const opp = this.fighters[1 - f.index];
     const res = computeLaunch({
       gear: f.gear, techId: L.technique, charge, aim: L.aim, spinDir: L.spin, topSpec: f.top.spec,
@@ -291,14 +337,13 @@ export class Battle extends Emitter {
 
   spawnTop(f) {
     const L = f.launch;
-    if (this.rec) (this.rec.spawns[this.round] = this.rec.spawns[this.round] || {})[f.index] = this.roundTicks;
     const r = L.result;
     // spin direction can change the assembled warnings but not geometry
     f.top.launch({ tipPos: r.tipPos, axis: r.axis, spin: r.spin, velocity: r.velocity });
     f.top.maxSpinRate = Math.abs(r.spin);
     L.launched = true;
     const q = r.quality;
-    f.stats.launches.push({ round: this.round, spinDir: L.spin, r: Math.hypot(L.aim?.x || 0, L.aim?.z || 0), label: q.label, perfect: q.perfect, energy: r.energy, spin: Math.abs(r.spin), tilt: q.tiltDeg, technique: q.technique, techniqueSuccess: q.techniqueSuccess, poorAngle: q.poorAngle });
+    f.stats.launches.push({ round: this.round, spinDir: L.spin, r: dm.hypot(L.aim?.x || 0, L.aim?.z || 0), label: q.label, perfect: q.perfect, energy: r.energy, spin: Math.abs(r.spin), tilt: q.tiltDeg, technique: q.technique, techniqueSuccess: q.techniqueSuccess, poorAngle: q.poorAngle });
     if (q.perfect) { f.stats.perfectLaunches++; f.ability.gain(20); }
     else if (q.label === 'Good') f.ability.gain(8);
     f.stats.maxSpin = Math.max(f.stats.maxSpin, Math.abs(r.spin));
@@ -342,8 +387,13 @@ export class Battle extends Emitter {
   // One fixed step of the countdown/battle state machine.
   step(humanControls) {
     if (this.phase === 'countdown') {
+      if (this.rec) this.recordLaunchChanges();
+      if (this.replay?.v >= 2) this.replayLaunchEvents(false);
+      this.cdTicks++;
       this.phaseT += TICK;
+      this._inStep = true;
       this.updateCountdown(TICK);
+      this._inStep = false;
       if (this.phase === 'countdown' && !this.ignited) return;
     } else this.phaseT += TICK;
     this.tick(humanControls);
@@ -354,8 +404,8 @@ export class Battle extends Emitter {
     const prevSec = Math.ceil(COUNTDOWN - (t - dt));
     const sec = Math.ceil(COUNTDOWN - t);
     if (sec !== prevSec && sec > 0) this.emit('countdown', { n: sec });
-    if (this.replay) {
-      // releases come from the recording at IGNITE; spawns happen in tick()
+    if (this.replay && this.replay.v < 2) {
+      // v1 recordings: releases come from the recording at IGNITE; spawns happen in tick()
       if (!this.ignited && t >= COUNTDOWN) {
         this.ignited = true;
         this.emit('ignite', {});
@@ -369,6 +419,13 @@ export class Battle extends Emitter {
     for (const f of this.fighters) {
       const L = f.launch;
       if (L.released) continue;
+      if (f.human && this.replay) {
+        // playback: the recorded in-tick (auto) release, else the auto release itself
+        const r = this.replay.release(this.round, f.index);
+        if (r && r.inStep && r.ct === this.cdTicks) this.doRelease(f, this.replayCharge(f, r.charge));
+        else if (t >= AUTO_RELEASE) this.doRelease(f, 0);
+        continue;
+      }
       if (f.human) {
         L.meter.update(dt, !!f._chargeHold, f._chargeAmt ?? 1);
       } else {
@@ -402,7 +459,7 @@ export class Battle extends Emitter {
     const sim = this.sim;
     const [A, B] = this.fighters;
     const time = this.battleTime;
-    if (this.replay && this.phase === 'countdown') {
+    if (this.replay && this.replay.v < 2 && this.phase === 'countdown') {
       for (const f of this.fighters) if (!f.launch.launched && f.launch.released && this.replay.spawn(this.round, f.index) === this.roundTicks) this.spawnTop(f);
       if (this.fighters.every((f) => f.launch.launched)) { this.phase = 'battle'; this.emit('battleStart', {}); }
     }
@@ -481,11 +538,11 @@ export class Battle extends Emitter {
     const t = f.top, o = opp.top;
     const R = this.arena.radius;
     const dx = o.p.x - t.p.x, dz = o.p.z - t.p.z;
-    const d = Math.hypot(dx, dz);
+    const d = dm.hypot(dx, dz);
     const closing = d > 1e-4 ? -(dx * (o.v.x - t.v.x) + dz * (o.v.z - t.v.z)) / d : 0;
     return {
       spinFrac: t.spinFraction(), oppSpinFrac: o.active ? o.spinFraction() : 0,
-      speed: Math.hypot(t.v.x, t.v.z), rFrac: Math.hypot(t.p.x, t.p.z) / R, oppRFrac: Math.hypot(o.p.x, o.p.z) / R,
+      speed: dm.hypot(t.v.x, t.v.z), rFrac: dm.hypot(t.p.x, t.p.z) / R, oppRFrac: dm.hypot(o.p.x, o.p.z) / R,
       approaching: o.active && closing > 0.25 && d < 0.09, time: this.battleTime, sinceCollision: this.battleTime - f.lastCollision,
       surfaceTag: this.arena.bandTagAt(t.lastTipPoint.x, t.lastTipPoint.z) || this.arena.surfaceTag,
       oppositeSpin: o.spinDir !== t.spinDir, abilityActive: !!f.ability.lastActivation && f.mods.timed.some((x) => x.origin === 'ability'),
@@ -592,7 +649,7 @@ export class Battle extends Emitter {
   onFinish(e) {
     const f = this.fighterOf(e.top);
     // where a ring-out left the stadium (the top keeps flying; explain() runs later)
-    if (e.how === 'out') f.outAngle = Math.atan2(f.top.p.z, f.top.p.x);
+    if (e.how === 'out') f.outAngle = dm.atan2(f.top.p.z, f.top.p.x);
     this.roundFinishes.push({ fighter: f, how: e.how, time: this.battleTime });
     this.emit('topFinished', { fighter: f, how: e.how });
     // After IGNITE a top can finish before the opponent has even spawned (a late
@@ -761,7 +818,7 @@ export class Battle extends Emitter {
       }
       case 'out': {
         const R = this.arena.radius;
-        const ang = loser.outAngle ?? Math.atan2(L.p.z, L.p.x);
+        const ang = loser.outAngle ?? dm.atan2(L.p.z, L.p.x);
         const exit = this.arena.openingAt(ang);
         const where = exit ? 'through an exit' : 'over the wall';
         const last = [...this.roundNotable].sort((a, b) => b.time - a.time)[0];
@@ -796,7 +853,7 @@ export class Battle extends Emitter {
     for (const f of this.fighters) {
       const t = f.top;
       s.f.push({
-        spin: +t.spinAbs.toFixed(1), frac: +t.spinFraction().toFixed(3), speed: +Math.hypot(t.v.x, t.v.z).toFixed(3),
+        spin: +t.spinAbs.toFixed(1), frac: +t.spinFraction().toFixed(3), speed: +dm.hypot(t.v.x, t.v.z).toFixed(3),
         tilt: +(t.tilt * 57.2958).toFixed(2), notches: +t.burstNotches.toFixed(2), spirit: +f.ability.spirit.toFixed(1),
         eRot: +t.rotationalEnergy().toFixed(4), eLin: +t.linearEnergy().toFixed(4), x: +t.p.x.toFixed(4), z: +t.p.z.toFixed(4),
         active: t.active,
@@ -822,10 +879,14 @@ export class Battle extends Emitter {
   }
 }
 
+const launchKey = (L) => `${L.aim.x},${L.aim.z},${L.aim.lean},${L.aim.dir},${L.technique},${L.spin}`;
+
 // Playback of recorded inputs (see Battle.recordControls / replayData).
 export class ReplayInput {
   constructor(rec) {
     this.rec = rec;
+    this.v = rec.v || 1;
+    this.launch = Array.isArray(rec.launch) ? rec.launch : [];
     this.list = rec.controls || [];
     this.cursor = {};
     this.state = {};
@@ -837,6 +898,7 @@ export class ReplayInput {
   setup(round, i) { return this.rec.setups?.[round]?.[i] || null; }
   release(round, i) { return this.rec.releases?.[round]?.[i] || null; }
   spawn(round, i) { return this.rec.spawns?.[round]?.[i] ?? 0; }
+  launchAt(round, ct, i) { return this.launch.filter((e) => Array.isArray(e) && e[0] === round && e[1] === ct && e[2] === i); }
   controls(i, round, tick) {
     let k = this.cursor[i] ?? 0;
     const L = this.list;

@@ -306,3 +306,23 @@ test('starter loadouts are valid and assemble', () => {
     assert.ok(assembleTop(v.parts).spec.mass > 0.03);
   }
 });
+
+test('undoing a training is refused while what it unlocked is in use, and a refused undo stays available', () => {
+  const p = newProfile(21);
+  const target = createItem({ base: 'ring_galefang', rarity: 'rare', seed: 31 });
+  const copy = createItem({ base: 'ring_galefang', rarity: 'epic', seed: 32 });
+  addItem(p, target); addItem(p, copy);
+  target.xp = 900; // Acquainted; one training reaches Skilled (first tuning slot)
+  const tr = WS.trainWithDuplicate(p, target.uid, copy.uid);
+  assert.ok(tr.ok && tr.rankUp, tr.reason);
+  assert.ok(WS.applyTuning(p, target.uid, 'ring_sharpen').ok, 'the unlocked tuning slot is usable');
+  const n = p.undo.length;
+  const r = WS.undo(p);
+  assert.ok(!r.ok && /tuning/i.test(r.reason), r.reason);
+  assert.equal(p.undo.length, n, 'the refused undo is still on the list');
+  assert.ok(!p.inventory[copy.uid], 'nothing was given back');
+  // without the tuning the undo goes through
+  target.tuning = [];
+  assert.ok(WS.undo(p).ok);
+  assert.ok(p.inventory[copy.uid] && target.xp === 900);
+});

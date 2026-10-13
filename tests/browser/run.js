@@ -2,6 +2,7 @@
 // through keyboard and a virtual standard gamepad.
 // Usage: npm run test:browser   (builds first)  or  node tests/browser/run.js [scenario]
 
+import path from 'node:path';
 import { launch } from './harness.js';
 
 const scenarios = {};
@@ -1402,6 +1403,95 @@ scenarios.relics = async () => {
     await h.padButton(1);
     await h.shot('r02_inventory');
     return { errors: h.errors };
+  } finally { await h.close(); }
+};
+
+// Daily Seed with the controller: start today's run, play every battle to its
+// natural end with some steering, take the part picks, then copy the best
+// run's code, paste it back and verify it: the re-simulated battles and score
+// must match the run as it was played.
+scenarios.daily = async () => {
+  const h = await launch();
+  const played = [];
+  // no debugFinish here: a debug finish is not a recorded input, so the code would not verify
+  const playBattle = async () => {
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 10000, 'daily battle');
+    for (let round = 0; round < 9; round++) { // single round, but a draw is fought again
+      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
+      await h.padButton(0);
+      await timedLaunch(h, { pad: true });
+      await h.waitFor(() => { const b = window.__app.ui.current.battle; return (b.phase === 'battle' && b.fighters.every((f) => f.launch.launched)) || ['finishing', 'roundOver', 'matchOver'].includes(b.phase); }, 15000, 'battle running');
+      // recorded inputs: the d-pad's steer-to-centre autopilot, then the stick
+      // and a counter (X; A would also dismiss the round banner)
+      for (let k = 0; k < 3; k++) {
+        if (await h.eval(() => window.__app.ui.current.battle?.phase !== 'battle')) break;
+        if (k === 0) await h.padButton(12); else await h.padAxes([Math.cos(k * 2.1), Math.sin(k * 2.1), 0, 0]);
+        if (k === 1) await h.padButton(2);
+        await h.page.waitForTimeout(200);
+      }
+      await h.padAxes([0, 0, 0, 0]);
+      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 60000, 'round over');
+      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+      await h.padButton(0);
+      if (done) break;
+    }
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
+    // what happened live, for diagnosing a code that does not verify
+    played.push(await h.eval(() => { const b = window.__app.ui.stack.find((s) => s.constructor.screenName === 'BattleScreen').battle; return { launches: b.fighters.map((f) => f.stats.launches), summary: b.result && { winner: b.result.winner, rounds: b.result.rounds.map((r) => ({ winner: r.winner, how: r.how, time: +r.time.toFixed(3) })) } }; }));
+    await h.eval(() => window.__app.ui.focus([...document.querySelectorAll('.results .btn')].find((b) => b.textContent === 'Continue')));
+    await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'DailyScreen', 10000, 'back to the Daily Seed');
+  };
+  try {
+    await newGame(h);
+    await openTile(h, 'modes', 'ModesScreen');
+    await h.focusId('mode-daily'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'DailyScreen', 10000, 'daily');
+    await h.focusId('daily-start'); await h.padButton(0);
+    await h.waitFor(() => window.__app.profile.daily?.active?.stage === 0 && !!document.querySelector('[data-id="daily-fight"]'), 5000, 'run started');
+    await h.shot('dl01_daily');
+    await h.eval(() => { window.__testRoundTime = 15; window.__testSpeed = 3; });
+    let battles = 0, picks = 0;
+    for (let i = 0; i < 12 && (await h.eval(() => !!window.__app.profile.daily.active)); i++) {
+      if (await h.eval(() => !!document.querySelector('[data-id="daily-pick-0"]'))) {
+        if (!picks) await h.shot('dl02_pick');
+        const n = await h.eval(() => window.__app.profile.daily.active.picks.length);
+        await h.focusId('daily-pick-0'); await h.padButton(0);
+        // a part the top can't take is refused with a toast: keep the top instead
+        if ((await h.eval(() => window.__app.profile.daily.active.picks.length)) === n) { await h.focusId('daily-pick-skip'); await h.padButton(0); }
+        await h.waitFor((m) => window.__app.profile.daily.active?.picks.length === m + 1 && !!document.querySelector('[data-id="daily-fight"]'), 5000, 'pick taken', n);
+        picks++;
+        continue;
+      }
+      await h.focusId('daily-fight'); await h.padButton(0);
+      await playBattle();
+      battles++;
+    }
+    const key = await h.eval(() => new Date().toISOString().slice(0, 10));
+    const st = await h.eval((k) => { const d = window.__app.profile.daily; return { active: !!d.active, best: d.best[k] || null }; }, key);
+    if (st.active || !st.best) throw new Error(`run did not finish after ${battles} battles: ${JSON.stringify(st)}`);
+    const best = st.best, results = best.run.results;
+    if (!(battles === 5 || best.hearts <= 0) || results.length !== battles || picks !== battles - 1 || best.run.picks.length !== picks) throw new Error('run record ' + JSON.stringify({ battles, picks, hearts: best.hearts, results: results.length, runPicks: best.run.picks }));
+    if (!best.run.battles.every((b) => b?.rec)) throw new Error('a battle has no recording');
+    // copy the code (the clipboard may refuse in headless Chrome; the box shows it too)
+    await h.focusId('daily-copy'); await h.padButton(0);
+    const code = await h.waitFor(() => window.__app.ui.current?.code, 10000, 'replay code');
+    if (!/^CS1[zr]\./.test(code)) throw new Error('not a Daily Seed code: ' + code.slice(0, 40));
+    if ((await h.eval(() => document.querySelector('textarea.daily-code[readonly]')?.value)) !== code) throw new Error('code box does not show the code');
+    // paste it as a friend would, and re-play the whole run from it
+    await h.eval((c) => { const t = document.getElementById('daily-paste'); t.value = c; t.dispatchEvent(new Event('input')); }, code);
+    await h.focusId('daily-verify'); await h.padButton(0);
+    const v = await h.waitFor(() => { const x = window.__app.ui.current?.verify; return x && !x.busy ? x : false; }, 60000, 'verification');
+    const card = await h.eval(() => { const e = document.querySelector('.daily-verified'); e?.scrollIntoView({ block: 'nearest' }); return e?.textContent || null; });
+    await h.shot('dl03_verified');
+    if (!card) { const fs = await import('node:fs'); fs.writeFileSync(path.join(process.env.TEMP || '.', 'daily-debug.json'), JSON.stringify({ code, played, verify: v }, null, 1)); }
+    if (!card) throw new Error('code did not verify: ' + JSON.stringify({ ...v, battles: v.battles?.map((b) => b.summary) }) + ' | ' + (await h.eval(() => document.querySelector('.warn-box')?.textContent)));
+    const shown = +(/Verified: (.+) points/.exec(card)?.[1] || '').replace(/\D/g, '');
+    if (shown !== best.score || v.score !== best.score) throw new Error(`verified ${shown} (${v.score}) but the best is ${best.score}`);
+    const same = v.battles.length === results.length && v.battles.every((b, i) => b.score === results[i].score && JSON.stringify(b.summary) === JSON.stringify(results[i].summary));
+    if (!same) throw new Error('re-played battles differ: ' + JSON.stringify({ replayed: v.battles.map((b) => [b.score, b.summary]), played: results.map((r) => [r.score, r.summary]) }));
+    const finishes = results.map((r) => `${r.won ? 'W' : r.summary.winner == null ? 'D' : 'L'}:${r.summary.rounds.map((x) => `${x.how}@${x.time.toFixed(1)}`).join('/')}`).join(' ');
+    return { battles, finishes, hearts: best.hearts, score: best.score, code: code.length, errors: h.errors };
   } finally { await h.close(); }
 };
 

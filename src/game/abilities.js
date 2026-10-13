@@ -11,6 +11,7 @@
 import { Vec3, clamp } from '../core/math.js';
 import { BEAST_INDEX } from '../data/beasts.js';
 import { GRAVITY } from '../physics/topBody.js';
+import * as dm from '../core/dmath.js';
 
 export const SPIRIT_MAX = 100;
 const DASH_EFF = 0.6;
@@ -159,12 +160,12 @@ export class AbilityRuntime {
     }
     if (kind === 'stick') {
       const s = ctx.steer;
-      if (s && Math.hypot(s.x, s.z) > 0.2) return new Vec3(s.x, 0, s.z).normalize();
+      if (s && dm.hypot(s.x, s.z) > 0.2) return new Vec3(s.x, 0, s.z).normalize();
       // no input: dash toward the opponent
       return this.direction('opponent', ctx);
     }
     if (kind === 'tangent') {
-      const r = Math.hypot(top.p.x, top.p.z);
+      const r = dm.hypot(top.p.x, top.p.z);
       if (r < 1e-3) return new Vec3(1, 0, 0);
       const s = -top.spinDir;
       return new Vec3((-top.p.z / r) * s, 0, (top.p.x / r) * s);

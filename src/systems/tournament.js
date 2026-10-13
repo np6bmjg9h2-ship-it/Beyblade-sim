@@ -20,6 +20,7 @@ import { rollLoot, addItem } from './loot.js';
 import { addPlayerXp } from './profile.js';
 import { itemName } from './items.js';
 import { applyLeagueResult } from './modes.js';
+import * as dm from '../core/dmath.js';
 
 export const PLAYER = 0;
 const FILLER_BEASTS = ['zephyrax', 'ferrowulf', 'kerauno', 'geodrome', 'caelumanta', 'magmarion', 'pyrrhex', 'abyssion', 'noctivane'];
@@ -162,7 +163,7 @@ function roundName(R, r, prefix = '') {
 }
 
 function genSingle(t, si, order, name, { playoff = false } = {}) {
-  const n = order.length, size = nextPow2(Math.max(2, n)), R = Math.log2(size);
+  const n = order.length, size = nextPow2(Math.max(2, n)), R = dm.log2(size);
   const pos = seedPositions(size);
   const M = [];
   for (let r = 0; r < R; r++) {
@@ -185,7 +186,7 @@ function genSingle(t, si, order, name, { playoff = false } = {}) {
 }
 
 function genDouble(t, si, order) {
-  const n = order.length, size = Math.max(4, nextPow2(n)), R = Math.log2(size);
+  const n = order.length, size = Math.max(4, nextPow2(n)), R = dm.log2(size);
   const st = genSingle(t, si, order, 'Upper Bracket');
   st.type = 'double';
   st.name = 'Double Elimination';

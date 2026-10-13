@@ -6,6 +6,7 @@ import { Vec3, clamp } from '../core/math.js';
 import { MAX_LEAN, LAUNCH_RING } from './launch.js';
 import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { emptyControls } from './ai.js';
+import * as dm from '../core/dmath.js';
 
 const CHORD_WINDOW = 0.1;
 
@@ -24,8 +25,8 @@ export class HumanController {
   initFromAim() {
     const L = this.battle.fighters[this.index].launch;
     if (!L) return;
-    this.leanVec.x = Math.cos(L.aim.dir) * L.aim.lean;
-    this.leanVec.z = Math.sin(L.aim.dir) * L.aim.lean;
+    this.leanVec.x = dm.cos(L.aim.dir) * L.aim.lean;
+    this.leanVec.z = dm.sin(L.aim.dir) * L.aim.lean;
   }
 
   get fighter() { return this.battle.fighters[this.index]; }
@@ -56,16 +57,16 @@ export class HumanController {
       const lx = input.value('lean_x', ctx), ly = input.value('lean_y', ctx);
       this.leanVec.x += (rx * lx - fx * ly) * 0.35 * dt;
       this.leanVec.z += (rz * lx - fz * ly) * 0.35 * dt;
-      let lm = Math.hypot(this.leanVec.x, this.leanVec.z);
+      let lm = dm.hypot(this.leanVec.x, this.leanVec.z);
       const step = Math.PI / 180;
       if (input.pressed('cycle_next', ctx) || input.pressed('cycle_prev', ctx)) {
         const dirSign = input.pressed('cycle_next', ctx) ? 1 : -1;
-        const dir = lm > 1e-4 ? Math.atan2(this.leanVec.z, this.leanVec.x) : Math.atan2(-z, -x);
+        const dir = lm > 1e-4 ? dm.atan2(this.leanVec.z, this.leanVec.x) : dm.atan2(-z, -x);
         lm = clamp(lm + dirSign * step, 0, MAX_LEAN);
-        this.leanVec.x = Math.cos(dir) * lm; this.leanVec.z = Math.sin(dir) * lm;
+        this.leanVec.x = dm.cos(dir) * lm; this.leanVec.z = dm.sin(dir) * lm;
       }
       if (lm > MAX_LEAN) { this.leanVec.x *= MAX_LEAN / lm; this.leanVec.z *= MAX_LEAN / lm; lm = MAX_LEAN; }
-      const dir = lm > 1e-5 ? Math.atan2(this.leanVec.z, this.leanVec.x) : L.aim.dir;
+      const dir = lm > 1e-5 ? dm.atan2(this.leanVec.z, this.leanVec.x) : L.aim.dir;
       b.setAim(this.index, { x, z, lean: lm, dir });
       // technique & spin
       if (input.pressed('technique', ctx)) {
@@ -112,7 +113,7 @@ export class HumanController {
     const { fx, fz, rx, rz } = this.basis();
     const sx = input.value('steer_x', ctx), sy = input.value('steer_y', ctx);
     c.steer.set(rx * sx - fx * sy, 0, rz * sx - fz * sy);
-    const m = Math.hypot(c.steer.x, c.steer.z);
+    const m = dm.hypot(c.steer.x, c.steer.z);
     if (m > 1) c.steer.scale(1 / m);
     // d-pad quick commands: short autopilot steering
     const cmds = { cmd_up: 'center', cmd_down: 'evade', cmd_left: 'circleL', cmd_right: 'circleR' };
@@ -151,12 +152,12 @@ export class HumanController {
     if (kind === 'center') v.set(-t.p.x, 0, -t.p.z).scale(12);
     else if (kind === 'evade') { v.set(t.p.x - opp.p.x, 0, t.p.z - opp.p.z).normalize(); v.x -= t.p.x * 4; v.z -= t.p.z * 4; }
     else {
-      const r = Math.max(1e-3, Math.hypot(t.p.x, t.p.z));
+      const r = Math.max(1e-3, dm.hypot(t.p.x, t.p.z));
       const s = kind === 'circleL' ? 1 : -1;
       v.set((-t.p.z / r) * s, 0, (t.p.x / r) * s);
       v.x -= t.p.x * 2; v.z -= t.p.z * 2;
     }
-    const m = Math.hypot(v.x, v.z);
+    const m = dm.hypot(v.x, v.z);
     if (m > 1) v.scale(1 / m);
     out.copy(v);
   }
