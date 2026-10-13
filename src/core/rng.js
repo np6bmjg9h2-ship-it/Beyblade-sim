@@ -2,6 +2,8 @@
 // decision in the game (loot rolls, AI choices, launch variance) flows through
 // an Rng instance so results can be reproduced from a seed for debugging.
 
+import * as dm from './dmath.js';
+
 export function hashString(str) {
   // FNV-1a 32-bit
   let h = 0x811c9dc5;
@@ -59,7 +61,7 @@ export class Rng {
     let u = 0, v = 0;
     while (u === 0) u = this.next();
     while (v === 0) v = this.next();
-    return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    return mean + sd * Math.sqrt(-2 * dm.log(u)) * dm.cos(2 * Math.PI * v);
   }
   weighted(entries, weightKey = 'weight') {
     let total = 0;

@@ -94,7 +94,8 @@ game/itemEffects.js  battle hooks -> triggers -> timed modifiers, spirit, lock s
    drop tables with pity; collection journal (traits, synergies incl. hidden
    ones, relics, provenance); trait imprinting from dismantles and targeted
    engraving; a use for duplicates.
-5. **Daily Seed.** One shared challenge per day: fixed starting top, fixed
+5. **Daily Seed** (paused 2026-10-13 by request; kept on branch
+   `wip/daily-seed`). One shared challenge per day: fixed starting top, fixed
    part options, rival sequence and a stadium modifier; local best and streak;
    shareable replay codes that re-simulate and verify the run. Offline first.
 6. **Rift Run integration.** Rerolls with clear costs, relic rewards from deep
@@ -273,3 +274,52 @@ artifact and patch notes updated, and a log entry below.
   and Masterwork Pivot were toned down from +18 and +23.
 - Tests: 155/155 unit (relics 7, Workshop property 1 new), 17/17 browser
   (`relics` new), balance guard unchanged (50 / 46 / 57 / 46 / 51).
+
+### Same battle on every device (2026-10-13)
+
+From the 2026-10-13 research round and the team's review (records in
+`../Beyblade-sim-research/2026-10-13/`). The Daily Seed (M5) is paused and
+kept on branch `wip/daily-seed`; these parts of that work help every mode
+and stay on the main branch.
+
+- Files: `src/core/dmath.js` (new), 20 files switched to it (`core/math`,
+  `core/rng`, physics, game, `systems/assembly`, `compare`, `loot`,
+  `profile`, `rivals`, `tournament`), `src/game/battle.js` (replay v2),
+  `src/game/itemEffects.js`, `src/systems/workshop.js`,
+  `tests/browser/determinism.js` + `determinism-entry.js` +
+  `mathprobe.js` (new), `package.json` (`test:determinism`).
+- Deterministic maths: JavaScript engines return different last bits for
+  `Math.sin`, `cos`, `tan`, `atan2`, `asin`, `acos`, `exp`, `log`, `pow`
+  and `hypot` (`mathprobe.js`, 4,000 inputs each: Node, Chromium, Firefox
+  and WebKit all disagree, Node and Chromium too). A battle is chaotic, so
+  saved replays and AI-vs-AI results could differ between a phone and a PC.
+  `dmath.js` implements them with fdlibm's algorithms on `+ - * /` and
+  `Math.sqrt` only (exact in every engine), within about 1 ulp of `Math`
+  (`pow` with a fractional exponent a few ulp; `log2` exact for powers of
+  two, which bracket sizes rely on). 111 calls in 20 files plus one `** 2`
+  were switched; rendering keeps `Math`. `npm run test:determinism` plays
+  five battles (all styles, two stadiums) in Node, Chromium, Firefox and
+  WebKit, compares the top specs before tick 0 and a hash of every top's
+  exact state every 120 ticks, then every engine re-plays Chromium's
+  recordings: all identical. Balance unchanged within noise (attack 52,
+  defense 42, stamina 57, balance 47, burst 51%; before 50, 46, 58, 46,
+  51); perf gate unchanged (physics -2%).
+- Replays v2: only the human's inputs are recorded: the setup at Ready,
+  every change of aim, technique or spin during the countdown with its
+  tick (aim can be moved while charging, and an aimed AI shot aims at
+  where the human points when it releases), and the release with its tick
+  and charge. AI launches, false starts and spawns are recomputed on
+  playback, never read from the file; recorded setups go through the same
+  clamps as live input. v1 recordings still play back their old way.
+- Workshop undo is checked before it is taken off the list (a refused undo
+  stays available), and undoing a training is refused while what it
+  unlocked is in use: a tuning slot, the extra upgrade slot, or the
+  Masterwork Pivot relic it earned.
+- Trait events report the spin energy they restored (`itemEffect.energy`):
+  the ability ledger nets restores with ability costs, so its total is not
+  a test of a restore.
+- Tests: unit 162/162 (`dmath` 5 new: accuracy and exactness of the module;
+  `replay` +1: countdown changes with an aimed AI over 3 seeds;
+  `progression` +1: training undo; low-spin trigger tests in `itemEffects`
+  and `rift` try several seeds instead of relying on one). Cross-engine
+  determinism OK. Balance check and perf gate pass.

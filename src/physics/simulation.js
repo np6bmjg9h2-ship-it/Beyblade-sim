@@ -11,6 +11,7 @@ import { Vec3, clamp, smoothstep, UP } from '../core/math.js';
 import { GRAVITY } from './topBody.js';
 import { sampleProfile } from './profile.js';
 import { applyMagnets, struckRestitution, mechanismsPostTick } from './mechanisms.js';
+import * as dm from '../core/dmath.js';
 
 export const TICK = 1 / 120;
 export const DEFAULT_SUBSTEPS = 16;
@@ -301,7 +302,7 @@ export class Simulation {
       const dPE = t.mass * GRAVITY * t.v.y * dt;
       t.ledger.floor += dPE; t._subLedger.floor += dPE;
       t.p.addScaled(t.v, dt);
-      t.telemetry.distance += Math.hypot(t.v.x, t.v.z) * dt;
+      t.telemetry.distance += dm.hypot(t.v.x, t.v.z) * dt;
       t.integrateOrientation(dt);
       this.correctTip(t);
       // energy residual -> numerical drift
@@ -333,7 +334,7 @@ export class Simulation {
     }
     // steering: limited force while the tip is on the floor, paid for with spin energy
     const st = t.control.steer;
-    const sMag = Math.hypot(st.x, st.z);
+    const sMag = dm.hypot(st.x, st.z);
     if (sMag > 0.02 && t.contactTip) {
       const Fmax = PHYSICS.steerBase * m * GRAVITY * t.mods.steerForce;
       const fx = st.x * Fmax, fz = st.z * Fmax;
@@ -392,7 +393,7 @@ export class Simulation {
     const omegaP = (t.mass * GRAVITY * h) / (t.I3 * s);
     const nrm = t.lastTipNormal;
     _t2.copy(nrm).addScaled(a, -nrm.dot(a)).scale(t.I1 * omegaP);
-    const f = 1 - Math.exp(-k * dt);
+    const f = 1 - dm.exp(-k * dt);
     _t.sub(_t2).scale(-f);
     t.L.add(_t);
     t.updateOmegaOnly();
@@ -493,7 +494,7 @@ export class Simulation {
         const Jn = c.lN;
         _J.copy(c.n).scale(c.lN).addScaled(c.t1, c.lT1).addScaled(c.t2, c.lT2);
         agg.J.add(_J);
-        agg.impulse += Math.hypot(c.lN, c.lT1, c.lT2);
+        agg.impulse += dm.hypot(c.lN, c.lT1, c.lT2);
         if (Jn > agg.maxLayerImpulse) {
           agg.maxLayerImpulse = Jn; agg.layerA = c.layerA; agg.layerB = c.layerB;
           agg.point.copy(c.point); agg.normal.copy(c.n);
@@ -520,7 +521,7 @@ export class Simulation {
           agg = { top: c.B, impulse: 0, approach: 0, point: new Vec3(), normal: new Vec3(), layer: c.layerB };
           this.wallAgg.set(key, agg);
         }
-        agg.impulse += Math.hypot(c.lN, c.lT1, c.lT2);
+        agg.impulse += dm.hypot(c.lN, c.lT1, c.lT2);
         agg.approach = Math.max(agg.approach, -c.vn0);
         agg.point.copy(c.point); agg.normal.copy(c.n);
       } else if (c.type === 'tip') {
@@ -549,7 +550,7 @@ export class Simulation {
     let b = 0;
     if (s > 1e-9) {
       _u.scale(1 / s);
-      b = smoothstep(0, Math.sin(tip.compliance), s);
+      b = smoothstep(0, dm.sin(tip.compliance), s);
     } else _u.set(0, 0, 0);
     const rf = tip.flatRadius * (t.wearFlat ?? 1);
     _e.copy(_c).addScaled(_u, rf * b).addScaled(_d, tip.ballRadius);
@@ -580,7 +581,7 @@ export class Simulation {
     _u.copy(_d).addScaled(t.a, -_d.dot(t.a));
     const s = _u.length();
     let b = 0;
-    if (s > 1e-9) { _u.scale(1 / s); b = smoothstep(0, Math.sin(tip.compliance), s); } else _u.set(0, 0, 0);
+    if (s > 1e-9) { _u.scale(1 / s); b = smoothstep(0, dm.sin(tip.compliance), s); } else _u.set(0, 0, 0);
     _e.copy(_c).addScaled(_u, tip.flatRadius * (t.wearFlat ?? 1) * b).addScaled(_d, tip.ballRadius);
     const floorY = this.arena.height(_e.x, _e.z, _n);
     const depth = (floorY - _e.y) * _n.y;
@@ -619,11 +620,11 @@ export class Simulation {
   genWall(t) {
     const arena = this.arena;
     const R = arena.radius;
-    const rr = Math.hypot(t.p.x, t.p.z);
+    const rr = dm.hypot(t.p.x, t.p.z);
     if (rr + t.spec.radius < R - 0.002) return;
     for (const L of t.spec.layers) {
       t.axisPoint(L.z, _c);
-      const cr = Math.hypot(_c.x, _c.z);
+      const cr = dm.hypot(_c.x, _c.z);
       if (cr < 1e-6) continue;
       // outward radial direction projected into the ring plane
       _d.set(_c.x / cr, 0, _c.z / cr);
@@ -634,9 +635,9 @@ export class Simulation {
       const psi = t.bodyAzimuth(_u);
       sampleProfile(L, psi, t.spinDir, _prof);
       _e.copy(_c).addScaled(_u, _prof.radius);
-      const er = Math.hypot(_e.x, _e.z);
+      const er = dm.hypot(_e.x, _e.z);
       if (er <= R) continue;
-      const ang = Math.atan2(_e.z, _e.x);
+      const ang = dm.atan2(_e.z, _e.x);
       const top = arena.wallTopAt(ang); // exits only have a low lip
       if (_e.y - L.thickness * 0.5 > top) continue; // passing over the rim
       const c = this._contact();
@@ -662,10 +663,10 @@ export class Simulation {
     const arena = this.arena;
     const tip = t.spec.tip;
     t.axisPoint(tip.endZ + 0.003, _c);
-    const cr = Math.hypot(_c.x, _c.z);
+    const cr = dm.hypot(_c.x, _c.z);
     const reach = cr + 0.006;
     if (reach <= arena.radius || cr < 1e-6) return;
-    const ang = Math.atan2(_c.z, _c.x);
+    const ang = dm.atan2(_c.z, _c.x);
     const o = arena.openingAt(ang);
     if (o && o.lipHeight <= 0) return;
     const bottom = _c.y - 0.003;
@@ -689,7 +690,7 @@ export class Simulation {
 
   genTopTop(A, B) {
     const dx = B.p.x - A.p.x, dz = B.p.z - A.p.z;
-    const dh = Math.hypot(dx, dz);
+    const dh = dm.hypot(dx, dz);
     if (dh > A.spec.radius + B.spec.radius + 0.004) return;
     if (Math.abs(B.p.y - A.p.y) > (A.spec.height + B.spec.height)) return;
     const pairKey = A.id + '|' + B.id;
@@ -738,16 +739,16 @@ export class Simulation {
     c.depth = Math.max(0, best.depth);
     // normal: horizontal centre line, tilted by ring slopes and edge offset,
     // and turned by engaged blade faces in the direction of surface motion
-    const slopeTerm = Math.tan(la.slope || 0) - Math.tan(lb.slope || 0) + clamp(best.dy / (best.halfSum * 2), -0.45, 0.45) * 0.6;
+    const slopeTerm = dm.tan(la.slope || 0) - dm.tan(lb.slope || 0) + clamp(best.dy / (best.halfSum * 2), -0.45, 0.45) * 0.6;
     c.n.set(nhx, slopeTerm, nhz);
     const faceA = (la.faceAngle + (la.attack ? A.mods.faceAngle : 0)) * best.faceA;
     const faceB = (lb.faceAngle + (lb.attack ? B.mods.faceAngle : 0)) * best.faceB;
     _t.set(best.uA[0], best.uA[1], best.uA[2]);
     _t2.crossVectors(A.a, _t).scale(A.spinDir); // A surface motion
-    c.n.addScaled(_t2, PHYSICS.faceCoupling * Math.tan(clamp(faceA, 0, 0.45)));
+    c.n.addScaled(_t2, PHYSICS.faceCoupling * dm.tan(clamp(faceA, 0, 0.45)));
     _t.set(best.uB[0], best.uB[1], best.uB[2]);
     _t3.crossVectors(B.a, _t).scale(B.spinDir); // B surface motion
-    c.n.addScaled(_t3, -PHYSICS.faceCoupling * Math.tan(clamp(faceB, 0, 0.45)));
+    c.n.addScaled(_t3, -PHYSICS.faceCoupling * dm.tan(clamp(faceB, 0, 0.45)));
     c.n.normalize();
     c.faceA = best.faceA * (la.faceAngle || 0);
     c.faceB = best.faceB * (lb.faceAngle || 0);
@@ -850,8 +851,8 @@ export class Simulation {
 
   checkFinish(t) {
     const arena = this.arena;
-    const r = Math.hypot(t.p.x, t.p.z);
-    const ang = Math.atan2(t.p.z, t.p.x);
+    const r = dm.hypot(t.p.x, t.p.z);
+    const ang = dm.atan2(t.p.z, t.p.x);
     const opening = arena.openingAt(ang);
     // ring out: centre past the wall line through an exit, outside the wall, or dropped below the floor
     if ((opening && r > arena.radius + t.spec.radius * 0.15) || r > arena.radius + t.spec.radius * 0.9 ||
@@ -888,7 +889,7 @@ export class Simulation {
   applyShockwave(source, target, impulse, range) {
     if (!target.active) return 0;
     const dx = target.p.x - source.p.x, dz = target.p.z - source.p.z;
-    const d = Math.hypot(dx, dz);
+    const d = dm.hypot(dx, dz);
     if (d > range || d < 1e-5) return 0;
     const J = impulse * Math.sqrt(1 - d / range);
     const before = target.totalEnergy();

@@ -12,6 +12,7 @@
 
 import { Vec3, Quat, clamp } from '../core/math.js';
 import { initMechanisms } from './mechanisms.js';
+import * as dm from '../core/dmath.js';
 
 export const GRAVITY = 9.81;
 
@@ -141,7 +142,7 @@ export class TopBody {
   get spinAbs() { return Math.abs(this.spinRate); }
 
   // Tilt of symmetry axis away from world vertical (radians).
-  get tilt() { return Math.acos(clamp(this.a.y, -1, 1)); }
+  get tilt() { return dm.acos(clamp(this.a.y, -1, 1)); }
 
   // Velocity of a point at offset r (world) from the COM.
   pointVelocity(r, out) {
@@ -178,7 +179,7 @@ export class TopBody {
   bodyAzimuth(dirWorld) {
     _q.set(-this.q.x, -this.q.y, -this.q.z, this.q.w);
     _v.copy(dirWorld).applyQuat(_q);
-    return Math.atan2(-_v.z, _v.x);
+    return dm.atan2(-_v.z, _v.x);
   }
 
   // Analytic torque-free rotation for one substep.

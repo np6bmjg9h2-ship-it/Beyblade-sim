@@ -5,6 +5,7 @@
 import { createItem } from './items.js';
 import { validateItem } from './itemValidate.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
+import * as dm from '../core/dmath.js';
 
 export const SCHEMA_VERSION = 4;
 
@@ -26,7 +27,7 @@ export const STARTER_PARTS = [
   ['launcher', 'launcher_spark'], ['cable', 'cable_standard'],
 ];
 
-export const PLAYER_LEVEL_XP = (lv) => Math.round(120 * Math.pow(lv, 1.45));
+export const PLAYER_LEVEL_XP = (lv) => Math.round(120 * dm.pow(lv, 1.45));
 
 export function defaultSettings() {
   return {

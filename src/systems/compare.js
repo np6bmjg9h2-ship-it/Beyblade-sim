@@ -12,6 +12,7 @@ import { activeSetBonuses } from '../data/sets.js';
 import { resolvePart, assembleTop, validateBuild } from './assembly.js';
 import { loadoutItems } from './loadout.js';
 import { resolveLaunchGear } from '../game/launch.js';
+import * as dm from '../core/dmath.js';
 
 export const ROLES = {
   atk: 'Attack', def: 'Defense', sta: 'Stamina', stb: 'Stability', lock: 'Burst resistance', mob: 'Mobility', pow: 'Launch power', ctl: 'Launch control',
@@ -87,7 +88,7 @@ function topValues(summary, spec) {
   return {
     ...summary,
     lockStrength: summary.lockThreshold * 1e4,
-    aeroK: spec ? spec.aero / Math.pow(spec.radius, 5) : 0,
+    aeroK: spec ? spec.aero / dm.pow(spec.radius, 5) : 0,
   };
 }
 

@@ -7,6 +7,7 @@ import { Rng } from '../core/rng.js';
 import { scaledProfile } from '../data/aiProfiles.js';
 import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { aiReleaseCharge, MAX_LEAN } from './launch.js';
+import * as dm from '../core/dmath.js';
 
 const TWEAK_LIMITS = { reaction: [0.06, 1] };
 export function applyTweaks(P, tweaks) {
@@ -78,13 +79,13 @@ export class AIController {
     const rBase = (P.centerPref > 0.7 ? 0.035 : P.aggression > 0.7 ? 0.09 : 0.06) * (1 - 0.4 * danger);
     const ang = side === 0 ? Math.PI : 0;
     const a = ang + rng.range(-0.5, 0.5);
-    const x = Math.cos(a) * (rBase + rng.range(-0.01, 0.02));
-    const z = Math.sin(a) * (rBase + rng.range(-0.01, 0.02));
+    const x = dm.cos(a) * (rBase + rng.range(-0.01, 0.02));
+    const z = dm.sin(a) * (rBase + rng.range(-0.01, 0.02));
     // lean toward the centre/opponent for aggressive builds
     // banked launches curve hard on flat tips: lean less where exits are open
     const leanMul = clamp(1 - danger * (0.35 + 0.6 * P.edgeCaution), 0.15, 1);
     const lean = clamp(P.lean * leanMul + rng.range(-0.03, 0.03), 0, MAX_LEAN);
-    const dir = Math.atan2(-z, -x) + rng.range(-0.4, 0.4);
+    const dir = dm.atan2(-z, -x) + rng.range(-0.4, 0.4);
     // spin: technical AIs may pick opposite spin if their launcher allows
     let spin = spinOptions[0];
     if (spinOptions.length > 1 && oppSpin && P.steerSkill > 0.8 && rng.chance(0.5)) {
@@ -123,11 +124,11 @@ export class AIController {
     const myP = me.top.p, myV = me.top.v;
     const oP = snap.opp.p, oV = snap.opp.v;
     const dx = oP.x - myP.x, dz = oP.z - myP.z;
-    const dist = Math.hypot(dx, dz);
+    const dist = dm.hypot(dx, dz);
     const relVx = oV.x - myV.x, relVz = oV.z - myV.z;
     const closing = dist > 1e-4 ? -(dx * relVx + dz * relVz) / dist : 0;
-    const myR = Math.hypot(myP.x, myP.z) / R;
-    const oppR = Math.hypot(oP.x, oP.z) / R;
+    const myR = dm.hypot(myP.x, myP.z) / R;
+    const oppR = dm.hypot(oP.x, oP.z) / R;
     const mySpin = me.top.spinFraction();
     const oppSpin = snap.opp.spinFrac;
 
@@ -162,7 +163,7 @@ export class AIController {
         // nearest exit, or straight outward) and drive through it
         const d = this.pushDir;
         const behindX = oP.x - d.x * 0.045, behindZ = oP.z - d.z * 0.045;
-        const toBehind = Math.hypot(behindX - myP.x, behindZ - myP.z);
+        const toBehind = dm.hypot(behindX - myP.x, behindZ - myP.z);
         if (toBehind > 0.03) T.set(behindX - myP.x, 0, behindZ - myP.z);
         else T.set(d.x, 0, d.z);
         break;
@@ -179,15 +180,15 @@ export class AIController {
       case 'center': {
         // if the opponent already holds the centre, settle just beside it
         // instead of grinding into it
-        const oR = Math.hypot(oP.x, oP.z);
+        const oR = dm.hypot(oP.x, oP.z);
         let cx = 0, cz = 0;
         if (oR < 0.06) { const ux = oR > 1e-3 ? oP.x / oR : 1, uz = oR > 1e-3 ? oP.z / oR : 0; cx = oP.x - ux * 0.075; cz = oP.z - uz * 0.075; }
         T.set(cx - myP.x, 0, cz - myP.z);
-        if (Math.hypot(cx - myP.x, cz - myP.z) < 0.02) T.set(0, 0, 0);
+        if (dm.hypot(cx - myP.x, cz - myP.z) < 0.02) T.set(0, 0, 0);
         break;
       }
       case 'circle': {
-        const r = Math.max(1e-3, Math.hypot(myP.x, myP.z));
+        const r = Math.max(1e-3, dm.hypot(myP.x, myP.z));
         T.set(-myP.z / r * -me.top.spinDir, 0, myP.x / r * -me.top.spinDir);
         T.x += -myP.x * 2; T.z += -myP.z * 2;
         break;
@@ -198,7 +199,7 @@ export class AIController {
     // the top brakes, cancels drift and then heads for the target, instead of
     // pushing sideways while it orbits the rim.
     const mag = T.length();
-    const myR0 = Math.hypot(myP.x, myP.z);
+    const myR0 = dm.hypot(myP.x, myP.z);
     let desSpeed = { attack: 0.5 + 0.45 * P.aggression, koPush: 0.85, evade: 0.45, recover: 0.4, center: 0.3, circle: 0.3 }[this.plan] ?? 0.3;
     if (this.plan === 'center' || this.plan === 'recover') desSpeed = Math.min(desSpeed, myR0 * 2.5);
     const ux = mag > 1e-4 ? T.x / mag : 0, uz = mag > 1e-4 ? T.z / mag : 0;
@@ -217,7 +218,7 @@ export class AIController {
     const k = clamp(dt * (6 + 10 * P.steerSkill), 0, 1);
     this.steer.x += (T.x - this.steer.x) * k;
     this.steer.z += (T.z - this.steer.z) * k;
-    const sm = Math.hypot(this.steer.x, this.steer.z);
+    const sm = dm.hypot(this.steer.x, this.steer.z);
     if (sm > 1) this.steer.scale(1 / sm);
     c.steer.copy(this.steer);
 
@@ -266,7 +267,7 @@ export class AIController {
     const danger = s.arena.danger || 0;
     const myP = me.top.p, myV = me.top.v;
     const R = s.arena.radius;
-    const vOut = (myP.x * myV.x + myP.z * myV.z) / Math.max(1e-4, Math.hypot(myP.x, myP.z));
+    const vOut = (myP.x * myV.x + myP.z * myV.z) / Math.max(1e-4, dm.hypot(myP.x, myP.z));
     const predR = myR + Math.max(0, vOut) * (P.reaction + P.decisionInterval) / R;
     const edgeLine = 0.78 - 0.18 * danger;
     u.recover = predR > edgeLine ? P.edgeCaution * 1.6 + (predR - edgeLine) * 3 : 0;
@@ -292,15 +293,15 @@ export class AIController {
     // push direction for knock-outs: toward the nearest exit if one is close in angle
     {
       const arena = s.arena;
-      const oa = Math.atan2(opp.p.z, opp.p.x);
+      const oa = dm.atan2(opp.p.z, opp.p.x);
       let best = null, bestD = 1e9;
       for (const o of arena.openings) {
         let dAng = Math.abs(((o.center - oa + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
         if (dAng < bestD) { bestD = dAng; best = o; }
       }
       const R = arena.radius;
-      if (best && bestD < 1.2) this.pushDir.set(Math.cos(best.center) * R - opp.p.x, 0, Math.sin(best.center) * R - opp.p.z).normalize();
-      else { const r = Math.max(1e-3, Math.hypot(opp.p.x, opp.p.z)); this.pushDir.set(opp.p.x / r, 0, opp.p.z / r); }
+      if (best && bestD < 1.2) this.pushDir.set(dm.cos(best.center) * R - opp.p.x, 0, dm.sin(best.center) * R - opp.p.z).normalize();
+      else { const r = Math.max(1e-3, dm.hypot(opp.p.x, opp.p.z)); this.pushDir.set(opp.p.x / r, 0, opp.p.z / r); }
     }
     // dash: committed attack inside striking range
     if (this.plan === 'attack' && dist > 0.045 && dist < 0.14 && rng.chance(P.dashUse * 0.35)) this.wantDash = true;

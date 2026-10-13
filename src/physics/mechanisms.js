@@ -11,6 +11,8 @@
 // Specs come from systems/assembly.js (spec.mech, metres). Every energy
 // change is booked to the 'mechanism' ledger, so the energy books still close.
 
+import * as dm from '../core/dmath.js';
+
 export const MAGNET = {
   pair: 0.06, // N between two full-strength magnet discs at the reference distance
   iron: 0.022, // N between a magnet disc and the plain metal of another top
@@ -46,13 +48,13 @@ export function applyMagnets(tops, dt) {
       const ma = A.spec.mech?.magnet, mb = B.spec.mech?.magnet;
       if (!ma && !mb) continue;
       const dx = B.p.x - A.p.x, dz = B.p.z - A.p.z;
-      const d = Math.hypot(dx, dz);
+      const d = dm.hypot(dx, dz);
       if (d > MAGNET.range || d < 1e-5) continue;
       // attraction > 0, repulsion < 0
       let k;
       if (ma && mb) k = -ma.pole * mb.pole * MAGNET.pair * ma.strength * mb.strength;
       else k = MAGNET.iron * (ma || mb).strength;
-      const fall = Math.pow(MAGNET.ref / Math.max(d, MAGNET.ref * 0.6), 2);
+      const fall = dm.pow(MAGNET.ref / Math.max(d, MAGNET.ref * 0.6), 2);
       const fade = Math.min(1, (MAGNET.range - d) / (MAGNET.range * 0.25)); // smooth cut-off
       const F = k * fall * fade;
       const ux = dx / d, uz = dz / d;
@@ -122,7 +124,7 @@ function releaseClutch(sim, t, other) {
   let dashE = 0;
   const target = other?.active ? other : sim.tops.find((o) => o !== t && o.active);
   if (C.dash > 0 && target) {
-    const dx = target.p.x - t.p.x, dz = target.p.z - t.p.z, d = Math.hypot(dx, dz);
+    const dx = target.p.x - t.p.x, dz = target.p.z - t.p.z, d = dm.hypot(dx, dz);
     if (d > 1e-4) {
       const before = t.linearEnergy();
       const speed = Math.min(C.dash, Math.sqrt((2 * E * 0.35) / t.mass)); // at most 35% of the gear energy

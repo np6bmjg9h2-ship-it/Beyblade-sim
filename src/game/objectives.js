@@ -2,6 +2,8 @@
 // battle events and state the HUD shows (launch quality, impacts, dashes,
 // counters, abilities, spin time, position).
 
+import * as dm from '../core/dmath.js';
+
 const LAUNCH_RANK = { 'False Start': 0, Misfire: 0, Weak: 1, Overcharge: 1, Good: 2, Perfect: 3 };
 
 export class ObjectiveTracker {
@@ -47,7 +49,7 @@ export class ObjectiveTracker {
     for (const o of this.list) {
       if (o.done) continue;
       if (o.type === 'survive') this.mark(o, dt, o.seconds);
-      else if (o.type === 'center' && Math.hypot(t.p.x, t.p.z) < 0.3 * battle.arena.radius) this.mark(o, dt, o.seconds || 3);
+      else if (o.type === 'center' && dm.hypot(t.p.x, t.p.z) < 0.3 * battle.arena.radius) this.mark(o, dt, o.seconds || 3);
     }
   }
 

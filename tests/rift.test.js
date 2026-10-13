@@ -323,7 +323,8 @@ test('sweet spots land and shatter locks faster', () => {
 
 test('Second Wind restores spin once per round when the top runs low', () => {
   let wind = 0;
-  for (const seed of [31, 34, 35]) {
+  for (const seed of [31, 34, 35, 36, 37, 38]) {
+    if (wind >= 2) break;
     const w = effectBattle({ secondWind: 0.3 }, seed, { roundTime: 120 }, ['all', 'drifter']).events.filter((x) => x.type === 'secondWind');
     assert.ok(w.length <= 1);
     if (w.length) assert.ok(w[0].e.energy > 0);

@@ -47,7 +47,7 @@ dist/chaos-spin.js    GENERATED bundle (do not edit)
 src/
   main.js             boot: creates App
   app.js              application shell: input, audio, renderer, UI, saves, showcase scene, main loop
-  core/               math (vectors/quaternions), seedable RNG, event emitter: no DOM, no Three.js
+  core/               math (vectors/quaternions), deterministic maths (dmath), seedable RNG, event emitter: no DOM, no Three.js
   physics/            spinning-top simulation: pure math, deterministic, no DOM/Three.js
   game/               battle controller, launch model, AI, abilities, objectives, background sims
   systems/            persistent game logic on plain data: assembly, items, loot, saves, story, tournaments…
@@ -240,6 +240,18 @@ context; the simulation worker entry.
    `physics/`, `core/`, or the simulation path of `game/`. All randomness
    comes from `core/rng.js`. `Math.random` appears only to pick a default
    seed (`battle.js`, `items.js`) and in visual effects.
+   **Same bits on every device:** code that decides an outcome (physics,
+   launches, AI, abilities, item effects, assembly, loot, rivals,
+   tournaments) uses `core/dmath.js` (`dm.sin`, `dm.atan2`, `dm.pow`,
+   `dm.hypot`, ...) instead of `Math.sin` and friends, whose last bits
+   differ between engines, and never `**` with a non-integer result. Only
+   `+ - * /`, `Math.sqrt` and rounding are allowed raw. Rendering, audio and
+   UI may use `Math.*`. Checked by `npm run test:determinism` (Node,
+   Chromium, Firefox and WebKit must match exactly).
+   Replays (format v2) record only the human's inputs, including aim,
+   technique and spin changes during the countdown at their tick; the AI's
+   launches, false starts and spawns are recomputed on playback. v1
+   recordings (saved before 2026-10-13) still play back.
 2. **Fixed timestep.** Simulation results must not depend on render frame
    rate (TICK 1/120 s, 16 substeps). This includes the countdown: charge,
    IGNITE and spawns advance in ticks (`Battle.step`), tested at 30/60/144 fps.
