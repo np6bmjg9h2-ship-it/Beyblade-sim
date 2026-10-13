@@ -17,6 +17,7 @@ import { CAMERA_NAMES } from '../../render/camera.js';
 import { beastImg, fmtTime, fmtRpm } from '../widgets.js';
 import { ResultsScreen, BattleScreenRef } from './results.js';
 import { SettingsScreen } from './settings.js';
+import { HitStop } from '../hitStop.js';
 
 const LEDGER_NAMES = { tipFriction: 'Tip friction', floor: 'Landings', scrape: 'Body scrape', collision: 'Collisions', wall: 'Walls', drag: 'Air drag', control: 'Steering', ability: 'Abilities', mechanism: 'Part mechanisms', damping: 'Wobble damping', clamp: 'Safety limits', numerical: 'Numerical' };
 
@@ -99,6 +100,12 @@ export class BattleScreen {
     this.humans = R ? [] : battle.fighters.filter((f) => f.human).map((f) => new HumanController(app, battle, f.index));
     this.objectives = s.objectives ? new ObjectiveTracker(s.objectives) : null;
     this.objectivesDoneT = null;
+    // hit-stop: display only (see hitStop.js); off in the lab and replay tools,
+    // with slow motion off, and with Reduce effects on
+    const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    this.hitStop = new HitStop({ phone: coarse });
+    this.hitStopOn = !s.labTools && !s.replayTools && battle.rules.slowmo !== false && !app.settings.gameplay.reduceEffects;
+    this.biggestHit = 0;
     battle.on('roundStart', () => this.onRoundStart());
     battle.on('*', (type, e) => this.onEvent(type, e));
     battle.update(0);
@@ -118,6 +125,7 @@ export class BattleScreen {
     const app = this.app;
     const b = this.battle;
     app.renderer.setFighters(b.fighters);
+    this.hitStop?.reset();
     for (const hc of this.humans) hc.initFromAim();
     app.renderer.rig.override = 'launch';
     this.refs.banner.className = 'hud-banner';
@@ -126,7 +134,7 @@ export class BattleScreen {
       const r = this.refs.f[i];
       r.name.textContent = f.name;
       const bd = f.p.beast ? BEAST_INDEX[f.p.beast.id] : null;
-      r.beast.textContent = bd ? `${bd.name} · ${f.p.beast.bondLevel ? 'Bond ' + f.p.beast.bondLevel : ''}${f.resonant ? ' · Resonant' : ''}` : 'No Bit-Beast';
+      r.beast.textContent = bd ? `${bd.name} · ${f.p.beast.bondLevel ? 'Bond ' + f.p.beast.bondLevel : ''}${f.resonant ? ' · Resonant' : ''}` : 'No Spirit Chip';
       r.emb.innerHTML = '';
       if (bd) r.emb.append(beastImg(bd.id, 40));
       r.lock.innerHTML = '';
@@ -204,6 +212,10 @@ export class BattleScreen {
       case 'impact': {
         app.audio.impact(e.impulse, e.approach, e.glance);
         if (involvesHuman(e.A) || involvesHuman(e.B)) app.input.rumble(Math.min(1, e.impulse * 10), Math.min(1, e.impulse * 14), 90 + e.impulse * 900);
+        // freeze on the player's heavy hits, or the biggest clash of the match
+        const biggest = e.impulse > this.biggestHit;
+        this.biggestHit = Math.max(this.biggestHit, e.impulse);
+        if (involvesHuman(e.A) || involvesHuman(e.B) || biggest) this.freeze(e.impulse);
         if (e.critical) this.notify('CRITICAL IMPACT', 'crit');
         break;
       }
@@ -219,13 +231,13 @@ export class BattleScreen {
       case 'shockwave': app.audio.shockwave(); break;
       case 'abilityHit': this.notify(`${e.def.name} hit!`, 'crit'); break;
       case 'technique': if (e.name === 'dash') app.audio.dash(); break;
-      case 'counter': app.audio.counter(); this.notify(`${e.fighter.name}: COUNTER!`, 'gold'); break;
+      case 'counter': app.audio.counter(); this.notify(`${e.fighter.name}: COUNTER!`, 'gold'); if (involvesHuman(e.fighter)) this.freeze(0, true); break;
       case 'counterWhiff': if (involvesHuman(e.fighter)) this.notify('Counter missed', 'info'); break;
       case 'interrupted': this.notify(`${e.name} interrupted!`, 'bad'); break;
       case 'restore': app.audio.heal(); this.notify(`${e.fighter.name} restored spin (+${e.energy.toFixed(2)} J)`, 'good'); break;
       case 'riftStatus': this.notify(`${e.fighter.name}: ${e.name.toUpperCase()}!`, involvesHuman(e.fighter) ? 'bad' : 'good'); break;
       case 'riftFusion': app.audio.burst(); this.notify(`${e.name.toUpperCase()} on ${e.fighter.name}!`, 'crit'); if (involvesHuman(e.fighter)) app.input.rumble(0.6, 0.6, 200); break;
-      case 'sweetSpot': this.notify(`${e.fighter.name}: SWEET SPOT!`, 'gold'); if (involvesHuman(e.fighter)) app.input.rumble(0.5, 0.8, 120); break;
+      case 'sweetSpot': this.notify(`${e.fighter.name}: SWEET SPOT!`, 'gold'); if (involvesHuman(e.fighter)) { app.input.rumble(0.5, 0.8, 120); this.freeze(0, true); } break;
       case 'meltdownHit': this.notify(`${e.fighter.name}: MELTDOWN HIT!`, 'crit'); break;
       case 'secondWind': app.audio.heal(); this.notify(`${e.fighter.name}: SECOND WIND!`, 'good'); break;
       case 'mechanism':
@@ -236,6 +248,7 @@ export class BattleScreen {
         } else if (e.kind === 'shift') this.notify(`${e.fighter.name}: tip shift`, 'info');
         break;
       case 'topFinished':
+        this.hitStop?.finish();
         if (e.how === 'burst') app.audio.burst();
         else if (e.how === 'out') app.audio.ringOut();
         this.bigText(e.how === 'burst' ? 'SHATTER!' : e.how === 'out' ? 'RING OUT!' : 'SPIN FINISH!', 'finish');
@@ -262,7 +275,7 @@ export class BattleScreen {
     // test hook: accelerated simulation for automated browser tests
     const speed = (typeof window !== 'undefined' && window.__testSpeed) || 1;
     if (speed > 1) { for (let k = 0; k < speed; k++) b.update(dt, controls); }
-    else b.update(dt, controls);
+    else b.update(dt * (this.hitStop ? this.hitStop.step(dt) : 1), controls);
     const r = app.renderer;
     if (b.sim) {
       r.updateLaunch(b, this.humans.length ? null : []);
@@ -277,6 +290,16 @@ export class BattleScreen {
     }
     this.updateHud(dt);
     if (this.objectives) this.updateObjectives(dt);
+  }
+
+  // Hit-stop request (display only). Skipped in fast test runs and below
+  // 30 fps, where a freeze reads as lag.
+  freeze(J, skill = false) {
+    if (!this.hitStopOn || this.battle.phase !== 'battle') return 0;
+    if (typeof window !== 'undefined' && window.__testSpeed > 1) return 0;
+    const fps = this.app.renderer.fps();
+    if (fps && fps < 30) return 0;
+    return this.hitStop.request(J, { skill });
   }
 
   // Practice Lab: launch analysis for the last launches.
