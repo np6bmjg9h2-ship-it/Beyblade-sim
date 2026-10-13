@@ -492,6 +492,8 @@ export class BattleScreen {
         h('div', { class: 'tl-row' }, h('span', {}, 'Dissipated'), h('span', { class: 'neg' }, `${(b0 + b1 - a0 - a1).toFixed(4)} J`))));
     }
     el.append(h('div', { class: 'tl-foot' }, `Sim t=${b.sim?.time.toFixed(2)} s · ${b.sim?.substeps}×${(TICK * 1000).toFixed(2)} ms ticks · ${this.app.renderer.fps().toFixed(0)} fps`));
+    const rs = this.app.renderer.renderStats();
+    el.append(h('div', { class: 'tl-foot' }, `${rs.calls} draws · ${(rs.triangles / 1000).toFixed(0)}k tris · ${rs.geometries} meshes · ${rs.textures} textures · ${rs.width}×${rs.height} px${rs.post ? ' · post' : ''}`));
   }
 
   notify(text, kind = 'info') {

@@ -21,7 +21,15 @@ export class GameRenderer {
     this.canvas = canvas;
     this.settings = { quality: 'high', shadows: true, reducedEffects: false, debug: false, style: 'ink', ...settings };
     setRenderStyle(this.settings.style);
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.settings.quality !== 'low', powerPreference: 'high-performance' });
+    // The canvas is multisampled only when nothing post-processes it: the
+    // realistic style renders into its own multisampled target, so a
+    // multisampled canvas would smooth the edges a second time for nothing.
+    // Antialiasing can't be changed after this, so a style change later that
+    // needs smooth edges gets them from a light pass instead (needsPost).
+    this.canvasAA = this.settings.quality !== 'low' && this.settings.style !== 'realistic';
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.canvasAA, powerPreference: 'high-performance' });
+    // count every pass of a frame, not only the last (reset in render())
+    this.renderer.info.autoReset = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Neutral tone mapping keeps the saturated cel palette from washing out
     this.renderer.toneMapping = TONE.mapping;
@@ -82,15 +90,29 @@ export class GameRenderer {
     if (this.effects) this.effects.setQuality(this.effectQuality());
     if ((prevQ !== this.settings.quality || styleChanged) && this.arenaDef) this.setArena(this.arenaDef);
     if (styleChanged && this.fighters) this.setFighters(this.fighters);
-    const wantPost = this.realistic && this.settings.quality !== 'low';
+    const wantPost = this.needsPost();
     if (wantPost !== !!this.post || (wantPost && (styleChanged || prevQ !== this.settings.quality))) this.buildPost();
+    // render scale changes the pixel ratio: the composer and ink lines follow
+    this.resize();
   }
 
-  // Post-processing exists only in the realistic style above Low quality.
+  // Post-processing: the realistic style above Low quality, or just smooth
+  // edges when the canvas was created without them (style changed since).
+  needsPost() { return this.settings.quality !== 'low' && (this.realistic || !this.canvasAA); }
+
   buildPost() {
     this.post?.dispose();
     this.post = null;
-    if (this.realistic && this.settings.quality !== 'low') this.post = new PostFX(this.renderer, this.scene, this.camera, { quality: this.settings.quality });
+    if (!this.needsPost()) return;
+    this.post = this.realistic
+      ? new PostFX(this.renderer, this.scene, this.camera, { quality: this.settings.quality })
+      : new PostFX(this.renderer, this.scene, this.camera, { quality: 'high', bloom: false });
+  }
+
+  // What the graphics chip did for the last frame (debug panel).
+  renderStats() {
+    const i = this.renderer.info, px = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, width: px.x, height: px.y, post: !!this.post };
   }
 
   resize() {
@@ -161,7 +183,7 @@ export class GameRenderer {
       this.scene.background = new THREE.Color(def.theme.sky);
       this.scene.fog = new THREE.Fog(def.theme.fog, 1.4, 4.5);
     }
-    if (!this.post && this.realistic && this.settings.quality !== 'low') this.buildPost();
+    if (!this.post && this.needsPost()) this.buildPost();
     this.rimA.color.set(def.theme.accent);
     this.rimB.color.set(def.theme.ring);
     this.effects.spirits.warmup(this.renderer, this.scene, this.camera);
@@ -401,6 +423,7 @@ export class GameRenderer {
   }
 
   render(dt, frameTime = dt) {
+    this.renderer.info.reset();
     if (this.inspectActive) {
       this.inspect.update(dt);
       this.inspect.setStyle?.(this.renderer, renderStyle());

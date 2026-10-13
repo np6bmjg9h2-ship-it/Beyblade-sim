@@ -10,8 +10,8 @@ first in a new session; `docs/STATUS.md` has the long-term picture.
 | Research round (6 reports + 4 team reviews) | **Done**, filed in `../Beyblade-sim-research/2026-10-13/` | Work through `reports/improvement-plan.md` |
 | Same battle on every device (deterministic maths, replay v2, Workshop undo fix) | **Done** on the main branch | — |
 | Daily Seed (loot engine M5) | **Paused by request**, kept on branch `wip/daily-seed` (pushed) | Only if the user asks to bring it back |
-| `/doctor` health check | Checks done (read-only), **nothing applied** | Ask the user the two questions below |
-| Permissions | Fix proposed, not applied | Auto mode as the default (one setting) |
+| `/doctor` cleanup | **Applied** 2026-10-13 (user: "Cleanup everything") | User: `/mcp` connectors and claude.ai synced plugins, see section 4 |
+| Permissions | **Applied** 2026-10-13: `defaultMode: auto` in `~/.claude/settings.json` (user asked) | — |
 
 ## 1. Research and the plan
 
@@ -70,32 +70,18 @@ scenario must play official-length rounds. To revive it, merge the branch
 and fix that scenario; the shared parts (dmath, replay v2) are already on
 the main branch.
 
-## 4. `/doctor` health check (nothing applied yet)
+## 4. `/doctor` cleanup (applied 2026-10-13)
 
-Healthy: Claude Code 2.1.296 (latest), one native install, settings files
-valid, 66 agent files and 32 skills valid, hooks fast.
+Every change is reversible and every edited file has a `.bak-doctor-2026-10-13` copy next to it.
+- 30 Ruflo skills off: `skillOverrides` in `~/.claude/settings.json` (still installed; delete a line to turn one back on). Kept on: agent-reach, the claude.ai skills.
+- 148 Ruflo slash commands: folder moved to `~/.claude/commands.off-2026-10-13` (rename back to restore).
+- Plugins ruflo-mods, ruflo-swarm, ruflo-console: `enabledPlugins` false. ruflo-ai-team kept.
+- `claude-flow` MCP: `disabledMcpjsonServers` in `.claude/settings.local.json` (`enableAllProjectMcpServers` removed).
+- `C:/Users/Benjamin/CLAUDE.md` cut from 224 to 32 lines (rules + agent concurrency); the Ruflo workflow moved to the `ruflo-workflow` skill in `~/.claude/skills`.
+- Left for the user: turn off the claude.ai connectors (Floot, Macaly Cloud, Cloudflare, CodeWords, Three.js 3D Viewer) with `/mcp`, and the synced plugins unity, unity-perf, meshy-3d-agent, code-review and unreal-engine-skills (claude.ai plugin settings or `/plugin`); their keys are synced from claude.ai, so Claude did not guess them.
 
-Question 1, cleanup ("Clean up everything (recommended)" / "Let me pick" /
-"No"), all reversible, about 10k est. tokens of context saved per session:
-- 31 unused Ruflo skills and 147 unused Ruflo slash commands:
-  `skillOverrides` "off" in `~/.claude/settings.json`.
-- Unused synced plugins unity, unity-perf, meshy-3d-agent, code-review
-  (duplicates the built-in `/code-review`): `enabledPlugins` false.
-- Ruflo plugins ruflo-mods, ruflo-swarm, ruflo-console: ask the user first
-  (their hooks run but aren't counted).
-- `claude-flow` connection (from `C:\Users\Benjamin\.mcp.json`, never
-  called): `disabledMcpjsonServers` in this project's
-  `.claude/settings.local.json`.
-- Unused claude.ai connectors (Floot, Macaly Cloud, Cloudflare, CodeWords,
-  Three.js 3D Viewer): the user disables them with `/mcp`.
-- `C:\Users\Benjamin\CLAUDE.md` (not in git, back it up first): cut ~80
-  derivable lines, move ~90 lines of Ruflo workflow into a skill.
-
-Question 2, permissions (separate): add `"defaultMode": "auto"` to the
-`permissions` object in `~/.claude/settings.json`. If Claude writing it is
-blocked as self-modification, the user applies it (Shift+Tab now; the
-setting for every session). Warning: the allow rules for `python`, `node`,
-`npm`, `find`, `sed`, `cp`, `git -c` and `git fetch` in
+Permissions: `"defaultMode": "auto"` set in `~/.claude/settings.json` on the user's request (2026-10-13). Warning: the allow rules for `python`,
+`node`, `npm`, `find`, `sed`, `cp`, `git -c` and `git fetch` in
 `.claude/settings.local.json` let those run unchecked when auto mode is off.
 
 ## 5. Other changes this session
