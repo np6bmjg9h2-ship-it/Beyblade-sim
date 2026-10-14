@@ -58,12 +58,16 @@ function ring(rng, id) {
   } else {
     d = { spin: 'dual', blades: rng.int(3, 5), bladeWidth: v(0.5, 0.56), faceAngle: v(9, 13), slope: 0, restitution: v(0.5, 0.53), friction: v(0.19, 0.23), catch: v(0.4, 0.52), aero: v(0.013, 0.017), massDist: v(0.25, 0.35), mass: v(14.5, 16), rOut: v(24.7, 25.3), rBase: v(22.2, 22.8), thickness: v(5.8, 6.4) };
   }
-  const thin = d.thickness <= 6.1 && d.mass <= 16;
+  // the rolled value is the physical hit band; the drawn plate is thin, as on
+  // real attack rings (about 6% of the diameter)
+  d.hitBand = d.thickness;
+  d.thickness = d.hitBand * (role === 'defense' ? 0.49 : 0.47);
+  const thin = d.hitBand <= 6.1 && d.mass <= 16;
   const def = {
     ...common(rng, 'ring', id, nameOf(rng, RING_NOUN[role])), role,
     arch: thin ? ['helix', 'quad', 'apex'] : ['helix', 'quad'],
     spin: d.spin, mass: r1(d.mass), rIn: 11, rOut: r1(d.rOut), rBase: r1(d.rBase), blades: d.blades, bladeWidth: r2(d.bladeWidth), faceAngle: r1(d.faceAngle),
-    slope: r1(d.slope), thickness: r1(d.thickness), restitution: r2(d.restitution), friction: r2(d.friction), catch: r2(d.catch), aero: r3(d.aero), massDist: r2(d.massDist),
+    slope: r1(d.slope), thickness: r1(d.thickness), hitBand: r1(d.hitBand), restitution: r2(d.restitution), friction: r2(d.friction), catch: r2(d.catch), aero: r3(d.aero), massDist: r2(d.massDist),
   };
   const spinTxt = def.spin === 'dual' ? 'either spin' : def.spin === 'R' ? 'right spin' : 'left spin';
   const lines = {

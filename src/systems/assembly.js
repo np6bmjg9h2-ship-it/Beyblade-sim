@@ -178,8 +178,12 @@ export function assembleTop(build, opts = {}) {
   const zLock0 = tipLen;
   const zDisc0 = zLock0 + lockH * 0.75; // disc sits over the lock's upper flange
   const zRing0 = zDisc0 + P.disc.thickness * 0.85;
-  const zRingC = zRing0 + P.ring.thickness * 0.5;
-  const zCore0 = zRing0 + P.ring.thickness * 0.35;
+  // Physics uses the ring's hit band (its old, full plate thickness) for the
+  // stack, inertia and contact band; `thickness` is the drawn plate. The band
+  // is walked down toward the drawn plate in balance-checked steps.
+  const ringT = P.ring.hitBand ?? P.ring.thickness;
+  const zRingC = zRing0 + ringT * 0.5;
+  const zCore0 = zRing0 + ringT * 0.35;
 
   const push = (name, mG, zMm, Ia, It, eccMm = 0) => bodies.push({ name, m: mG * G, z: zMm * MM, Ia, It, ecc: eccMm * MM });
 
@@ -204,7 +208,7 @@ export function assembleTop(build, opts = {}) {
   {
     const m = P.ring.mass * G, r1 = P.ring.rIn * MM;
     const rEff = (P.ring.blades > 0 ? 0.5 * (P.ring.rBase + P.ring.rOut) : P.ring.rOut) * MM;
-    const T = P.ring.thickness * MM;
+    const T = ringT * MM;
     const ka = annulusK(r1, rEff, P.ring.massDist);
     push('ring', P.ring.mass, zRingC, m * ka, 0.5 * m * ka + (m * T * T) / 12, P.ring.ecc || 0);
   }
@@ -249,7 +253,7 @@ export function assembleTop(build, opts = {}) {
     id: 'ring', part: 'ring', attack: true,
     z: rel(zRingC), radius: P.ring.rOut * MM, baseRadius: (P.ring.blades > 0 ? P.ring.rBase : P.ring.rOut) * MM,
     blades: P.ring.blades, bladeWidth: P.ring.bladeWidth, hand: P.ring.spin === 'R' ? -1 : P.ring.spin === 'L' ? 1 : 0,
-    faceAngle: (P.ring.faceAngle || 0) * DEG, slope: (P.ring.slope || 0) * DEG, thickness: P.ring.thickness * MM,
+    faceAngle: (P.ring.faceAngle || 0) * DEG, slope: (P.ring.slope || 0) * DEG, thickness: ringT * MM,
     restitution: P.ring.restitution * damp, friction: P.ring.friction, catch: P.ring.catch, freeSpin: P.ring.freeSpin || 0,
   });
   if (P.disc.contact) {
