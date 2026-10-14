@@ -98,7 +98,7 @@ export const CLASH_BAND = 0.15;
 // Battle rules revision, stored in replays. Raise it whenever a rule change
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
-export const RULES_REV = 3;
+export const RULES_REV = 4;
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
 export const SPIRIT = { struck: 0.5, clash: 0.75, goodLaunch: 4 };

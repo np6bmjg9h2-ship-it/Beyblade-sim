@@ -42,7 +42,9 @@ export const PHYSICS = {
   // ring, so only part of the face geometry turns the contact normal.
   // (0.4 -> 0.6 in the Phase 5 balance pass: hits mattered too little, so
   // avoiding contact won ~75% of AI matches.)
-  faceCoupling: 0.6,
+  // (0.6 -> 0.75 on 2026-10-14: blade-vs-ring hits still knocked too little
+  // for an attacker to beat a top that just sits; balance band still passes.)
+  faceCoupling: 0.75,
   // Lock stress: hits below burstMinStress of the lock threshold leave no
   // mark; above it the lock slips burstRate notches per unit of excess stress.
   burstMinStress: 0.45,
