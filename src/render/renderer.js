@@ -14,6 +14,7 @@ import { createLights, TONE, TONE_REAL, styleLights } from './lighting.js';
 import { arenaEnvironment, loadHallPanorama, loadCrowdSprite, crowdSpriteNow } from './environment.js';
 import { PostFX } from './post.js';
 import { InspectStage } from './inspect.js';
+import { buildLauncherModel } from './parts/launcher.js';
 import { Arena } from '../physics/arena.js';
 
 export class GameRenderer {
@@ -209,7 +210,7 @@ export class GameRenderer {
       v.playAssemble();
       this.scene.add(v.root);
       this.visuals.push(v);
-      this.launchers.push(this.makeLauncher(f.p.color || f.assembly.parts.ring.color));
+      this.launchers.push(this.makeLauncher(f.p.color || f.assembly.parts.ring.color, f.gear?.launcher?.id));
     }
     // build and upload both battlers' spirits now, so a summon never stalls mid-battle
     const beasts = fighters.map((f) => BEAST_INDEX[f.p.beast?.id]).filter(Boolean);
@@ -218,30 +219,40 @@ export class GameRenderer {
 
   // Launcher ghost: a cel-shaded ripcord launcher with a glowing ring
   // in the battler's colour.
-  makeLauncher(color) {
+  makeLauncher(color, launcherId) {
     const group = new THREE.Group();
+    // a modelled launcher (tools/blender/launchers.py) replaces the generic
+    // ripcord body; the glow ring, aim arrow and zone stay
+    const model = launcherId ? buildLauncherModel(launcherId, color) : null;
     const body = toonMaterial('#2b3150', { finish: 'gloss' });
     const trim = toonMaterial('#e8edf7', { finish: 'metal' });
     const accent = new THREE.MeshBasicMaterial({ color });
     const housing = inked(new THREE.TorusGeometry(0.03, 0.005, 10, 40), body, { px: 2 });
     housing.rotation.x = Math.PI / 2;
-    group.add(housing);
+    if (!model) group.add(housing);
     const glow = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0016, 6, 40), accent);
     glow.rotation.x = Math.PI / 2;
     glow.position.y = 0.005;
     glow.userData.noInk = true;
     group.add(glow);
-    const handle = inked(new THREE.BoxGeometry(0.012, 0.01, 0.062), body, { px: 2 });
-    handle.position.set(0, 0.012, 0.056);
-    group.add(handle);
-    const grip = inked(new THREE.CylinderGeometry(0.006, 0.006, 0.028, 12), trim, { px: 1.5 });
-    grip.rotation.z = Math.PI / 2;
-    grip.position.set(0, 0.012, 0.09);
-    group.add(grip);
-    for (const s of [-1, 1]) {
-      const fin = inked(new THREE.BoxGeometry(0.004, 0.012, 0.018), trim, { px: 1.5 });
-      fin.position.set(s * 0.027, 0.006, 0.02);
-      group.add(fin);
+    if (model) {
+      // the model's origin is where the top hangs; its barrel faces +x, which
+      // updateLaunch turns toward the launch direction
+      model.userData.isLauncherModel = true;
+      group.add(model);
+    } else {
+      const handle = inked(new THREE.BoxGeometry(0.012, 0.01, 0.062), body, { px: 2 });
+      handle.position.set(0, 0.012, 0.056);
+      group.add(handle);
+      const grip = inked(new THREE.CylinderGeometry(0.006, 0.006, 0.028, 12), trim, { px: 1.5 });
+      grip.rotation.z = Math.PI / 2;
+      grip.position.set(0, 0.012, 0.09);
+      group.add(grip);
+      for (const s of [-1, 1]) {
+        const fin = inked(new THREE.BoxGeometry(0.004, 0.012, 0.018), trim, { px: 1.5 });
+        fin.position.set(s * 0.027, 0.006, 0.02);
+        group.add(fin);
+      }
     }
     // aim arrow
     const arrowGeo = new THREE.ConeGeometry(0.006, 0.02, 8);
@@ -255,7 +266,7 @@ export class GameRenderer {
     this.scene.add(group);
     this.scene.add(arrowGroup);
     this.scene.add(zone);
-    return { group, arrowGroup, zone, glow, accent, visible: false };
+    return { group, arrowGroup, zone, glow, accent, model, visible: false };
   }
 
   // show/update launcher ghosts and preview tops during setup/countdown
@@ -272,10 +283,17 @@ export class GameRenderer {
       const fy = arena.heightAtR(r);
       const lean = L.aim.lean;
       lv.zone.position.set(L.aim.x, fy + 0.0015, L.aim.z);
-      lv.group.position.set(L.aim.x, fy + 0.045, L.aim.z);
+      lv.group.position.set(L.aim.x, fy + (lv.model ? 0.062 : 0.045), L.aim.z);
       // tilt launcher by lean toward dir
       const axis = new THREE.Vector3(Math.sin(lean) * Math.cos(L.aim.dir), Math.cos(lean), Math.sin(lean) * Math.sin(L.aim.dir));
       lv.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
+      // barrel along the launch direction; the grip leans back toward the
+      // player (outward from the centre), as a held launcher does
+      if (lv.model) {
+        lv.model.rotation.order = 'YXZ';
+        const out = Math.sign(Math.cos(L.aim.dir) * L.aim.z - Math.sin(L.aim.dir) * L.aim.x) || 1;
+        lv.model.rotation.set(-0.44 * out, -L.aim.dir, 0);
+      }
       lv.arrowGroup.position.set(L.aim.x, fy + 0.006, L.aim.z);
       lv.arrowGroup.rotation.set(0, -L.aim.dir + Math.PI / 2, 0);
       lv.arrowGroup.scale.setScalar(0.6 + lean * 3);

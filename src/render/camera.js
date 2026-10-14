@@ -77,8 +77,9 @@ export class CameraRig {
     this._t.set(0, 0, 0);
     const active = tops.filter((t) => t && t.visible !== false);
     if (mode === 'launch' && launch) {
-      this._t.set(launch.x * 0.6, 0.01, launch.z * 0.6);
-      dist = 0.38; pitch = 0.7;
+      // framed to take in a held launcher above the top and the stadium
+      this._t.set(launch.x * 0.6, 0.035, launch.z * 0.6);
+      dist = 0.5; pitch = 0.62;
     } else if (mode === 'victory' && victory) {
       this.orbitT += dt * 0.5;
       this._t.copy(victory);
