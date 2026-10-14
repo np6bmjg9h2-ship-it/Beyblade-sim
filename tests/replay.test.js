@@ -160,10 +160,13 @@ test('the default player launch circles the bowl instead of charging the centre'
     const L = b.fighters[0].launch;
     assert.equal(L.spin, spin);
     // the lean points along the bowl (perpendicular to the launcher's radius), not at the centre
-    const radial = Math.cos(L.aim.dir) * Math.sign(-L.aim.x);
+    // (the launch spot sits at a seeded angle to the stadium, so test in its frame)
+    const r = Math.hypot(L.aim.x, L.aim.z);
+    const radial = (Math.cos(L.aim.dir) * L.aim.x + Math.sin(L.aim.dir) * L.aim.z) / r;
     assert.ok(Math.abs(radial) < 1e-9, `lean direction ${(L.aim.dir * 57.3).toFixed(0)}° from (${L.aim.x}, ${L.aim.z})`);
     // and it circles the same way as Spiral Drive for that spin direction
-    assert.equal(Math.sign(Math.sin(L.aim.dir)), Math.sign(L.aim.x) * (spin === 'L' ? -1 : 1));
+    const turn = (L.aim.x * Math.sin(L.aim.dir) - L.aim.z * Math.cos(L.aim.dir)) / r;
+    assert.equal(Math.sign(turn), spin === 'L' ? -1 : 1);
   }
 });
 

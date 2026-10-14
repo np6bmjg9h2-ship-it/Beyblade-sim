@@ -98,7 +98,7 @@ export const CLASH_BAND = 0.15;
 // Battle rules revision, stored in replays. Raise it whenever a rule change
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
-export const RULES_REV = 4;
+export const RULES_REV = 5;
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
 export const SPIRIT = { struck: 0.5, clash: 0.75, goodLaunch: 4 };
@@ -158,6 +158,11 @@ export class Battle extends Emitter {
     this._launchKey = {};
     this.phase = this.fighters.some((f) => f.human) && !this.replay ? 'setup' : 'countdown';
     this.phaseT = 0;
+    // The stadium's exits are not symmetric under the half turn between the two
+    // launch spots, so a fixed layout favours one side (attack mirrors on
+    // Standard: side 0 won 75%). Each round the spots sit at a seeded angle to
+    // the stadium, as a real stadium is not always set down the same way.
+    this.spawnAngle = new Rng(mixSeeds(this.seed, 'spawnAngle', this.round)).range(0, Math.PI * 2);
     this.battleTime = 0;
     this.ignited = false;
     this.roundFinishes = [];
@@ -182,14 +187,14 @@ export class Battle extends Emitter {
       f.hadLowSpin = false;
       f.outAngle = null;
       const spinOpts = f.gear.spinMech === 'dual' ? ['R', 'L'] : [f.gear.spinMech];
-      const sx = (f.index === 0 ? -1 : 1) * 0.07;
+      const base = this.spawnAngle + (f.index === 0 ? Math.PI : 0);
       const spin0 = spinOpts.includes(p.spin) ? p.spin : spinOpts[0];
       // Default (human) launch: lean along the bowl so the top starts circling,
       // as Spiral Drive does, instead of straight at the centre where the
       // opponent lands (that made ~1 Rookie Cup round in 6 an instant clash).
-      const along = Math.sign(sx) * (spin0 === 'L' ? -1 : 1);
+      const along = spin0 === 'L' ? -Math.PI / 2 : Math.PI / 2;
       f.launch = {
-        aim: { x: sx, z: 0, lean: 0.12, dir: dm.atan2(along, 0) },
+        aim: { x: dm.cos(base) * 0.07, z: dm.sin(base) * 0.07, lean: 0.12, dir: base + along },
         technique: p.technique || 'normal',
         spin: spin0,
         spinOptions: spinOpts,
@@ -202,7 +207,7 @@ export class Battle extends Emitter {
     for (const f of this.fighters) {
       if (f.human) continue;
       const opp = this.fighters[1 - f.index];
-      const plan = f.controller.chooseLaunch({ arena: this.arena, side: f.index, gear: f.gear, spinOptions: f.launch.spinOptions, oppSpin: opp.p.spin });
+      const plan = f.controller.chooseLaunch({ arena: this.arena, side: f.index, spawnAngle: this.spawnAngle, gear: f.gear, spinOptions: f.launch.spinOptions, oppSpin: opp.p.spin });
       f.launch.aim = plan.aim;
       f.launch.technique = plan.technique;
       f.launch.spin = plan.spin;
