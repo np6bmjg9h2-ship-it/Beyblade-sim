@@ -37,6 +37,12 @@ export class CameraRig {
     this.baseYaw = side === 0 ? Math.PI : 0;
   }
 
+  // Behind a launch spot at this angle around the stadium centre (the spots
+  // sit at a seeded angle each round).
+  setPlayerAngle(angle) {
+    this.baseYaw = angle;
+  }
+
   cycle() {
     const i = CAMERA_MODES.indexOf(this.mode);
     this.mode = CAMERA_MODES[(i + 1) % CAMERA_MODES.length];

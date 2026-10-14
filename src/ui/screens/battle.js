@@ -130,6 +130,9 @@ export class BattleScreen {
     app.renderer.setFighters(b.fighters);
     this.hitStop?.reset();
     for (const hc of this.humans) hc.initFromAim();
+    // camera behind the player's launch spot (fighter 0 when nobody is human)
+    const me = Math.max(0, b.fighters.findIndex((f) => f.human));
+    app.renderer.rig.setPlayerAngle((b.spawnAngle || 0) + (me === 0 ? Math.PI : 0));
     app.renderer.rig.override = 'launch';
     this.refs.banner.className = 'hud-banner';
     this.refs.banner.innerHTML = '';
