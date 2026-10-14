@@ -9,9 +9,12 @@ import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { aiReleaseCharge, MAX_LEAN } from './launch.js';
 import * as dm from '../core/dmath.js';
 import { TECHNIQUE_DEFS } from './abilities.js';
-import { openness } from './skillRules.js';
+import { openness, PUNISH_WINDOW } from './skillRules.js';
 
 const CLASH_BAND = 0.15; // as battle.js: a striker must close this much faster
+// run-up geometry (m, centre to centre): strike from between near and far so
+// the 0.15 s coil completes before contact; hold at `hold` while recharging
+const RUNUP = { near: 0.085, far: 0.17, hold: 0.115 };
 
 const TWEAK_LIMITS = { reaction: [0.06, 1] };
 export function applyTweaks(P, tweaks) {
@@ -41,6 +44,13 @@ export class AIController {
     // a separate stream for reading the opponent, so adding reads doesn't
     // reshuffle every other AI decision
     this.rngRead = new Rng(mixSeeds(seed, 'read'));
+    // judgment: how often the AI plays the sensible spin-budget game (holds,
+    // takes run-ups, strikes openings) instead of a novice's chase-and-dash.
+    // Behaviour only; its own stream so the other streams stay unchanged.
+    this.judge = clamp((difficulty - 0.45) / 0.85, 0, 1);
+    this.rngJudge = new Rng(mixSeeds(seed, 'judge'));
+    this.sensible = false;
+    this.aimDash = false;
     this.knownTechniques = knownTechniques || null;
     this.history = []; // { t, opp:{p,v,spinFrac,spirit}, me }
     this.plan = 'center';
@@ -79,21 +89,25 @@ export class AIController {
   chooseLaunch(ctx) {
     const P = this.profile;
     const rng = this.rng;
-    const { arena, side, gear, spinOptions, oppSpin } = ctx;
+    const { arena, side, gear, spinOptions, oppSpin, spawnAngle = 0 } = ctx;
     const techs = (P.technique || ['normal']).filter((t) => !TECHNIQUE_INDEX[t]?.adv || (this.knownTechniques ? this.knownTechniques.includes(t) : true));
     const danger = arena.danger || 0;
     // dangerous stadiums: cautious AIs prefer controlled launches
     let tech = techs.length ? rng.pick(techs) : 'normal';
     if (danger > 0.3 && techs.includes('controlled') && rng.chance(P.edgeCaution * danger)) tech = 'controlled';
+    // a stamina or defense player who knows the spin race starts it with a
+    // full-power upright release (a controlled launch gives up 10% energy)
+    const fullPower = danger <= 0.3 && P.aggression < 0.35 && this.rngJudge.chance(this.judge ** 1.5);
+    if (fullPower) tech = 'normal';
     const rBase = (P.centerPref > 0.7 ? 0.035 : P.aggression > 0.7 ? 0.09 : 0.06) * (1 - 0.4 * danger);
-    const ang = side === 0 ? Math.PI : 0;
+    const ang = spawnAngle + (side === 0 ? Math.PI : 0);
     const a = ang + rng.range(-0.5, 0.5);
     const x = dm.cos(a) * (rBase + rng.range(-0.01, 0.02));
     const z = dm.sin(a) * (rBase + rng.range(-0.01, 0.02));
     // lean toward the centre/opponent for aggressive builds
     // banked launches curve hard on flat tips: lean less where exits are open
     const leanMul = clamp(1 - danger * (0.35 + 0.6 * P.edgeCaution), 0.15, 1);
-    const lean = clamp(P.lean * leanMul + rng.range(-0.03, 0.03), 0, MAX_LEAN);
+    const lean = fullPower ? 0 : clamp(P.lean * leanMul + rng.range(-0.03, 0.03), 0, MAX_LEAN);
     const dir = dm.atan2(-z, -x) + rng.range(-0.4, 0.4);
     // spin: technical AIs may pick opposite spin if their launcher allows
     let spin = spinOptions[0];
@@ -213,10 +227,25 @@ export class AIController {
 
     // steering target per plan
     const T = this.steerTarget.set(0, 0, 0);
+    let coast = false;
     const lead = 0.12 + 0.1 * P.steerSkill;
     const px = oP.x + oV.x * lead, pz = oP.z + oV.z * lead;
     switch (this.plan) {
-      case 'attack': T.set(px - myP.x, 0, pz - myP.z); break;
+      case 'attack': {
+        if (this.runup) {
+          // run-up: hold a striking distance on the centre side of the
+          // opponent while the dash recharges, instead of grinding into it
+          const oR = dm.hypot(oP.x, oP.z);
+          let ux = dist > 1e-4 ? -dx / dist : 1, uz = dist > 1e-4 ? -dz / dist : 0;
+          if (oR > 1e-3) { const w = 1.5 * oR / R; ux -= oP.x / oR * w; uz -= oP.z / oR * w; }
+          const ul = Math.max(1e-4, dm.hypot(ux, uz));
+          const tx = oP.x + ux / ul * RUNUP.hold, tz = oP.z + uz / ul * RUNUP.hold;
+          // there: let the bowl roll it back in (free speed for the strike)
+          if (dm.hypot(tx - myP.x, tz - myP.z) > 0.025) T.set(tx - myP.x, 0, tz - myP.z);
+          else coast = true;
+        } else T.set(px - myP.x, 0, pz - myP.z);
+        break;
+      }
       case 'koPush': {
         // get behind the opponent relative to the push direction (toward the
         // nearest exit, or straight outward) and drive through it
@@ -259,7 +288,7 @@ export class AIController {
     // pushing sideways while it orbits the rim.
     const mag = T.length();
     const myR0 = dm.hypot(myP.x, myP.z);
-    let desSpeed = { attack: 0.5 + 0.45 * P.aggression, koPush: 0.85, evade: 0.45, recover: 0.4, center: 0.3, circle: 0.3 }[this.plan] ?? 0.3;
+    let desSpeed = { attack: this.runup ? 0.3 : 0.5 + 0.45 * P.aggression, koPush: 0.85, evade: 0.45, recover: 0.4, center: 0.3, circle: 0.3 }[this.plan] ?? 0.3;
     if (this.plan === 'center' || this.plan === 'recover') desSpeed = Math.min(desSpeed, myR0 * 2.5);
     const ux = mag > 1e-4 ? T.x / mag : 0, uz = mag > 1e-4 ? T.z / mag : 0;
     const gain = 4 + 2 * P.steerSkill; // 1 / response time (s)
@@ -267,12 +296,16 @@ export class AIController {
     const tl = T.length();
     if (tl > 1) T.scale(1 / tl);
     // steering economy: endurance AIs only steer firmly when it matters
-    const urgent = this.plan === 'recover' || this.plan === 'koPush' || this.plan === 'evade' || this.plan === 'attack';
+    const urgent = this.plan === 'recover' || this.plan === 'koPush' || this.plan === 'evade' || (this.plan === 'attack' && !this.runup);
     T.scale(urgent ? 1 : 1 - P.steerEconomy * 0.6);
     if (!urgent && T.length() < 0.25 * P.steerEconomy) T.set(0, 0, 0);
+    // a sensible player rests the stick while holding a calm spot: no
+    // steering spend at all until it drifts
+    const rest = coast || (this.sensible && !urgent && myR0 < 0.45 * R && dm.hypot(myV.x, myV.z) < 0.18);
+    if (rest) T.set(0, 0, 0);
     // imperfect steering: low-frequency noise inversely proportional to skill
     if (this.rng.chance(0.05)) this.noise.set(this.rng.gauss(0, 1), 0, this.rng.gauss(0, 1)).scale((1 - P.steerSkill) * 0.45);
-    T.add(this.noise);
+    if (!rest) T.add(this.noise);
     // smooth like a thumb on a stick
     const k = clamp(dt * (6 + 10 * P.steerSkill), 0, 1);
     this.steer.x += (T.x - this.steer.x) * k;
@@ -282,7 +315,16 @@ export class AIController {
     c.steer.copy(this.steer);
 
     // reflex actions
-    if (this.wantDash) { c.dash = true; this.wantDash = false; }
+    if (this.wantDash) {
+      c.dash = true; this.wantDash = false;
+      // a deliberate strike: the stick points at where the target will be
+      // (the dash latches the stick direction)
+      if (this.aimDash) {
+        const ax = px - myP.x, az = pz - myP.z, al = dm.hypot(ax, az);
+        if (al > 1e-4) c.steer.set(ax / al, 0, az / al);
+        this.aimDash = false;
+      }
+    }
     if (this.wantCounter) { c.counter = true; this.wantCounter = false; }
     if (time < this.braceUntil) c.brace = true;
     if (this.wantAbility) { c[this.wantAbility] = true; this.wantAbility = null; }
@@ -300,7 +342,9 @@ export class AIController {
     // the part cards). A top that would outlast its opponent keeps away from
     // it; one that would not, presses for a knock-out.
     let proj = null;
-    if (P.readRace) {
+    // a sensible decision this time? (higher difficulty: more often)
+    this.sensible = this.rngJudge.chance(this.judge ** 1.5);
+    if (P.readRace || this.sensible) {
       const est = this.est || (this.est = { my: me.assembly?.summary?.estSpinTime || 0, opp: s.oppF?.assembly?.summary?.estSpinTime || 0 });
       if (est.my > 0 && est.opp > 0) {
         const myLeft = mySpin * est.my, oppLeft = oppSpin * est.opp;
@@ -352,6 +396,21 @@ export class AIController {
     if (openDeg > 0 && this.rngRead.chance(readSkill)) { u.attack += 0.8 * openDeg; this.opening = true; }
     const since = s.time - (oppAbility?.exposedAt ?? -9);
     if (since > P.reaction && since < TECHNIQUE_DEFS.counter.whiff && this.rngRead.chance(readSkill)) { u.attack += 1.0 * readSkill; this.opening = true; }
+    const conserver = P.aggression < 0.35;
+    const lead = proj ?? spinLead;
+    const mustRisk = lead < -0.15; // losing the race: only a finish wins it
+    if (this.sensible) {
+      // spin budget: every steer and dash is paid in spin, and a strike costs
+      // the striker more than the struck top. Spend only where it pays.
+      u.circle = 0;
+      // a defense or stamina top that is behind still gains nothing by
+      // ramming (it pays more than it deals): it keeps waiting for openings
+      if (!this.opening && (!mustRisk || conserver)) {
+        if (conserver) { u.attack = 0; u.koPush *= oppR > 0.65 ? 0.6 : 0; u.center += 0.3; }
+        if (lead > 0.08) { u.attack *= 0.25; u.koPush *= 0.5; u.center += 0.4 + lead; }
+      }
+      if (mustRisk && !conserver) u.attack += 0.3;
+    }
     // hysteresis
     u[this.plan] = (u[this.plan] || 0) + 0.12;
     let best = 'center', bv = -1;
@@ -372,10 +431,25 @@ export class AIController {
       if (best && bestD < 1.2) this.pushDir.set(dm.cos(best.center) * R - opp.p.x, 0, dm.sin(best.center) * R - opp.p.z).normalize();
       else { const r = Math.max(1e-3, dm.hypot(opp.p.x, opp.p.z)); this.pushDir.set(opp.p.x / r, 0, opp.p.z / r); }
     }
-    // dash: committed attack inside striking range
-    if (this.plan === 'attack' && dist > 0.045 && dist < 0.14 && rng.chance(P.dashUse * 0.35)) this.wantDash = true;
-    // an opening is worth committing to, from further out
-    if (this.plan === 'attack' && this.opening && dist > 0.045 && dist < 0.2 && this.rngRead.chance(0.3 + 0.5 * P.dashUse)) this.wantDash = true;
+    const dashReady = !ability || (ability.cool.dash <= 0 && !ability.windup);
+    this.runup = this.sensible && this.plan === 'attack' && (!dashReady || dist < RUNUP.near);
+    if (this.sensible) {
+      // a run-up strike: from between near and far, with the coil finishing
+      // before contact, and only when worth it (an opening, a ring-out line,
+      // or a race that has to be turned around)
+      if (this.plan === 'attack' && dashReady && dist > RUNUP.near && dist < RUNUP.far) {
+        const exposedNow = since > P.reaction && since < PUNISH_WINDOW + P.reaction;
+        const worth = this.opening || exposedNow || mustRisk || oppR > 0.45 || (!conserver && this.rngJudge.chance(P.dashUse * 0.45));
+        if (worth && closing > -0.1) { this.wantDash = true; this.aimDash = true; }
+      }
+    } else {
+      // a novice mashes dash whenever it is up, even point-blank
+      if (this.plan === 'attack' && dashReady && dist < 0.14 && this.rngJudge.chance((1 - this.judge) * 0.5)) this.wantDash = true;
+      // dash: committed attack inside striking range
+      if (this.plan === 'attack' && dist > 0.045 && dist < 0.14 && rng.chance(P.dashUse * 0.35)) this.wantDash = true;
+      // an opening is worth committing to, from further out
+      if (this.plan === 'attack' && this.opening && dist > 0.045 && dist < 0.2 && this.rngRead.chance(0.3 + 0.5 * P.dashUse)) this.wantDash = true;
+    }
     if (this.plan === 'koPush' && dist < 0.08) {
       // only dash when lined up behind the opponent along the push direction
       const ax = (opp.p.x - me.top.p.x) / Math.max(1e-4, dist), az = (opp.p.z - me.top.p.z) / Math.max(1e-4, dist);
