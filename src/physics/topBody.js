@@ -39,7 +39,6 @@ export function defaultMods() {
     burstThreshold: 1, // multiplier on lock notch threshold
     burstStressDealt: 1, // multiplier on burst stress inflicted via ring catch
     nutationDamping: 0, // 1/s damping of transverse angular momentum
-    tiltImpulseScale: 1, // multiplier on the torque part of received collision impulses
     steerForce: 1,
     steerEfficiency: 1,
     abilityCharge: 1,

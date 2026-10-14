@@ -33,7 +33,7 @@ export const PHYSICS = {
   steerBase: 0.28, // fraction of weight available as steering force
   steerIdleCost: 0.03, // m/s equivalent drain while steering
   steerEff: 0.62, // conversion efficiency spin -> linear work
-  nutationDamping: 2, // 1/s intrinsic material damping
+  nutationDamping: 1.4, // 1/s intrinsic material damping
   // Velocity-weakening friction for ring/wall contacts: polymer and metal
   // contacts lose friction at high sliding speed (flash heating), so
   // mu_eff = mu / (1 + v_slip / vWeaken).
