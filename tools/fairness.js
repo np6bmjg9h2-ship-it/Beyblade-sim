@@ -1,9 +1,17 @@
 // Fairness gates: how much the player's input, the gear and the seed decide a
 // battle, measured with real headless battles spread over worker threads.
 //
-//   1 no-input bot     a human slot that never steers, dashes or braces (plain
-//                      centre-aimed launch at the perfect charge) must win < 30%
-//                      against the AI at every difficulty step
+//   1 no-input bots    a human slot that never steers, dashes or braces must win
+//                      < 30% against the AI at every difficulty step. Two
+//                      baselines, same seeds and matchups:
+//                        1a "perfect launch": releases at PERFECT_CENTER (0.92)
+//                           every time (3.00 J on the starter launcher; more than
+//                           a human gets)
+//                        1b "average launch": releases at a typical human Good
+//                           grade: charge 0.86 +- 0.03 (seeded per round, clamped
+//                           0.75-0.97), about 2.5 J. Perfect window on the starter
+//                           launcher is 0.886-0.954, Good is 0.75-0.886.
+//                      --only 1 runs both, 1a or 1b runs one.
 //   2 gear curve       the same AI with better gear (items rolled by the loot
 //                      pipeline) against a base loadout must win 50-85%
 //   3 difficulty steps the AI at each difficulty step against a fixed reference
@@ -11,7 +19,7 @@
 //   4 luck (--luck)    how often the result flips when only the seed changes
 //
 // Usage: node tools/fairness.js [--n 200] [--check] [--json] [--luck]
-//          [--only 1,2,3,4] [--arena standard] [--steps 0.6,0.85,1,1.15,1.3]
+//          [--only 1,1a,1b,2,3,4] [--arena standard] [--steps 0.6,0.85,1,1.15,1.3]
 //          [--gear-tier epic] [--threads N]
 // Every outcome-deciding random draw comes from core/rng.js (battle seeds are
 // mixSeeds of fixed labels); results are identical from run to run.
@@ -20,7 +28,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Battle } from '../src/game/battle.js';
-import { mixSeeds } from '../src/core/rng.js';
+import { mixSeeds, Rng } from '../src/core/rng.js';
 import { PART_INDEX } from '../src/data/parts.js';
 import { LAUNCHER_INDEX, CABLE_INDEX, TECHNIQUE_INDEX } from '../src/data/launchers.js';
 import { DIFFICULTIES } from '../src/data/opponents.js';
@@ -33,6 +41,8 @@ import { REFERENCE_BUILDS } from './balance.js';
 const BUILDS = Object.keys(REFERENCE_BUILDS);
 const ALL_TECH = Object.keys(TECHNIQUE_INDEX);
 const SLOTS = ['ring', 'core', 'disc', 'lock', 'tip'];
+const AVG_CENTER = 0.86; // average human: a Good release just under the perfect window
+const AVG_SD = 0.03;
 const COUNTDOWN = 3.0; // battle.js: IGNITE; a release before COUNTDOWN - 0.15 is a false start
 
 // ------------------------------------------------------------ one battle (worker side)
@@ -62,11 +72,19 @@ function makeParticipant(side, seed, id) {
 
 // The no-input player: holds the charge so it peaks at IGNITE, releases at the
 // perfect centre, and does nothing else (controls stay empty).
-function driveBot(b, f) {
+// kind 'perfect' releases at PERFECT_CENTER; 'avg' at AVG_CENTER scattered per
+// seed and round (Rng over mixSeeds, so identical on every run).
+function releaseTarget(kind, seed, b, f) {
+  if (kind !== 'avg') return PERFECT_CENTER;
+  const rng = new Rng(mixSeeds('fairness', 'avgrelease', seed, b.round ?? 0, f.index));
+  return Math.min(0.97, Math.max(0.75, AVG_CENTER + rng.gauss(0, AVG_SD)));
+}
+function driveBot(b, f, kind, seed) {
   if (b.phase !== 'countdown' || f.launch.released) { b.chargeInput(f.index, false); return; }
-  const startAt = Math.max(0, COUNTDOWN - PERFECT_CENTER / f.gear.chargeRate);
+  const target = releaseTarget(kind, seed, b, f);
+  const startAt = Math.max(0, COUNTDOWN - target / f.gear.chargeRate);
   b.chargeInput(f.index, b.phaseT >= startAt);
-  if (f.launch.meter.charge >= PERFECT_CENTER) b.release(f.index);
+  if (f.launch.meter.charge >= target) b.release(f.index);
 }
 
 function runSpec(spec) {
@@ -77,7 +95,7 @@ function runSpec(spec) {
   for (let guard = 0; b.phase !== 'matchOver' && guard < 1200 * 60; guard++) {
     b.update(1 / 60, []);
     if (b.phase === 'setup') for (const f of bots) b.confirmSetup(f.index);
-    for (const f of bots) driveBot(b, f);
+    for (const f of bots) driveBot(b, f, spec.bot, spec.seed);
   }
   if (b.phase !== 'matchOver') b.finishMatch();
   const r = b.result;
@@ -104,7 +122,7 @@ const STEPS = opt('--steps', DIFFICULTIES.map((d) => d.value).join(',')).split('
 const GEAR_TIER = opt('--gear-tier', 'epic');
 const LADDER = ['rare', 'epic', 'legendary', 'mythic'];
 const LUCK = flag('--luck');
-const ONLY = opt('--only', null)?.split(',').map(Number) ?? (LUCK ? [1, 2, 3, 4] : [1, 2, 3]);
+const ONLY = opt('--only', null)?.split(',').map((s) => s.trim()) ?? (LUCK ? ['1', '2', '3', '4'] : ['1', '2', '3']);
 const JSON_OUT = flag('--json');
 const CHECK = flag('--check');
 const THREADS = Math.max(1, parseInt(opt('--threads', String(os.cpus().length)), 10));
@@ -115,22 +133,26 @@ const THREADS = Math.max(1, parseInt(opt('--threads', String(os.cpus().length)),
 // and the sides alternate (the pair count is odd).
 const PAIRS = BUILDS.flatMap((x) => BUILDS.map((y) => [x, y]));
 const specs = [];
-const add = (key, k, a, b, tag) => specs.push({ key, tag, arena: ARENA, a, b, swap: k % 2 === 1, seed: mixSeeds('fairness', tag, k) });
+const add = (key, k, a, b, tag, bot) => specs.push({ key, tag, bot, arena: ARENA, a, b, swap: k % 2 === 1, seed: mixSeeds('fairness', tag, k) });
 
-if (ONLY.includes(1)) {
+const RUN_PERFECT = ONLY.includes('1') || ONLY.includes('1a');
+const RUN_AVG = ONLY.includes('1') || ONLY.includes('1b');
+for (const [on, kind, prefix] of [[RUN_PERFECT, 'perfect', 'bot'], [RUN_AVG, 'avg', 'avgbot']]) {
+  if (!on) continue;
   for (const d of STEPS) for (let k = 0; k < N; k++) {
     const [x, y] = PAIRS[k % PAIRS.length];
-    add(`bot:${d}:${k}`, k, { build: x, human: true }, { build: y, difficulty: d }, `bot${d}`);
+    // same tag and seeds for both bots: only the release point differs
+    add(`${prefix}:${d}:${k}`, k, { build: x, human: true }, { build: y, difficulty: d }, `bot${d}`, kind);
   }
 }
-if (ONLY.includes(2)) {
+if (ONLY.includes('2')) {
   const tiers = LADDER.includes(GEAR_TIER) ? LADDER : [...LADDER, GEAR_TIER];
   for (const t of tiers) for (let k = 0; k < N; k++) {
     const [x, y] = PAIRS[k % PAIRS.length];
     add(`gear:${t}:${k}`, k, { build: x, gear: t }, { build: y }, `gear${t}`);
   }
 }
-if (ONLY.includes(3)) {
+if (ONLY.includes('3')) {
   for (const d of STEPS) for (let k = 0; k < N; k++) {
     const [x, y] = PAIRS[k % PAIRS.length];
     add(`diff:${d}:${k}`, k, { build: x, difficulty: d }, { build: y, difficulty: 1 }, `diff${d}`);
@@ -138,7 +160,7 @@ if (ONLY.includes(3)) {
 }
 const LUCK_PAIRS = BUILDS.flatMap((x, i) => BUILDS.slice(i).map((y) => [x, y])); // 15 unordered, incl. mirrors
 const LUCK_SEEDS = Math.max(8, 2 * Math.round(N / 10)); // even, so seeds pair up
-if (ONLY.includes(4)) {
+if (ONLY.includes('4')) {
   for (const mode of ['ai', 'bot']) LUCK_PAIRS.forEach(([x, y], pi) => {
     for (let k = 0; k < LUCK_SEEDS; k++) {
       const human = mode === 'bot';
@@ -180,20 +202,19 @@ const ci = (r) => `${pct(r.p)} [${pct(r.lo)}-${pct(r.hi)}]`;
 const out = { n: N, arena: ARENA, seconds: +secs.toFixed(1), checks: {}, gates: [] };
 const gate = (check, name, value, ok, band) => out.gates.push({ check, name, value: +value.toFixed(3), band, pass: ok });
 
-if (ONLY.includes(1)) {
-  const rows = STEPS.map((d) => {
-    const rs = pick(`bot:${d}:`);
-    const a = rs.flatMap((r) => r.rounds);
-    const roundRate = a.length ? a.filter((r) => r.w === 'a').length / a.length : 0;
-    const wonBy = {};
-    for (const r of a) if (r.w === 'a') wonBy[r.how] = (wonBy[r.how] || 0) + 1;
-    const r = rate(rs);
-    gate(1, `bot wins at difficulty ${d}`, r.p, r.p < 0.3, '< 30%');
-    return { difficulty: d, match: r, roundWinRate: roundRate, botRoundWinsBy: wonBy };
-  });
-  out.checks.noInputBot = rows;
-}
-if (ONLY.includes(2)) {
+const botRows = (prefix, label) => STEPS.map((d) => {
+  const rs = pick(`${prefix}:${d}:`);
+  const a = rs.flatMap((r) => r.rounds);
+  const roundRate = a.length ? a.filter((r) => r.w === 'a').length / a.length : 0;
+  const wonBy = {};
+  for (const r of a) if (r.w === 'a') wonBy[r.how] = (wonBy[r.how] || 0) + 1;
+  const r = rate(rs);
+  gate(1, `${label} bot wins at difficulty ${d}`, r.p, r.p < 0.3, '< 30%');
+  return { difficulty: d, match: r, roundWinRate: roundRate, botRoundWinsBy: wonBy };
+});
+if (RUN_PERFECT) out.checks.noInputBot = botRows('bot', 'perfect-launch');
+if (RUN_AVG) out.checks.noInputBotAverage = botRows('avgbot', 'average-launch');
+if (ONLY.includes('2')) {
   const tiers = LADDER.includes(GEAR_TIER) ? LADDER : [...LADDER, GEAR_TIER];
   const rows = tiers.map((t) => {
     const r = rate(pick(`gear:${t}:`));
@@ -203,7 +224,7 @@ if (ONLY.includes(2)) {
   });
   out.checks.gearCurve = rows;
 }
-if (ONLY.includes(3)) {
+if (ONLY.includes('3')) {
   const rows = STEPS.map((d) => ({ difficulty: d, match: rate(pick(`diff:${d}:`)) }));
   for (let i = 1; i < rows.length; i++) {
     const delta = rows[i].match.p - rows[i - 1].match.p;
@@ -213,7 +234,7 @@ if (ONLY.includes(3)) {
   }
   out.checks.difficultySteps = rows;
 }
-if (ONLY.includes(4)) {
+if (ONLY.includes('4')) {
   // Seed-noise: probability that two different seeds give different outcomes
   // = 1 - sum(p_k^2) over the outcome shares (unbiased with m/(m-1)); also the
   // directly observed rate over seed pairs (2j, 2j+1).
@@ -245,10 +266,12 @@ if (JSON_OUT) console.log(JSON.stringify(out, null, 2));
 else {
   console.log(`Fairness gates: ${N} battles per check (bo3), arena ${ARENA}, ${specs.length} battles in ${secs.toFixed(0)} s on ${W} threads\n`);
   const c = out.checks;
-  if (c.noInputBot) {
-    console.log('1. No-input bot (plain launch, no steer/dash/brace) vs AI, win rate per difficulty');
-    for (const r of c.noInputBot) console.log(`   difficulty ${String(r.difficulty).padEnd(5)} bot wins ${ci(r.match).padEnd(16)} rounds ${pct(r.roundWinRate).padEnd(4)} bot round wins by ${JSON.stringify(r.botRoundWinsBy)}`);
-  }
+  const botLines = (title, rows) => {
+    console.log(title);
+    for (const r of rows) console.log(`   difficulty ${String(r.difficulty).padEnd(5)} bot wins ${ci(r.match).padEnd(16)} rounds ${pct(r.roundWinRate).padEnd(4)} bot round wins by ${JSON.stringify(r.botRoundWinsBy)}`);
+  };
+  if (c.noInputBot) botLines('1a. No-input bot, perfect launch (charge 0.92 every round), vs AI, win rate per difficulty', c.noInputBot);
+  if (c.noInputBotAverage) botLines(`1b. No-input bot, average launch (charge ${AVG_CENTER} +- ${AVG_SD}, a Good grade), vs AI, win rate per difficulty`, c.noInputBotAverage);
   if (c.gearCurve) {
     console.log('\n2. Gear curve: AI with rolled gear (level 20) vs the same AI on base parts');
     for (const r of c.gearCurve) console.log(`   ${r.tier.padEnd(10)} wins ${ci(r.match).padEnd(16)}${r.gated ? '  <- gated' : ''}`);
