@@ -283,13 +283,20 @@ export class GameRenderer {
       const fy = arena.heightAtR(r);
       const lean = L.aim.lean;
       lv.zone.position.set(L.aim.x, fy + 0.0015, L.aim.z);
-      lv.group.position.set(L.aim.x, fy + (lv.model ? 0.062 : 0.045), L.aim.z);
+      // a modelled launcher holds the top by its upper face: the preview top
+      // hangs from its centre of mass at fy + 0.03, its top face topZ above the tip
+      const sp = f.assembly.spec;
+      const topFace = sp?.geometry ? sp.geometry.topZ * 0.001 + sp.tip.endZ : 0.03;
+      lv.group.position.set(L.aim.x, fy + (lv.model ? 0.03 + topFace + 0.001 : 0.045), L.aim.z);
       // tilt launcher by lean toward dir
       const axis = new THREE.Vector3(Math.sin(lean) * Math.cos(L.aim.dir), Math.cos(lean), Math.sin(lean) * Math.sin(L.aim.dir));
       lv.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
       // barrel along the launch direction; the grip leans back toward the
       // player (outward from the centre), as a held launcher does
-      if (lv.model) {
+      if (lv.model?.userData.hold === 'gripOut') {
+        // a pistol shooter pointed down at the stadium: grip toward the player
+        lv.model.rotation.set(0, -Math.atan2(L.aim.z, L.aim.x) - Math.PI, 0);
+      } else if (lv.model) {
         lv.model.rotation.order = 'YXZ';
         const out = Math.sign(Math.cos(L.aim.dir) * L.aim.z - Math.sin(L.aim.dir) * L.aim.x) || 1;
         lv.model.rotation.set(-0.44 * out, -L.aim.dir, 0);

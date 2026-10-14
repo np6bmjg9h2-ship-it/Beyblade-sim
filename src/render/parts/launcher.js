@@ -7,9 +7,14 @@ import * as THREE from 'three';
 import { LAUNCHER_MESHES } from '../assets/launchers.js';
 import { toonMaterial, inkAll, inkFor } from '../toon.js';
 
-const PALETTE = { body: '#2c3766', panel: '#5468b0', accent2: '#ffc83d', metal: '#d5dbe4' };
-const FINISH = { body: 'plastic', panel: 'plastic', accent: 'gloss', accent2: 'gloss', metal: 'chrome' };
+const PALETTE = { body: '#2c3766', panel: '#5468b0', accent2: '#ffc83d', metal: '#d5dbe4', lcd: '#a8bfa2', cap: '#e2312d' };
+const FINISH = { body: 'plastic', panel: 'plastic', accent: 'gloss', accent2: 'gloss', metal: 'chrome', lcd: 'matte', cap: 'gloss' };
 const CREASE_DEG = 35;
+// launchers that share another's mesh in their own colours
+const VARIANTS = {
+  launcher_clipreverse: { mesh: 'launcher_clip', palette: { body: '#d9541e', panel: '#f08a3c' } },
+  launcher_lefthand: { mesh: 'launcher_spark', palette: { body: '#2a2d36', panel: '#e9ecf3' } },
+};
 
 const decoded = new Map(); // id -> [{ mat, geo, edges }]
 
@@ -50,19 +55,23 @@ function decode(id) {
   return parts;
 }
 
-export function hasLauncherModel(id) { return !!LAUNCHER_MESHES[id]; }
+const meshOf = (id) => VARIANTS[id]?.mesh || id;
+export function hasLauncherModel(id) { return !!LAUNCHER_MESHES[meshOf(id)]; }
 
 // A launcher model for `id` in `accent`, or null when none is built yet.
 // Geometry is shared between copies (three re-uploads it if a replaced
 // model's disposal freed it); materials are per model.
 export function buildLauncherModel(id, accent) {
-  const parts = decode(id);
+  const parts = decode(meshOf(id));
   if (!parts) return null;
+  const meta = LAUNCHER_MESHES[meshOf(id)];
+  const palette = { ...PALETTE, ...meta.palette, ...VARIANTS[id]?.palette };
   const group = new THREE.Group();
+  group.userData.hold = meta.hold || 'tangent';
   const mats = {};
-  const line = new THREE.LineBasicMaterial({ color: inkFor(PALETTE.body, 0.35) });
+  const line = new THREE.LineBasicMaterial({ color: inkFor(palette.body, 0.35) });
   for (const p of parts) {
-    const color = p.mat === 'accent' ? accent : PALETTE[p.mat] || PALETTE.body;
+    const color = p.mat === 'accent' ? accent : palette[p.mat] || palette.body;
     const mat = mats[p.mat] || (mats[p.mat] = toonMaterial(color, { finish: FINISH[p.mat] || 'gloss' }));
     const mesh = new THREE.Mesh(p.geo, mat);
     mesh.castShadow = true;
