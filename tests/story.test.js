@@ -13,7 +13,7 @@ import { TOURNAMENT_INDEX, STORY_TOURNAMENTS } from '../src/data/tournaments.js'
 import { newProfile, normalizeProfile } from '../src/systems/profile.js';
 import {
   storyState, startChapter, currentNode, advance, chapterUnlocked, chapterProgress, grantStoryReward, resolveLines, applyChoice,
-  applyCreation, storyOpponent, nextChapter,
+  applyCreation, storyOpponent, nextChapter, recordBattle, nodeActive,
 } from '../src/systems/story.js';
 import { createTournament, readyMatches, applyResult, finishTournament, PLAYER } from '../src/systems/tournament.js';
 import { ObjectiveTracker } from '../src/game/objectives.js';
@@ -174,4 +174,29 @@ test('story tournaments run to completion in every format', () => {
     for (let g = 0; g < 200 && t.status === 'active'; g++) for (const m of readyMatches(t)) applyResult(t, m.id, { winnerSide: rng.chance(0.5) ? 0 : 1, score: [1, 0] });
     assert.equal(t.status, 'complete', def.id);
   }
+});
+
+test('node conditions skip branch nodes and battle results set won/lost flags', () => {
+  const P = newProfile();
+  const ch = CHAPTERS[0];
+  const [n0, n1, n2] = ch.nodes;
+  n1.when = { flag: `${n0.id}:lost` };
+  try {
+    startChapter(P, ch.id);
+    assert.equal(currentNode(P).id, n0.id);
+    recordBattle(P, n0, true);
+    assert.equal(storyState(P).flags[`${n0.id}:won`], true);
+    assert.equal(nodeActive(P, n1), false);
+    advance(P);
+    assert.equal(currentNode(P).id, n2.id, 'the recovery node is skipped after a win');
+    startChapter(P, ch.id);
+    recordBattle(P, n0, false);
+    assert.equal(storyState(P).flags[`${n0.id}:won`], false);
+    advance(P);
+    assert.equal(currentNode(P).id, n1.id, 'the recovery node plays after a loss');
+    // a chapter whose first node is guarded starts at the first node that plays
+    n0.when = { flag: 'never-set' };
+    startChapter(P, ch.id);
+    assert.equal(currentNode(P).id, n1.id);
+  } finally { delete n0.when; delete n1.when; }
 });

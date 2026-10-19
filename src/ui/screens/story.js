@@ -13,7 +13,7 @@ import { FORMATS } from '../../game/battle.js';
 import { AI_PROFILES } from '../../data/aiProfiles.js';
 import {
   CHAPTERS, CHAPTER_INDEX, STORY_STYLES, STORY_DIFFICULTY, storyState, chapterUnlocked, chapterProgress, currentNode, nextChapter, startChapter, advance,
-  grantStoryReward, rewardLines, resolveLines, applyChoice, applyCreation, storyOpponent, storyDifficulty, fillText,
+  grantStoryReward, recordBattle, rewardLines, resolveLines, applyChoice, applyCreation, storyOpponent, storyDifficulty, fillText,
 } from '../../systems/story.js';
 import { validateLoadout, buildParticipant } from '../../systems/loadout.js';
 import { createTournament } from '../../systems/tournament.js';
@@ -239,9 +239,14 @@ export class StoryScreen {
     const S = storyState(P);
     this.busy = true;
     try {
+      recordBattle(P, node, won);
       await this.dialog(resolveLines(P, won ? node.win : node.lose), { title: node.title });
       if (won || node.onLose === 'continue') {
-        const r = grantStoryReward(P, node.id, node.reward);
+        // a lost "continue" battle keeps the story flags and stadiums but pays
+        // nothing (a later win on replay still pays once), unless the node
+        // says rewardOnLose
+        const rw = won || node.rewardOnLose || !node.reward ? node.reward : { flags: node.reward.flags, arenas: node.reward.arenas };
+        const r = grantStoryReward(P, won || node.rewardOnLose ? node.id : `${node.id}:lost`, rw);
         await this.showReward(r);
         await this.tip(node.tutorial);
         delete S.attempts[node.id];

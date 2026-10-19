@@ -2,6 +2,24 @@
 
 Read this first in a new session; `docs/STATUS.md` has the long-term picture.
 
+## User playtest feedback (2026-10-19) — story and Rift need depth
+
+The user finished the story: good, but too short and needs development.
+- **Story length:** every existing chapter (ch1-ch6 in `src/data/story.js`)
+  must at least double in length.
+- **More chapters:** add chapters 7-20 after the current ending.
+- **Quality:** improve the writing and storytelling throughout, not just the length.
+- **Rift Run:** needs more depth as well.
+
+Telemetry from the user's play (artifact `24WkGVSTtfLpnzkhjHV1XJ`, collection
+`telemetry`, 8 sessions 2026-10-12..18, build `2026.10.12-m4`, 239 events):
+story = only 12 battles in total, 11 won (only loss: the ch1 Sora fight, which
+continues on a loss); Kaela and Theo fell in under 3.5 s a round, so the story
+is short and easy. Rift: 20 runs (6 won at depths 0-5, 13 lost, 1 abandoned;
+10 of the losses at depth 0), 129 Rift battles.
+Store: 16,320 credits spent, and 12 of 37 pack items were Mythic (packs look
+too generous; check against the loot curve). FPS 40-57 on Intel UHD 620.
+
 ## Where we stopped
 
 Working on **skill over RPM** (spec: `.claude/research/reviews/skill-loop-spec.md`,

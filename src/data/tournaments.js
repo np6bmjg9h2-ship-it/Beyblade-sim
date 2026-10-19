@@ -10,6 +10,10 @@ export const CIRCUIT_TIERS = [
   { tier: 3, name: 'Regional', color: '#ffd84d' },
   { tier: 4, name: 'National', color: '#ff9f43' },
   { tier: 5, name: 'Championship', color: '#ff6ad5' },
+  // story-only tiers (chapters 7-20)
+  { tier: 6, name: 'Continental', color: '#5ad1ff' },
+  { tier: 7, name: 'World', color: '#ffd166' },
+  { tier: 8, name: 'Legend', color: '#ff4d6d' },
 ];
 
 export const FORMAT_NAMES = {
@@ -25,7 +29,7 @@ export const FORMAT_DESC = {
 };
 
 // Difficulty of AI entrants by tier (rivals add a small bonus).
-export const TIER_DIFFICULTY = { 1: 0.62, 2: 0.82, 3: 0.98, 4: 1.1, 5: 1.22 };
+export const TIER_DIFFICULTY = { 1: 0.62, 2: 0.82, 3: 0.98, 4: 1.1, 5: 1.22, 6: 1.28, 7: 1.32, 8: 1.35 };
 
 export const RANK_TITLES = [
   { points: 0, title: 'Newcomer' },

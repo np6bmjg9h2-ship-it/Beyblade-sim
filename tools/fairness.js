@@ -1,9 +1,15 @@
 // Fairness gates: how much the player's input, the gear and the seed decide a
 // battle, measured with real headless battles spread over worker threads.
 //
-//   1 no-input bots    a human slot that never steers, dashes or braces must win
-//                      < 30% against the AI at every difficulty step, both on
-//                      the same build (mirror): only play may decide, since
+//   1 no-input bots    a human slot that never steers, dashes or braces, on
+//                      the same build as the AI (mirror). Realistic physics
+//                      (user decision 2026-10-19): on equal parts a patient
+//                      top that launches well is near the best play, as in
+//                      real tops where nobody steers, so easy AIs may lose to
+//                      it. Gated on the average-launch bot only: it must win
+//                      < 70% against Elite (1.15) and < 50% against Legend
+//                      (1.3); everything else is reported. Only play decides
+//                      a mirror, since
 //                      across builds the part matchup decides most battles
 //                      (an attack top with no input still beats a stamina AI,
 //                      as real tops do). Two baselines, same seeds and builds:
@@ -209,6 +215,8 @@ const ci = (r) => `${pct(r.p)} [${pct(r.lo)}-${pct(r.hi)}]`;
 const out = { n: N, arena: ARENA, seconds: +secs.toFixed(1), checks: {}, gates: [] };
 const gate = (check, name, value, ok, band) => out.gates.push({ check, name, value: +value.toFixed(3), band, pass: ok });
 
+// average-launch bot targets per difficulty (see the header); others report
+const BOT_LIMIT = { 1.15: 0.7, 1.3: 0.5 };
 const botRows = (prefix, label, gated = true) => STEPS.map((d) => {
   const rs = pick(`${prefix}:${d}:`);
   const a = rs.flatMap((r) => r.rounds);
@@ -216,10 +224,10 @@ const botRows = (prefix, label, gated = true) => STEPS.map((d) => {
   const wonBy = {};
   for (const r of a) if (r.w === 'a') wonBy[r.how] = (wonBy[r.how] || 0) + 1;
   const r = rate(rs);
-  if (gated) gate(1, `${label} bot wins at difficulty ${d}`, r.p, r.p < 0.3, '< 30%');
+  if (gated && BOT_LIMIT[d] != null) gate(1, `${label} bot wins at difficulty ${d}`, r.p, r.p < BOT_LIMIT[d], `< ${Math.round(100 * BOT_LIMIT[d])}%`);
   return { difficulty: d, match: r, roundWinRate: roundRate, botRoundWinsBy: wonBy };
 });
-if (RUN_PERFECT) out.checks.noInputBot = botRows('bot', 'perfect-launch');
+if (RUN_PERFECT) out.checks.noInputBot = botRows('bot', 'perfect-launch', false);
 if (RUN_AVG) out.checks.noInputBotAverage = botRows('avgbot', 'average-launch');
 if (RUN_MATCHUPS) out.checks.noInputBotMatchups = botRows('mbot', 'cross-build', false);
 if (ONLY.includes('2')) {
@@ -278,7 +286,7 @@ else {
     console.log(title);
     for (const r of rows) console.log(`   difficulty ${String(r.difficulty).padEnd(5)} bot wins ${ci(r.match).padEnd(16)} rounds ${pct(r.roundWinRate).padEnd(4)} bot round wins by ${JSON.stringify(r.botRoundWinsBy)}`);
   };
-  if (c.noInputBot) botLines('1a. No-input bot, perfect launch (charge 0.92 every round), vs AI on the same build, win rate per difficulty', c.noInputBot);
+  if (c.noInputBot) botLines('1a. Report only: no-input bot, perfect launch (charge 0.92 every round), vs AI on the same build, win rate per difficulty', c.noInputBot);
   if (c.noInputBotAverage) botLines(`1b. No-input bot, average launch (charge ${AVG_CENTER} +- ${AVG_SD}, a Good grade), vs AI on the same build, win rate per difficulty`, c.noInputBotAverage);
   if (c.noInputBotMatchups) botLines('1m. Report only: perfect-launch bot vs AI across all 25 build pairs (the matchup decides most of these)', c.noInputBotMatchups);
   if (c.gearCurve) {

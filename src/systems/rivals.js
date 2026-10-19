@@ -231,7 +231,7 @@ export function rivalPlan(profile, id, tier, { seed = 1 } = {}) {
 
 // Deterministic equipment for a rival build at a tier, using the item system.
 export function rivalItems(id, build, tier) {
-  const gear = RIVAL_GEAR[Math.max(1, Math.min(5, tier))];
+  const gear = RIVAL_GEAR[Math.max(1, Math.min(8, tier))];
   const mk = (base, slot) => createItem({ base, rarity: gear.rarity, level: gear.level, seed: mixSeeds(id, build.id, tier, slot), source: `rival:${id}` });
   const parts = {};
   for (const [slot, base] of Object.entries(build.parts)) parts[slot] = mk(base, slot);

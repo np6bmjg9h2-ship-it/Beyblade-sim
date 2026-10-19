@@ -289,6 +289,10 @@ export const RIVAL_GEAR = {
   3: { rarity: 'rare', level: 18 },
   4: { rarity: 'epic', level: 28 },
   5: { rarity: 'legendary', level: 40 },
+  // story chapters 7-20
+  6: { rarity: 'legendary', level: 50 },
+  7: { rarity: 'mythic', level: 58 },
+  8: { rarity: 'mythic', level: 70 },
 };
 
 // Original filler names for unnamed entrants.

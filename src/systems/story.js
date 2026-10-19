@@ -54,12 +54,32 @@ export function nextChapter(profile) {
   return CHAPTERS.find((c) => !S.completed.includes(c.id) && chapterUnlocked(profile, c)) || null;
 }
 
+// A node plays only when its `when` condition (same shape as a line
+// condition: flag, notFlag, choice) holds; branch and recovery scenes use it.
+export function nodeActive(profile, node) {
+  return lineVisible(profile, node.when);
+}
+
+// The first node from `from` on that plays (or -1).
+function nextActive(profile, ch, from) {
+  for (let i = from; i < ch.nodes.length; i++) if (nodeActive(profile, ch.nodes[i])) return i;
+  return -1;
+}
+
 export function startChapter(profile, chId) {
   const S = storyState(profile);
   const ch = CHAPTER_INDEX[chId];
-  S.node = ch.nodes[0].id;
+  S.node = ch.nodes[Math.max(0, nextActive(profile, ch, 0))].id;
   S.chapter = ch.n;
   return currentNode(profile);
+}
+
+// After a battle: `<node>:won` or `<node>:lost` (the latest result wins), so
+// later lines and nodes can follow what happened.
+export function recordBattle(profile, node, won) {
+  const S = storyState(profile);
+  S.flags[`${node.id}:won`] = !!won;
+  S.flags[`${node.id}:lost`] = !won;
 }
 
 // Move past the current node. Returns { chapterComplete, chapter }.
@@ -69,8 +89,9 @@ export function advance(profile) {
   if (!node) return { chapterComplete: false };
   if (!S.seen.includes(node.id)) S.seen.push(node.id);
   const ch = CHAPTER_INDEX[node.chapter];
-  if (node.index < ch.nodes.length - 1) {
-    S.node = ch.nodes[node.index + 1].id;
+  const next = nextActive(profile, ch, node.index + 1);
+  if (next >= 0) {
+    S.node = ch.nodes[next].id;
     return { chapterComplete: false, chapter: ch };
   }
   const first = !S.completed.includes(ch.id);

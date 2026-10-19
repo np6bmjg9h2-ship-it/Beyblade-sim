@@ -114,11 +114,23 @@ export class AIController {
     if (spinOptions.length > 1 && oppSpin && P.steerSkill > 0.8 && rng.chance(0.5)) {
       spin = spinOptions.find((s) => s !== oppSpin) || spin;
     }
-    const risk = P.risk > 0.8 ? 0.6 : 0;
+    let risk = P.risk > 0.8 ? 0.6 : 0;
+    let aim = { x, z, lean, dir };
+    // a skilled blader takes the clean launch unless the stadium is open
+    // (Standard 0.40 qualifies, Edgebreaker and Skyfall do not): full-power
+    // normal release on a circling line 7 cm out (the default human launch),
+    // no overcharge gamble. Tilted, controlled and centre launches give up
+    // energy the spin race never pays back. Own stream draw, after the others.
+    // (centre players keep their own spot: holding the middle is their game)
+    if (danger <= 0.45 && P.centerPref <= 0.7 && this.rngJudge.chance(this.judge ** 1.5)) {
+      tech = 'normal'; risk = 0;
+      const along = spin === 'L' ? -Math.PI / 2 : Math.PI / 2;
+      aim = { x: dm.cos(ang) * 0.07, z: dm.sin(ang) * 0.07, lean: 0.12, dir: ang + along };
+    }
     const rel = aiReleaseCharge(rng, P.launchSkill, gear, tech, risk);
     // release timing relative to SPIN! (seconds)
     const releaseOffset = Math.abs(rng.gauss(0.04, 0.12 * (1 - P.launchSkill))) - 0.02;
-    return { aim: { x, z, lean, dir }, technique: tech, spin, charge: rel.charge, releaseOffset };
+    return { aim, technique: tech, spin, charge: rel.charge, releaseOffset };
   }
 
   // ------------------------------------------------------------ battle
@@ -301,7 +313,7 @@ export class AIController {
     if (!urgent && T.length() < 0.25 * P.steerEconomy) T.set(0, 0, 0);
     // a sensible player rests the stick while holding a calm spot: no
     // steering spend at all until it drifts
-    const rest = coast || (this.sensible && !urgent && myR0 < 0.45 * R && dm.hypot(myV.x, myV.z) < 0.18);
+    const rest = coast || (this.conserving && this.evenMatch && (this.plan === 'center' || this.plan === 'circle')) || (this.sensible && !urgent && myR0 < 0.45 * R && dm.hypot(myV.x, myV.z) < 0.18);
     if (rest) T.set(0, 0, 0);
     // imperfect steering: low-frequency noise inversely proportional to skill
     if (this.rng.chance(0.05)) this.noise.set(this.rng.gauss(0, 1), 0, this.rng.gauss(0, 1)).scale((1 - P.steerSkill) * 0.45);
@@ -396,9 +408,21 @@ export class AIController {
     if (openDeg > 0 && this.rngRead.chance(readSkill)) { u.attack += 0.8 * openDeg; this.opening = true; }
     const since = s.time - (oppAbility?.exposedAt ?? -9);
     if (since > P.reaction && since < TECHNIQUE_DEFS.counter.whiff && this.rngRead.chance(readSkill)) { u.attack += 1.0 * readSkill; this.opening = true; }
-    const conserver = P.aggression < 0.35;
+    // Matchup read (part cards): contact only pays a top that would lose the
+    // untouched spin race by a clear margin (an attacker against an outlaster).
+    // In a mirror, or against a top it outlasts, every steer and dash is spin
+    // given away, so a sensible blader conserves whatever its personality.
+    const est0 = this.est;
+    const contactPays = !!est0 && est0.my > 0 && est0.opp > 0 && est0.my < est0.opp * 0.85;
+    // even matchup (spin times within 15%): resting beats any spend
+    this.evenMatch = !!est0 && est0.my > 0 && est0.opp > 0 && !contactPays && est0.opp > est0.my * 0.85;
     const lead = proj ?? spinLead;
     const mustRisk = lead < -0.15; // losing the race: only a finish wins it
+    // ...until it falls behind: then only a finish wins it
+    // (falling a little behind in an even matchup is launch noise: chasing it
+    // only loses the race faster, so the even-matchup conserver keeps waiting)
+    const conserver = P.aggression < 0.35 || (this.sensible && !contactPays);
+    this.conserving = this.sensible && conserver && (!contactPays || !mustRisk);
     if (this.sensible) {
       // spin budget: every steer and dash is paid in spin, and a strike costs
       // the striker more than the struck top. Spend only where it pays.
@@ -410,6 +434,14 @@ export class AIController {
         if (lead > 0.08) { u.attack *= 0.25; u.koPush *= 0.5; u.center += 0.4 + lead; }
       }
       if (mustRisk && !conserver) u.attack += 0.3;
+      // a conserving blader in an even matchup spends only on a finish it can
+      // see: an open top near the rim. Dodging and chasing cost more spin than
+      // the hits they avoid or land.
+      if (this.conserving) {
+        if (!(this.opening && oppR > 0.55)) u.attack = 0;
+        if (oppR < 0.75) u.koPush = 0;
+        if (!(closing > 0.5 && dist < 0.1)) u.evade = 0; // still dodge a strike already coming
+      }
     }
     // hysteresis
     u[this.plan] = (u[this.plan] || 0) + 0.12;
