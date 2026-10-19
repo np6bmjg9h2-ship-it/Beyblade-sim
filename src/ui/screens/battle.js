@@ -587,6 +587,7 @@ export class BattleScreen {
       this.roundWhy(rr),
       h('div', { class: 'bn-expl' }, rr.explanation),
       ...(rr.adapt || []).filter((a) => !b.fighters[a.index].human).map((a) => h('div', { class: 'bn-adapt' }, `${a.name} adapts: ${a.note}.`)),
+      ...this.betweenRoundLines(),
       h('div', { class: 'bn-cont' }, h('kbd', {}, this.app.input.glyph('confirm', 'menu')), b.phase === 'matchOver' ? ' Match summary' : ' Next round'));
     if (winner) {
       const v = this.app.renderer.visuals[winner.index];
@@ -595,6 +596,18 @@ export class BattleScreen {
       this.app.renderer.effects.victory(v.root.position, winner.p.color || '#ffffff');
       if (winner.human) this.app.audio.victory(); else if (b.fighters.some((f) => f.human)) this.app.audio.defeat();
     }
+  }
+
+  // Story drama between rounds: the session's roundLines(next, final) gives
+  // resolved dialogue lines for the coming round (final = either side one
+  // round from the match).
+  betweenRoundLines() {
+    const b = this.battle;
+    if (b.phase === 'matchOver' || b.result || !this.session.roundLines) return [];
+    const need = b.format.roundsToWin;
+    const final = b.fighters.some((f) => f.stats.roundsWon >= need - 1);
+    return (this.session.roundLines(b.round + 1, final) || []).map((l) =>
+      h('div', { class: 'bn-line' }, l.speaker ? h('b', { style: { color: l.color } }, `${l.speaker}: `) : null, l.text));
   }
 
   continueRound() {

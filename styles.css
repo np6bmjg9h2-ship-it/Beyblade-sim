@@ -348,6 +348,7 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 2px soli
 @keyframes whyin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) { .big-text .why-tag { font-size: 20px; } .result-why { font-size: 17px; } }
 .bn-adapt { font-size: 13px; color: var(--warn); margin-top: 6px; }
+.bn-line { font-size: 14px; margin-top: 6px; max-width: 520px; margin-left: auto; margin-right: auto; font-style: italic; }
 .bn-cont { margin-top: 14px; color: #c4cde8; font: italic 700 13px var(--ui); letter-spacing: 0.05em; text-transform: uppercase; }
 .pause-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: var(--tone-dark); }
 .pause-panel { min-width: 400px; }

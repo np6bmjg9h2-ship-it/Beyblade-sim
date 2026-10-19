@@ -229,6 +229,7 @@ export class StoryScreen {
       forfeitWarning: 'You can retry this battle from the story screen.',
       onForfeit: () => { S.attempts[node.id] = (S.attempts[node.id] || 0) + 1; this.save(); },
       onFinish: (res) => { outcome = { won: res.winner === 0 }; return false; },
+      roundLines: node.roundLines ? (n, final) => resolveLines(P, (final && node.roundLines.last) || node.roundLines[n] || []) : null,
       onExit: () => { if (outcome) queueMicrotask(() => this.afterBattle(node, outcome.won)); },
     };
     this.ui.push(new BattleScreen(session));

@@ -207,7 +207,9 @@ export const STORY_TOURNAMENTS = [
     prizes: storyPrize(1200, 700, 160) },
   { id: 'story_zero_championship', name: 'Arena Zero Championship', tier: 5, format: 'single', size: 16, hidden: true, story: true, color: '#ff6ad5',
     desc: 'The Championship.', matchFormat: { default: 'bo3', final: 'bo5' }, arenas: ['skyfall', 'crystal', 'magma', 'zero'], finalArena: 'zero',
-    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0, rivals: ['aurelia', 'valen', 'nyx', 'mirelle', 'theo', 'kaela', 'juno', 'daichi', 'sora', 'rook'], fillers: ['champion', 'counter', 'upper', 'breaker', 'all'],
+    rules: { durability: true, repairs: true, lockLoadout: false }, req: {}, fee: 0,
+    // Valen and Aurelia are kept for the scripted semi-final and final (ch6)
+    rivals: ['nyx', 'mirelle', 'theo', 'kaela', 'juno', 'daichi', 'sora', 'rook'], fillers: ['champion', 'counter', 'upper', 'breaker', 'all', 'clutch', 'magna'],
     prizes: storyPrize(3000, 1500, 400) },
 ];
 
