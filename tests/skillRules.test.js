@@ -41,3 +41,23 @@ test('striking soon after a whiffed counter is a punish and pays spirit', () => 
   battle.onTopContact({ type: 'impact', A: A.top, B: B.top, impulse: 0.03, normal: [1, 0, 0], point: [0, 0, 0], approach: 0.6 });
   assert.ok(!moments.some((m) => m.kind === 'punish'));
 });
+
+test("a time-out is decided on the judges' card: scored play beats a small stability edge", () => {
+  const b = new Battle({ arenaId: 'standard', format: 'single', seed: 3, roundTime: 60, rules: { slowmo: false },
+    participants: [participantFromDef(ARCHETYPE_INDEX.striker, { id: 'a' }), participantFromDef(ARCHETYPE_INDEX.wall, { id: 'b' })] });
+  b.headless = true;
+  for (let g = 0; b.phase !== 'battle' && g < 2000; g++) b.update(1 / 60, []);
+  const [A, B] = b.fighters;
+  // B is the more stable top (+2), A landed two clean strikes and a counter (+4)
+  A.assembly.summary = { ...A.assembly.summary, critSpin: 1e6 };
+  b.judgeScore(A, 'strike'); b.judgeScore(A, 'strike'); b.judgeScore(A, 'counter');
+  b.decision();
+  assert.equal(b.pendingResult.winner, A);
+  assert.equal(B.judge.by.stability, 2);
+  assert.match(b.explain(b.pendingResult), /Judges' cards: .* 4 .* to .* 2 /);
+  // level cards are a draw
+  B.judge.total = A.judge.total - 2; // the stability point is added again
+  b.phase = 'battle';
+  b.decision();
+  assert.equal(b.pendingResult.winner, null);
+});

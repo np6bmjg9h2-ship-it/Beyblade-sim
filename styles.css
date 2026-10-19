@@ -277,6 +277,8 @@ kbd { display: inline-block; min-width: 24px; padding: 1px 6px; border: 2px soli
 .hud-round { font: italic 700 11px var(--ui); color: #c4cde8; letter-spacing: 0.06em; text-transform: uppercase; }
 .hud-timer { font: 400 50px/1 var(--display); letter-spacing: 0.05em; color: #fff; font-variant-numeric: tabular-nums; text-shadow: var(--ol3), 4px 4px 0 var(--hot); margin: 4px 0 2px; }
 .hud-timer.low { color: var(--focus); text-shadow: var(--ol3), 4px 4px 0 #d8102f; }
+.hud-card { font: italic 700 12px var(--ui); letter-spacing: 0.12em; color: #c4cde8; margin-top: 2px; }
+.hud-card.hot { color: var(--focus); }
 .hud-score { display: flex; justify-content: center; gap: 14px; align-items: baseline; }
 .sc { font: 400 30px/1 var(--display); color: #fff; text-shadow: var(--ol2); }
 .sc-sep { font: italic 700 11px var(--ui); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }

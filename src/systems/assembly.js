@@ -254,7 +254,7 @@ export function assembleTop(build, opts = {}) {
     z: rel(zRingC), radius: P.ring.rOut * MM, baseRadius: (P.ring.blades > 0 ? P.ring.rBase : P.ring.rOut) * MM,
     blades: P.ring.blades, bladeWidth: P.ring.bladeWidth, hand: P.ring.spin === 'R' ? -1 : P.ring.spin === 'L' ? 1 : 0,
     faceAngle: (P.ring.faceAngle || 0) * DEG, slope: (P.ring.slope || 0) * DEG, thickness: ringT * MM,
-    restitution: P.ring.restitution * damp, friction: P.ring.friction, catch: P.ring.catch, freeSpin: P.ring.freeSpin || 0,
+    restitution: P.ring.restitution * damp, friction: P.ring.friction, rubber: P.ring.rubber || 0, catch: P.ring.catch, freeSpin: P.ring.freeSpin || 0,
   });
   if (P.disc.contact) {
     layers.push({

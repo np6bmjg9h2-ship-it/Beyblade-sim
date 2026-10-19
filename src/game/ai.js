@@ -196,7 +196,7 @@ export class AIController {
   update(dt, ctx) {
     const c = emptyControls();
     const P = this.profile;
-    const { time, me, opp, arena, ability, oppAbility } = ctx;
+    const { time, me, opp, arena, ability, oppAbility, roundTime = null } = ctx;
     if (P.passive) return c;
     this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0, oppAbility?.windup, openness(opp.top, opp.assembly?.summary?.critSpin).degree);
     const snap = this.delayed();
@@ -234,7 +234,7 @@ export class AIController {
 
     if (time >= this.nextDecision) {
       this.nextDecision = time + P.decisionInterval * this.rng.range(0.8, 1.2);
-      this.decide({ time, dist, closing, myR, oppR, mySpin, oppSpin, snap, me, oppF: opp, arena, ability, oppAbility });
+      this.decide({ time, dist, closing, myR, oppR, mySpin, oppSpin, snap, me, oppF: opp, arena, ability, oppAbility, roundTime });
     }
 
     // steering target per plan
@@ -421,7 +421,10 @@ export class AIController {
     // ...until it falls behind: then only a finish wins it
     // (falling a little behind in an even matchup is launch noise: chasing it
     // only loses the race faster, so the even-matchup conserver keeps waiting)
-    const conserver = P.aggression < 0.35 || (this.sensible && !contactPays);
+    // the judges' card (HUD) on a round heading for the time limit: a top
+    // that is not ahead on the card must score strikes before time runs out
+    const cardChase = s.roundTime != null && s.time > s.roundTime - 15 && (me.judge?.total ?? 0) <= (s.oppF?.judge?.total ?? 0) && mySpin > 0.25;
+    const conserver = !cardChase && (P.aggression < 0.35 || (this.sensible && !contactPays));
     this.conserving = this.sensible && conserver && (!contactPays || !mustRisk);
     if (this.sensible) {
       // spin budget: every steer and dash is paid in spin, and a strike costs
@@ -433,7 +436,7 @@ export class AIController {
         if (conserver) { u.attack = 0; u.koPush *= oppR > 0.65 ? 0.6 : 0; u.center += 0.3; }
         if (lead > 0.08) { u.attack *= 0.25; u.koPush *= 0.5; u.center += 0.4 + lead; }
       }
-      if (mustRisk && !conserver) u.attack += 0.3;
+      if ((mustRisk || cardChase) && !conserver) u.attack += 0.3;
       // a conserving blader in an even matchup spends only on a finish it can
       // see: an open top near the rim. Dodging and chasing cost more spin than
       // the hits they avoid or land.

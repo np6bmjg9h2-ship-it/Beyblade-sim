@@ -11,7 +11,7 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { Vec3, clamp } from '../core/math.js';
 import { Arena } from '../physics/arena.js';
 import { TopBody } from '../physics/topBody.js';
-import { openness, SKILL_SPIRIT, PUNISH_WINDOW } from './skillRules.js';
+import { openness, SKILL_SPIRIT, PUNISH_WINDOW, JUDGE, JUDGE_STRIKE_J, JUDGE_HEAVY_J } from './skillRules.js';
 import { Simulation, TICK } from '../physics/simulation.js';
 import { ARENA_INDEX } from '../data/arenas.js';
 import { BEAST_INDEX } from '../data/beasts.js';
@@ -98,10 +98,11 @@ export const CLASH_BAND = 0.15;
 // Battle rules revision, stored in replays. Raise it whenever a rule change
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
-export const RULES_REV = 5;
+export const RULES_REV = 6; // 6: judges' cards on time, spirit for initiative, rubber ring edges
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
-export const SPIRIT = { struck: 0.5, clash: 0.75, goodLaunch: 4 };
+// (struck 0.5 -> 0.4 on 2026-10-19: initiative earns more of the spirit)
+export const SPIRIT = { struck: 0.4, clash: 0.75, goodLaunch: 4 };
 export function strikeOf(fa, fb, n) {
   const sA = (fa.preVx ?? 0) * n[0] + (fa.preVz ?? 0) * n[2];
   const sB = -((fb.preVx ?? 0) * n[0] + (fb.preVz ?? 0) * n[2]);
@@ -174,6 +175,7 @@ export class Battle extends Emitter {
       const asm = assembleTop(p.build, { spin: p.spin || 'R', launcher: p.launcherBase });
       f.assembly = asm;
       f.top = new TopBody(asm.spec, { id: f.id, side: f.index });
+      f.judge = { total: 0, by: {} };
       f.top.lockCondition = 1;
       f.mods = new ModifierStack();
       for (const src of collectTraitSources(f.items, asm.parts)) f.mods.add(src);
@@ -501,7 +503,7 @@ export class Battle extends Emitter {
         c.steer.x = Math.round(c.steer.x * 64) / 64; c.steer.z = Math.round(c.steer.z * 64) / 64;
         if (this.rec) this.recordControls(f.index, c);
       }
-      else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability });
+      else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability, roundTime: this.rules.decisionAtTime ? this.roundTime : null });
       f.controls = c;
       this.applyControls(f, opp, c);
     }
@@ -620,6 +622,7 @@ export class Battle extends Emitter {
   // in the fighter's stats, and an event the HUD and tags can show.
   skillMoment(f, kind, J = 0) {
     if (SKILL_SPIRIT[kind]) f.ability.gain(SKILL_SPIRIT[kind]);
+    this.judgeScore(f, kind);
     f.stats.skillMoments = f.stats.skillMoments || {};
     f.stats.skillMoments[kind] = (f.stats.skillMoments[kind] || 0) + 1;
     this.emit('skillMoment', { fighter: f, kind, t: this.battleTime, J });
@@ -665,6 +668,7 @@ export class Battle extends Emitter {
       const { glance, tangent } = glanceOf(e.normal, fa.top.v, fb.top.v, e.approach);
       const ev = { A: fa, B: fb, impulse: J, approach: e.approach, glance, tangent, point: e.point, normal: e.normal, faceA: e.faceA, faceB: e.faceB, critical, time: this.battleTime, round: this.round, energy: e.energy, striker, struck: striker ? (striker === fa ? fb : fa) : null, closing };
       if (striker) striker.stats.strikes = (striker.stats.strikes || 0) + 1;
+      if (striker && J >= JUDGE_STRIKE_J) this.judgeScore(striker, J > JUDGE_HEAVY_J ? 'heavyStrike' : 'strike');
       this.lastImpact = ev;
       this.roundNotable.push(ev);
       this.emit('impact', ev);
@@ -744,13 +748,23 @@ export class Battle extends Emitter {
     return true;
   }
 
+  judgeScore(f, kind) {
+    if (!JUDGE[kind] || !f.judge) return;
+    f.judge.total += JUDGE[kind];
+    f.judge.by[kind] = (f.judge.by[kind] || 0) + JUDGE[kind];
+  }
+
+  // Time limit: the judges' card. Scored actions plus the stability point
+  // for the top with more spin over its threshold; level cards are a draw.
   decision() {
     const [A, B] = this.fighters;
     const margin = (f) => f.top.active ? f.top.spinAbs / Math.max(1, f.assembly.summary.critSpin) : 0;
     const ma = margin(A), mb = margin(B);
+    if (Math.abs(ma - mb) > 0.02) this.judgeScore(ma > mb ? A : B, 'stability');
+    const ja = A.judge?.total || 0, jb = B.judge?.total || 0;
     let winner = null, loser = null;
-    if (Math.abs(ma - mb) > 0.02) { winner = ma > mb ? A : B; loser = winner === A ? B : A; }
-    this.pendingResult = { winner, loser, how: winner ? 'decision' : 'draw', rawHow: 'decision', margins: [ma, mb] };
+    if (ja !== jb) { winner = ja > jb ? A : B; loser = winner === A ? B : A; }
+    this.pendingResult = { winner, loser, how: winner ? 'decision' : 'draw', rawHow: 'decision', margins: [ma, mb], cards: [{ ...A.judge }, { ...B.judge }] };
     this.phase = 'finishing';
     this.finishT = 0.6;
   }
@@ -855,7 +869,7 @@ export class Battle extends Emitter {
   explain(res) {
     const { winner, loser, how } = res;
     if (!winner) {
-      if (res.rawHow === 'decision') return 'Time expired with both tops equally stable — the round is a draw.';
+      if (res.rawHow === 'decision') return `Time expired and the judges' cards are level (${res.cards?.[0]?.total ?? 0}–${res.cards?.[1]?.total ?? 0}) — the round is a draw.`;
       const hows = new Set(this.roundFinishes.map((x) => x.how));
       if (hows.size === 1 && hows.has('burst')) return 'Both locks gave way on the same hit — a double Shatter. The round is a draw and is fought again.';
       if (hows.size === 1 && hows.has('out')) return 'Both tops left the stadium on the same instant — a double Ring Out. The round is a draw and is fought again.';
@@ -888,9 +902,9 @@ export class Battle extends Emitter {
         return `${loser.name}'s lock assembly slipped all ${n} notches under counter-rotational strikes and shattered${last ? ` — the final strike was ${last.impulse.toFixed(3)} N·s` : ''}.`;
       }
       case 'decision': {
-        const [ma, mb] = res.margins;
-        const wm = winner.index === 0 ? ma : mb, lm = winner.index === 0 ? mb : ma;
-        return `Time limit (${this.roundTime}s) reached. Judges compare spin relative to each top's stability threshold: ${winner.name} ${wm.toFixed(2)}× vs ${loser.name} ${lm.toFixed(2)}×.`;
+        const NAMES = { strike: 'strikes', heavyStrike: 'heavy strikes', openingStrike: 'openings', punish: 'punishes', interrupt: 'interrupts', counter: 'counters', stability: 'stability' };
+        const card = (f) => Object.entries(f.judge?.by || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${NAMES[k] || k} ${v}`).join(', ') || 'nothing scored';
+        return `Time limit (${this.roundTime}s) reached. Judges' cards: ${winner.name} ${winner.judge.total} (${card(winner)}) to ${loser.name} ${loser.judge.total} (${card(loser)}).`;
       }
       default: return '';
     }

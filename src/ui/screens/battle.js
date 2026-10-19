@@ -52,6 +52,7 @@ export class BattleScreen {
     R.timer = mk('hud-timer');
     R.round = mk('hud-round');
     R.score = mk('hud-score');
+    R.card = mk('hud-card');
     R.notif = mk('hud-notifs');
     R.abilities = mk('hud-abilities');
     R.telemetry = mk('hud-telemetry');
@@ -60,7 +61,7 @@ export class BattleScreen {
     R.camera = mk('hud-camera');
     R.objectives = mk('hud-objectives');
     R.lab = mk('hud-lab');
-    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives, R.lab);
+    const el = mk('battle-hud', mk('hud-top', panels[0], mk('hud-center', R.round, R.timer, R.score, R.card), panels[1]), R.notif, R.launch, R.banner, R.abilities, R.telemetry, R.camera, R.objectives, R.lab);
     // tapping or clicking the round result continues, like Confirm
     R.banner.addEventListener('click', () => this.app.input.inject('confirm', 'menu'));
     return el;
@@ -466,6 +467,11 @@ export class BattleScreen {
       const sc = b.fighters.map((f) => b.format.pointsToWin ? `${f.stats.points}` : `${f.stats.roundsWon}`);
       R.score.innerHTML = '';
       R.score.append(h('span', { class: 'sc' }, sc[0]), h('span', { class: 'sc-sep' }, b.format.pointsToWin ? `pts (to ${b.format.pointsToWin})` : 'rounds'), h('span', { class: 'sc' }, sc[1]));
+      // the judges' card that decides a round on time
+      const jc = b.fighters.map((f) => f.judge?.total ?? 0);
+      const cardTxt = b.rules.decisionAtTime ? `JUDGES ${jc[0]} – ${jc[1]}` : '';
+      if (R.card.textContent !== cardTxt) R.card.textContent = cardTxt;
+      R.card.classList.toggle('hot', left < 15 && b.phase === 'battle');
       // abilities
       for (const a of this.abilityRefs || []) {
         const s = a.getState();

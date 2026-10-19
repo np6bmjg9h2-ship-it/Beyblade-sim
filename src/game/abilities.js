@@ -28,7 +28,7 @@ export const TECHNIQUE_DEFS = {
   surge: { name: 'Spirit Surge', cost: 25, cooldown: 4, duration: 2.5, desc: '25 spirit: steering force +60% and steering efficiency +50% for 2.5 s.' },
 };
 
-export const PASSIVE_SPIRIT = 1.0; // per second
+export const PASSIVE_SPIRIT = 0.8; // per second (1.0 -> 0.8 on 2026-10-19: spirit is earned by play)
 const _v = new Vec3();
 
 export class AbilityRuntime {

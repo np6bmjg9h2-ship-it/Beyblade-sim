@@ -329,3 +329,23 @@ test('energy removed by the safety limits is booked to the clamp ledger', () => 
   assert.ok(Math.abs(top.totalEnergy() - E0 - ledger) < 1e-6, 'ledger still closes');
   assert.ok(Math.abs(top.ledger.numerical) < 1e-6, 'nothing hidden in the numerical residual');
 });
+
+// Rubber ring edges: on an opposite-spin contact the faster surface drags the
+// slower one along, so the slower top gains spin (spin steal); rubber grips
+// harder than plastic, so it moves several times more spin per contact.
+test('rubber edges transfer spin to the slower opposite-spin top; same spin both lose', () => {
+  const run = (spinA, spinB, rubber) => {
+    const mk = (id) => { const s = simpleSpec({ tip: FREE_TIP, linDrag: 0, aero: 0 }); s.layers[0].rubber = rubber; return new TopBody(s, { id }); };
+    const A = mk('A'), B = mk('B');
+    const sim = new Simulation({ arena: flatArena(), tops: [A, B] });
+    A.launch({ tipPos: new Vec3(-0.06, 0, 0), axis: new Vec3(0, 1, 0), spin: spinA, velocity: new Vec3(0.3, 0, 0) });
+    B.launch({ tipPos: new Vec3(0, 0, 0), axis: new Vec3(0, 1, 0), spin: spinB, velocity: new Vec3() });
+    const a0 = Math.abs(A.w.y), b0 = Math.abs(B.w.y);
+    for (let i = 0; i < 60; i++) sim.tick();
+    return { dA: Math.abs(A.w.y) - a0, dB: Math.abs(B.w.y) - b0 };
+  };
+  const plastic = run(-600, 300, 0), rubber = run(-600, 300, 0.8), same = run(-600, -300, 0.8);
+  assert.ok(rubber.dB > 0 && rubber.dA < 0, `steal: slower ${rubber.dB.toFixed(1)}, faster ${rubber.dA.toFixed(1)} rad/s`);
+  assert.ok(rubber.dB > 2.5 * plastic.dB, `rubber moves more spin (${rubber.dB.toFixed(1)} vs ${plastic.dB.toFixed(1)} rad/s)`);
+  assert.ok(same.dA < 0 && same.dB < 0, 'same spin: both lose');
+});

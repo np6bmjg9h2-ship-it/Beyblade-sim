@@ -49,6 +49,12 @@ export const PHYSICS = {
   // mark; above it the lock slips burstRate notches per unit of excess stress.
   burstMinStress: 0.45,
   burstRate: 0.75,
+  // Rubber ring edges (2026-10-19): rubber on polycarbonate grips at about
+  // mu 0.6 and loses little grip with sliding speed. Spin transfer comes from
+  // the friction impulse itself: on an opposite-spin contact the faster
+  // surface drags the slower one along, so the lower-spin top gains spin.
+  rubberMu: 0.6,
+  rubberWeaken: 4, // rubber's slip weakening speed is this many times vWeaken
 };
 
 // ---------------------------------------------------------------- contacts
@@ -61,7 +67,7 @@ class Contact {
   }
   reset() {
     this.type = ''; this.A = null; this.B = null; this.depth = 0;
-    this.mu = 0; this.e = 0; this.torsion = 0;
+    this.mu = 0; this.e = 0; this.torsion = 0; this.rubber = 0;
     this.kN = 0; this.kT1 = 0; this.kT2 = 0; this.kTw = 0;
     this.lN = 0; this.lT1 = 0; this.lT2 = 0; this.lTw = 0;
     this.targetVn = 0; this.vn0 = 0; this.wN = 0; this.wF = 0;
@@ -122,7 +128,7 @@ function prepare(c) {
   if (c.type === 'top' || c.type === 'wall') {
     const vt = Math.sqrt(Math.max(0, _va.lengthSq() - c.vn0 * c.vn0));
     c.slip = vt;
-    c.mu /= 1 + vt / PHYSICS.vWeaken;
+    c.mu /= 1 + vt / (PHYSICS.vWeaken * (1 + (PHYSICS.rubberWeaken - 1) * c.rubber));
   }
   if (c.depth < 0) {
     // speculative: separated by a small gap; only constrain if the gap closes this substep
@@ -769,6 +775,9 @@ export class Simulation {
     // minor (slow, grinding) contacts: grindLoss channel scales their friction
     const closing = -((B.v.x - A.v.x) * nhx + (B.v.z - A.v.z) * nhz);
     if (closing < 0.35) fr *= Math.sqrt(A.mods.grindLoss * B.mods.grindLoss);
+    // a rubber edge grips whatever it meets
+    c.rubber = Math.max(la.rubber || 0, lb.rubber || 0);
+    if (c.rubber > 0) fr += (PHYSICS.rubberMu - fr) * c.rubber;
     c.mu = fr * (1 - Math.max(la.freeSpin || 0, lb.freeSpin || 0));
     this.contacts.push(c);
   }
