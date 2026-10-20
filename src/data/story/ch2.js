@@ -68,7 +68,7 @@ export default {
       ],
       win: [L('rook', 'Okay, okay! A deal’s a deal.'), L('rook', 'Spring Lock. Five notches. Try not to need them.')],
       lose: [L('rook', 'CRACK! Into the jar it goes!'), L('hollis', '(over the phone) A heavier disc and a lock with more notches, {player}. Survive his first rush.')],
-      reward: { items: [{ base: 'lock_spring', rarity: 'rare' }], flags: ['ch2_edge'], arenas: ['edgebreaker'] } },
+      reward: { items: [{ base: 'lock_spring', rarity: 'rare' }], flags: ['ch2_edge'], arenas: ['edgebreaker'], patterns: ['herd'] } },
     { id: 'ch2_rook_after', type: 'scene', location: 'Midnight Market — closing time',
       lines: [
         L('narrator', 'The stalls are folding up. Rook is the last one left, turning the jar slowly under a streetlight.'),
@@ -152,7 +152,7 @@ export default {
       ],
       win: [L('mirelle', '...That was not in my notes.'), L('mirelle', 'Fine. You’re worth a chapter. Don’t let it go to your head.')],
       lose: [L('mirelle', 'As calculated.'), L('orrery', 'She waits for you to come to her. Do not.')],
-      reward: { flags: ['ch2_crystal'], arenas: ['crystal'], credits: 250 } },
+      reward: { flags: ['ch2_crystal'], arenas: ['crystal'], credits: 250, patterns: ['feint'] } },
     { id: 'ch2_sora_cameo', type: 'scene', location: 'Hotel rooftop — evening call',
       lines: [
         L('narrator', 'The city lights stretch to the horizon. Your phone buzzes: Sora, calling from a bunk in a hostel.'),

@@ -11,6 +11,7 @@ import { Rng, mixSeeds } from '../core/rng.js';
 import { Vec3, clamp } from '../core/math.js';
 import { Arena } from '../physics/arena.js';
 import { TopBody } from '../physics/topBody.js';
+import { newPattern, patternSteer, PATTERNS, NUDGE, BREAK, BREAK_TICKS } from './playbook.js';
 import { openness, SKILL_SPIRIT, PUNISH_WINDOW, JUDGE, JUDGE_STRIKE_J, JUDGE_HEAVY_J } from './skillRules.js';
 import { Simulation, TICK } from '../physics/simulation.js';
 import { ARENA_INDEX } from '../data/arenas.js';
@@ -98,7 +99,7 @@ export const CLASH_BAND = 0.15;
 // Battle rules revision, stored in replays. Raise it whenever a rule change
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
-export const RULES_REV = 6; // 6: judges' cards on time, spirit for initiative, rubber ring edges
+export const RULES_REV = 7; // 6: judges' cards on time, spirit for initiative, rubber ring edges; 7: playbook patterns
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
 // (struck 0.5 -> 0.4 on 2026-10-19: initiative earns more of the spirit)
@@ -186,6 +187,7 @@ export class Battle extends Emitter {
       f.roundWear = {};
       f.roundWearCauses = {};
       f.lastCollision = -10;
+      f.pattern = null;
       f.hadLowSpin = false;
       f.outAngle = null;
       const spinOpts = f.gear.spinMech === 'dual' ? ['R', 'L'] : [f.gear.spinMech];
@@ -504,13 +506,14 @@ export class Battle extends Emitter {
         if (this.rec) this.recordControls(f.index, c);
       }
       else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability, roundTime: this.rules.decisionAtTime ? this.roundTime : null });
+      c = this.runPattern(f, opp, c);
       f.controls = c;
       this.applyControls(f, opp, c);
     }
     for (const f of this.fighters) {
       if (!f.launch.launched) continue;
       const opp = this.fighters[1 - f.index];
-      f.ability.update(TICK, { opponent: opp.launch.launched ? opp : null, steer: f.controls.steer });
+      f.ability.update(TICK, { opponent: opp.launch.launched ? opp : null, steer: f.controls.dashSteer || f.controls.steer });
       f.mods.tick(TICK);
       f.mods.evaluate(this.conditionContext(f, opp), f.top.mods);
     }
@@ -533,10 +536,45 @@ export class Battle extends Emitter {
 
   recordControls(i, c) {
     const flags = (c.dash ? 1 : 0) | (c.counter ? 2 : 0) | (c.ability1 ? 4 : 0) | (c.ability2 ? 8 : 0) | (c.ultimate ? 16 : 0) | (c.tactical1 ? 32 : 0) | (c.tactical2 ? 64 : 0) | (c.brace ? 128 : 0);
-    const key = `${c.steer.x},${c.steer.z},${flags}`;
+    const key = `${c.steer.x},${c.steer.z},${flags},${c.pattern || ''}`;
     if (this._recLast[i] === key) return;
     this._recLast[i] = key;
-    this.rec.controls.push([this.round, this.roundTicks, i, c.steer.x, c.steer.z, flags]);
+    // the playbook trigger ('id:variant') rides along; playback recomputes the pattern's steer
+    const row = [this.round, this.roundTicks, i, c.steer.x, c.steer.z, flags];
+    if (c.pattern) row.push(c.pattern);
+    this.rec.controls.push(row);
+  }
+
+  // Playbook: a D-pad trigger starts a pattern; while it runs it steers, the
+  // stick nudges it (NUDGE..BREAK) or, held past BREAK, ends it. Returns the
+  // controls to apply (a copy when the pattern steers; the input is never
+  // changed, so a frame that runs several ticks sees the same raw input).
+  runPattern(f, opp, c) {
+    // (a frame that runs several ticks repeats its input: one press, one start)
+    if (c.pattern && !(f.pattern && f.patternKey === c.pattern && f.pattern.startTick === this.roundTicks - 1)) {
+      const [id, v] = String(c.pattern).split(':');
+      const st = newPattern(id, v === '1', this.roundTicks);
+      if (st) {
+        st.startTime = this.battleTime;
+        f.pattern = st;
+        f.patternKey = c.pattern;
+        this.emit('playbook', { fighter: f, id, variant: st.variant, phase: 'start' });
+      }
+    }
+    const st = f.pattern;
+    if (!st) return c;
+    const end = () => { f.pattern = null; this.emit('playbook', { fighter: f, id: st.id, phase: 'end', noTarget: !!st.noTarget }); return c; };
+    if (!f.top.active || !opp.top?.active || this.phase !== 'battle') return end();
+    const m = dm.hypot(c.steer.x, c.steer.z);
+    if (m >= BREAK) { if (++st.breakTicks >= BREAK_TICKS) return end(); } else st.breakTicks = 0;
+    const [sx, sz] = patternSteer(st, { t: f.top, o: opp.top, arena: this.arena, tick: this.roundTicks, meR: f.top.spec.radius, oppR: opp.top.spec.radius, contact: f.lastCollision > st.startTime });
+    if (st.done) return end();
+    let x = Math.round(sx * 64) / 64, z = Math.round(sz * 64) / 64;
+    if (m >= NUDGE) { x += 0.6 * c.steer.x; z += 0.6 * c.steer.z; }
+    const n = dm.hypot(x, z);
+    if (n > 1) { x /= n; z /= n; }
+    const steer = new Vec3(x, 0, z);
+    return { ...c, steer, dashSteer: PATTERNS[st.id].dashAim === 'foe' ? new Vec3() : steer, patternId: st.id, patternPhase: st.phase };
   }
 
   // Everything needed to re-simulate this match exactly.
@@ -554,7 +592,7 @@ export class Battle extends Emitter {
     if (!top.active) { top.control.steer.set(0, 0, 0); return; }
     top.control.steer.set(c.steer.x, 0, c.steer.z);
     if (this.phase === 'finishing') return;
-    const ctx = { opponent: opp.launch.launched ? opp : null, steer: c.steer };
+    const ctx = { opponent: opp.launch.launched ? opp : null, steer: c.dashSteer || c.steer };
     f.ability.setBrace(!!c.brace);
     if (c.dash) f.ability.technique('dash', ctx);
     if (c.counter) f.ability.technique('counter', ctx);
@@ -984,6 +1022,7 @@ export class ReplayInput {
     if (!e || e[0] !== round) return c;
     c.steer.set(e[3], 0, e[4]);
     const fl = e[5];
+    if (e[6]) c.pattern = e[6];
     c.dash = !!(fl & 1); c.counter = !!(fl & 2); c.ability1 = !!(fl & 4); c.ability2 = !!(fl & 8); c.ultimate = !!(fl & 16); c.tactical1 = !!(fl & 32); c.tactical2 = !!(fl & 64); c.brace = !!(fl & 128);
     return c;
   }

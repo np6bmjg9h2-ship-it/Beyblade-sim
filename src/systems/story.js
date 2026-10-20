@@ -14,6 +14,7 @@ import { grantUnlock } from './tournament.js';
 import { itemName } from './items.js';
 import { validateLoadout } from './loadout.js';
 import { rivalPlan, rivalParticipant, rivalItems, markSeen } from './rivals.js';
+import { PATTERNS } from '../game/playbook.js';
 
 export const STORY_DIFFICULTY = {
   story: { name: 'Story', mul: 0.75, desc: 'Opponents launch and react less precisely. For enjoying the story.' },
@@ -108,6 +109,12 @@ export function grantStoryReward(profile, key, reward) {
   if (!reward) return out;
   for (const f of reward.flags || []) { S.flags[f] = true; out.flags.push(f); }
   for (const a of reward.arenas || []) if (grantUnlock(profile, 'arena:' + a)) out.unlocks.push('arena:' + a);
+  // patterns are taught like flags (every time), so players who already
+  // cleared the node learn them on a replay
+  for (const id of reward.patterns || []) {
+    const pb = profile.playbook;
+    if (pb && PATTERNS[id] && !pb.owned.includes(id)) { pb.owned.push(id); out.unlocks.push('pattern:' + id); }
+  }
   if (S.rewarded[key]) { out.repeat = true; return out; }
   S.rewarded[key] = true;
   if (reward.credits) { profile.currency.credits += reward.credits; out.credits = reward.credits; }
@@ -121,6 +128,7 @@ export function grantStoryReward(profile, key, reward) {
   }
   for (const t of reward.techniques || []) if (grantUnlock(profile, 'technique:' + t)) out.unlocks.push('technique:' + t);
   for (const t of reward.titles || []) if (grantUnlock(profile, 'title:' + t)) out.unlocks.push('title:' + t);
+
   return out;
 }
 
@@ -133,7 +141,7 @@ export function rewardLines(r) {
   if (r.loadout) out.push(`New loadout “${r.loadout}” equipped`);
   for (const u of r.unlocks) {
     const [kind, val] = u.split(':');
-    out.push(kind === 'arena' ? `Stadium unlocked: ${val}` : kind === 'technique' ? `Technique learned: ${val}` : `Title earned: ${val}`);
+    out.push(kind === 'arena' ? `Stadium unlocked: ${val}` : kind === 'technique' ? `Technique learned: ${val}` : kind === 'pattern' ? `Playbook pattern learned: ${PATTERNS[val]?.name || val} (equip it to a D-pad slot)` : `Title earned: ${val}`);
   }
   return out;
 }

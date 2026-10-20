@@ -7,8 +7,10 @@ import { MAX_LEAN, LAUNCH_RING } from './launch.js';
 import { TECHNIQUE_INDEX } from '../data/launchers.js';
 import { emptyControls } from './ai.js';
 import * as dm from '../core/dmath.js';
+import { DEFAULT_PLAYBOOK } from './playbook.js';
 
 const CHORD_WINDOW = 0.1;
+const DOUBLE_TAP = 0.25; // s: a second press of the same slot plays the pattern's variant
 
 export class HumanController {
   constructor(app, battle, index) {
@@ -16,7 +18,8 @@ export class HumanController {
     this.battle = battle;
     this.index = index;
     this.leanVec = { x: 0, z: 0 };
-    this.autopilot = null; // { kind, t }
+    this.lastTap = null; // { slot, t } for the double-tap variant
+    this.clock = 0;
     this.bumperPending = null; // { which, t }
     this.wasCharging = false;
     this.controls = emptyControls();
@@ -109,20 +112,23 @@ export class HumanController {
     const input = this.app.input;
     const c = this.controls;
     c.dash = c.counter = c.ability1 = c.ability2 = c.ultimate = c.tactical1 = c.tactical2 = false;
+    c.pattern = null;
+    this.clock += dt;
     const ctx = 'battle';
     const { fx, fz, rx, rz } = this.basis();
     const sx = input.value('steer_x', ctx), sy = input.value('steer_y', ctx);
     c.steer.set(rx * sx - fx * sy, 0, rz * sx - fz * sy);
     const m = dm.hypot(c.steer.x, c.steer.z);
     if (m > 1) c.steer.scale(1 / m);
-    // d-pad quick commands: short autopilot steering
-    const cmds = { cmd_up: 'center', cmd_down: 'evade', cmd_left: 'circleL', cmd_right: 'circleR' };
-    for (const [a, kind] of Object.entries(cmds)) if (input.pressed(a, ctx)) this.autopilot = { kind, t: 1.5 };
-    if (this.autopilot && m < 0.2) {
-      this.autopilot.t -= dt;
-      this.autoSteer(c.steer, this.autopilot.kind);
-      if (this.autopilot.t <= 0) this.autopilot = null;
-    } else if (m >= 0.2) this.autopilot = null;
+    // d-pad: the playbook. A press starts the slot's pattern (the battle runs
+    // it); a second press within DOUBLE_TAP plays its variant.
+    const slots = this.app.profile?.playbook?.slots || DEFAULT_PLAYBOOK;
+    ['cmd_up', 'cmd_down', 'cmd_left', 'cmd_right'].forEach((a, i) => {
+      if (!input.pressed(a, ctx) || !slots[i]) return;
+      const dbl = this.lastTap && this.lastTap.slot === i && this.clock - this.lastTap.t < DOUBLE_TAP;
+      c.pattern = `${slots[i]}:${dbl ? 1 : 0}`;
+      this.lastTap = dbl ? null : { slot: i, t: this.clock };
+    });
     c.brace = input.held('brace', ctx);
     if (input.pressed('dash', ctx)) c.dash = true;
     if (input.pressed('counter', ctx)) c.counter = true;
@@ -142,23 +148,5 @@ export class HumanController {
       if (this.bumperPending.t <= 0) { c[this.bumperPending.which] = true; this.bumperPending = null; }
     }
     return c;
-  }
-
-  autoSteer(out, kind) {
-    const f = this.fighter;
-    const t = f.top;
-    const opp = this.battle.fighters[1 - this.index].top;
-    const v = new Vec3();
-    if (kind === 'center') v.set(-t.p.x, 0, -t.p.z).scale(12);
-    else if (kind === 'evade') { v.set(t.p.x - opp.p.x, 0, t.p.z - opp.p.z).normalize(); v.x -= t.p.x * 4; v.z -= t.p.z * 4; }
-    else {
-      const r = Math.max(1e-3, dm.hypot(t.p.x, t.p.z));
-      const s = kind === 'circleL' ? 1 : -1;
-      v.set((-t.p.z / r) * s, 0, (t.p.x / r) * s);
-      v.x -= t.p.x * 2; v.z -= t.p.z * 2;
-    }
-    const m = dm.hypot(v.x, v.z);
-    if (m > 1) v.scale(1 / m);
-    out.copy(v);
   }
 }

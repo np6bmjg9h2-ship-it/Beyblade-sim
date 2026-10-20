@@ -6,6 +6,7 @@ import { createItem } from './items.js';
 import { validateItem } from './itemValidate.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
 import * as dm from '../core/dmath.js';
+import { PATTERNS, DEFAULT_PLAYBOOK } from '../game/playbook.js';
 
 export const SCHEMA_VERSION = 4;
 
@@ -51,6 +52,8 @@ export function newProfile(seed = Date.now()) {
     activeLoadout: 0,
     beasts: { orrery: { id: 'orrery', bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {}, nickname: null } },
     techniques: ['normal', 'power', 'controlled', 'bank'],
+    // D-pad patterns: the ones learned, and the four slots (up, down, left, right)
+    playbook: { owned: [...DEFAULT_PLAYBOOK], slots: [...DEFAULT_PLAYBOOK] },
     story: { chapter: 1, node: null, flags: {}, choices: {}, completed: [], seen: [] },
     tournaments: { history: [], active: null, ranking: { points: 0 }, records: {}, league: null },
     rivals: {},
@@ -153,6 +156,10 @@ export function normalizeProfile(p) {
     if (typeof L.id !== 'string') { let n = i + 1; while (p.loadouts.some((o) => o.id === `L${n}`)) n++; L.id = `L${n}`; }
   });
   if (!Number.isInteger(p.activeLoadout) || p.activeLoadout < 0 || p.activeLoadout >= p.loadouts.length) p.activeLoadout = 0;
+  // playbook: known pattern ids only; every slot holds an owned pattern or none
+  const pb = p.playbook;
+  pb.owned = [...new Set([...DEFAULT_PLAYBOOK, ...pb.owned.filter((id) => PATTERNS[id])])];
+  pb.slots = [0, 1, 2, 3].map((i) => (pb.owned.includes(pb.slots[i]) ? pb.slots[i] : pb.slots[i] === null ? null : DEFAULT_PLAYBOOK[i]));
   p.version = SCHEMA_VERSION;
   return p;
 }

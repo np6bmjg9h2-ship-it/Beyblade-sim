@@ -6,6 +6,7 @@
 import { ObjectiveTracker } from '../../game/objectives.js';
 import { h, btn } from '../ui.js';
 import { Battle, FINISH_NAMES, RULES_REV } from '../../game/battle.js';
+import { PATTERNS } from '../../game/playbook.js';
 import { HumanController } from '../../game/humanController.js';
 import { ARENA_INDEX } from '../../data/arenas.js';
 import { TECHNIQUE_INDEX } from '../../data/launchers.js';
@@ -274,6 +275,14 @@ export class BattleScreen {
         }
         if (involvesHuman(e.fighter)) app.input.rumble(1, 1, 400);
         break;
+      case 'playbook': {
+        // your pattern's callout; the opponent's pattern by name, to read and answer
+        const P = PATTERNS[e.id];
+        if (!P) break;
+        if (e.phase === 'start') this.notify(e.fighter.human ? `${P.callout.toUpperCase()}! · ${P.name}${e.variant ? ' (variant)' : ''}` : `${e.fighter.name}: ${P.name}`, e.fighter.human ? 'good' : 'bad');
+        else if (e.noTarget && e.fighter.human) this.notify(`${P.name}: no target near the rim`, 'info');
+        break;
+      }
       case 'roundEnd': this.showRoundResult(e); this.ui.refreshPrompts(); break;
       case 'matchEnd': this.onMatchEnd(e); break;
       case 'physicsRecovered': console.warn('Physics recovery triggered', e); break;
