@@ -1,4 +1,39 @@
-# Handoff — 2026-10-20
+# Handoff — 2026-10-20 (session 2)
+
+## Session 2 (2026-10-20): Rift Depth M1 done, Blender part art started
+
+Branch `claude/chaos-spin-arena-zero-ynh785`, commits `7c5312f..` (NOT
+pushed). Unit 246/246, browser scenario `rift` passes.
+
+- **Rift Depth M1 complete** (plan `.claude/research/reviews/rift-depth-plan.md` §3):
+  1 early-run fix (`src/systems/riftFit.js`: viable first offer + dry-streak
+  pity, consolation on loss, wall/drifter opener) `7c5312f`; 3 arena twists
+  Slick Ring + Glass Floor (`src/data/arenaTwists.js`, `resolveArena("base+twist")`)
+  `1c988b3`; 4 keystones `fbafaf2`; 2 boss weaknesses (`src/data/riftBosses.js`)
+  `0d2c63b`; 5 event pack + `run.flags` (`src/systems/riftFlags.js`) `be65b68`.
+  Agent reports: `.claude/research/reviews/rift-{bosses,keystones,events}-report.md`.
+- **Open Rift issues**: attack build 0/20 vs Mirelle (pre-existing; act pools of
+  3 kept for that reason, kits apply when a kit boss rolls); stamina 5% vs Sora;
+  Glass Floor drops defense 25% -> 16% on Standard (n=8, +-17); Cracked Mirror
+  duplicates stack (Coin Purse); twists steep/dome/thinrim/lowg not built.
+- **Blender part art (user request: "3d models with blender based on the
+  references, thinner parts")**: infra committed (`src/render/meshAsset.js`,
+  `tools/blender/parts-dump.mjs` -> `.tools/parts.json`, generic
+  `mesh-to-module.mjs <dir> <out.js> <EXPORT> <source.py>`). Three
+  technical-artist agents were STOPPED by the user early (only reference study
+  and before-screenshots done; no models). Worktrees left:
+  `.claude/worktrees/art-rings|art-discs|art-bases` (branches wt/art-*), briefs
+  in this session's history; notes in `.claude/research/reviews/art-*-report.md`.
+  Restart them with the same brief (Blender: `.tools/blender-4.5.9-windows-x64/blender.exe -b --factory-startup --python tools/blender/<slot>s.py -- .tools/<slot>-out`;
+  new `src/render/parts/<slot>Model.js` + small hook; procedural fallback).
+  Disc `thickness` is physics (stack + contact layer): thinning it is the
+  lead's job with a balance gate; baseline saved in the session scratchpad
+  (`balance-baseline-be65b68.json`, 8/pair all stadiums: 59/22/34/53/81).
+- Commit identity: `git -c user.name=Claude -c user.email=noreply@anthropic.com`,
+  no Co-Authored-By (CLAUDE.md). Ruflo swarm/memory used for the ledger
+  (namespace `patterns`, keys `rift-depth-m1-*`).
+
+---
 
 Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 `docs/CODEBASE.md` the architecture and invariants. Branch
