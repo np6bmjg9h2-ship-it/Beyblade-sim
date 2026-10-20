@@ -16,6 +16,7 @@ import { opponentFrom } from './modes.js';
 import { rivalParticipant, rivalPlan } from './rivals.js';
 import { bossKit, weaknessSource } from '../data/riftBosses.js';
 import { buildBattleFx } from './synergy.js';
+import { flagSources, addFlagAffixes } from './riftFlags.js';
 
 const addTo = (o, x) => { for (const [k, v] of Object.entries(x || {})) if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 
@@ -111,7 +112,7 @@ export function riftParticipant(profile, run) {
     id: 'player', name: profile.player.name, human: true,
     build: parts, launcher, cable, beast,
     spin: run.spin || 'R', technique: run.technique || 'normal',
-    modSources: [...sets.sources, ...sk.sources, ...fx.mods, ...forgeSources(run), ...syn.sources],
+    modSources: [...sets.sources, ...sk.sources, ...fx.mods, ...forgeSources(run), ...syn.sources, ...flagSources(run, null, 'player').mods], // rift flags (riftFlags.js)
     reactive: syn.reactive, synergies: syn.ids,
     launchMods, skillMods, knownTechniques: profile.techniques, color: profile.player.color,
     rift: { status, statusPower, statusTime, sweet: fx.sweet, sweetMul: fx.sweetMul, sweetSpirit: fx.sweetSpirit, secondWind: fx.secondWind, keystones: fx.keystones },
@@ -152,6 +153,7 @@ export function nodeOpponent(profile, run, node) {
   }
   const v = node.vault ? VAULT_INDEX[node.vault] : null;
   if (v?.oppMods) p.modSources.push({ id: 'vault:' + v.id, name: v.name, origin: 'rift', cond: { type: 'always' }, deltas: v.oppMods });
+  names.push(...addFlagAffixes(p, run, node)); // rift flags (riftFlags.js): Quiet Library's extra elite trait
   if (names.length && node.type !== 'boss') p.name = `${names.join(' ')} ${p.name}`;
   p.affixNames = names;
   return p;

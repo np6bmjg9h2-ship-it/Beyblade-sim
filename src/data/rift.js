@@ -128,6 +128,18 @@ export const RIFT_EVENTS = [
   { id: 'smith', name: 'Wandering Smith', desc: 'A travelling smith offers one free forge job.' },
   { id: 'wheel', name: 'Spin the Wheel', desc: 'Pay 30 shards to spin: shards, a charm, or a curse.' },
   { id: 'spring', name: 'Healing Spring', desc: 'Clear water. Recover a heart (or gain 40 shards if you are full).' },
+  // Event pack: choices with a visible cost; lasting effects live in run.flags (systems/riftFlags.js).
+  { id: 'gambler', name: 'Gambling Spinner', desc: 'A grinning spinner flips a coin. "Heads, you win. Tails, I keep the stake."', odds: 0.5, stake: 40, payout: 100 },
+  { id: 'echo', name: 'The Echo', desc: 'A rival\'s afterimage spins in the dark. It will lend you its strength for the next boss fight, for a price in blood.', heartCost: 1, offers: 2,
+    gifts: [
+      { id: 'fury', name: 'Echo of Fury', desc: 'Blade face +3°, restitution +12%.', mods: [['faceAngle', 3 * D2R], ['restitution', 0.12]] },
+      { id: 'stone', name: 'Echo of Stone', desc: 'Lock strength +35%, knockback taken -15%.', mods: [['burstThreshold', 0.35], ['restitutionWhenHit', -0.15]] },
+      { id: 'patience', name: 'Echo of Patience', desc: 'Tip spin drag -25%.', mods: [['tipSpinDrag', -0.25]] },
+      { id: 'gale', name: 'Echo of the Gale', desc: 'Steering +30%, steering efficiency +20%.', mods: [['steerForce', 0.3], ['steerEfficiency', 0.2]] },
+    ] },
+  { id: 'mirror', name: 'Cracked Mirror', desc: 'A mirror split down the middle. What it reflects comes back twice, and something else comes through the crack.', heartCost: 1 },
+  { id: 'library', name: 'Quiet Library', desc: 'Dusty battle notes. Study them for free and word gets out to the next elite; or pay the librarian to keep it quiet.', fee: 60, feePerAct: 15 },
+  { id: 'arena', name: 'Abandoned Arena', desc: 'A wounded spinner still circles an old stadium, guarding a case of parts.', winChance: 0.6, heartCost: 1, scavenge: 25, scavengePerAct: 5 },
 ];
 export const EVENT_INDEX = Object.fromEntries(RIFT_EVENTS.map((e) => [e.id, e]));
 

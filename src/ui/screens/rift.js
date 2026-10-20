@@ -23,6 +23,7 @@ import {
 } from '../../systems/rift.js';
 import { riftParticipant, nodeOpponent, nodeRules, familyCounts } from '../../systems/riftBattle.js';
 import { bossKit, weaknessText, nodeArena } from '../../data/riftBosses.js';
+import { flagAffixes, flagNotes } from '../../systems/riftFlags.js';
 import { BattleScreen } from './battle.js';
 import { RiftRewardScreen, RiftPartsScreen, RiftSummaryScreen, runStatus, heartsLine } from './riftReward.js';
 import { RiftNodeScreen } from './riftNodes.js';
@@ -30,8 +31,9 @@ import { RiftNodeScreen } from './riftNodes.js';
 const TABS = [{ id: 'run', label: 'Run' }, { id: 'talents', label: 'Talents' }, { id: 'records', label: 'Records' }];
 
 // What a battle node holds beyond a plain fight, as sentences.
-function scoutLines(node) {
+function scoutLines(run, node) {
   const out = [];
+  for (const a of flagAffixes(run, node)) out.push(`Heard of you (Quiet Library): ${AFFIX_INDEX[a].name}: ${AFFIX_INDEX[a].desc}`);
   const kit = node.type === 'boss' ? bossKit(node.rival) : null;
   if (kit) out.push(`${kit.weakness.name}: ${weaknessText(kit)} ${kit.weakness.hint}`);
   if (node.twist) out.push(`${TWIST_INDEX[node.twist].name}: ${twistText(node.twist)}`);
@@ -129,7 +131,8 @@ export class RiftScreen {
       h('div', { class: 'rift-act' }, h('span', { class: 'rift-act-n' }, `Rift ${run.act + 1} of ${RIFT_ACTS.length}`), h('h2', {}, RIFT_ACTS[run.act].name)),
       run.pending.length ? btn(`Claim rewards (${run.pending.length})`, () => this.flow(), { class: 'primary big', id: 'rift-claim' }) : null,
       ...A.floors.map((nodes, f) => floorRow(nodes, f)), floorRow([A.boss], FLOORS_PER_ACT));
-    return h('div', { class: 'col gap rift-run' }, runStatus(P, run), h('div', { class: 'ws-cols two-wide rift-cols' }, left, right));
+    const notes = flagNotes(run);
+    return h('div', { class: 'col gap rift-run' }, runStatus(P, run), notes.length ? h('div', { class: 'small muted' }, notes.join(' ')) : null, h('div', { class: 'ws-cols two-wide rift-cols' }, left, right));
   }
 
   nodeButton(n, open, done) {
@@ -193,7 +196,7 @@ export class RiftScreen {
     if (!currentChoices(run).some((n) => n.id === node.id)) return;
     // scout sheet: a twisted floor, elite traits or a vault rule are read
     // before committing; backing out spends nothing
-    const scout = scoutLines(node);
+    const scout = scoutLines(run, node);
     if (scout.length && !(await this.ui.confirm(`${NODE_TYPES[node.type].name} · ${ARENA_INDEX[nodeArena(node)]?.name}`, scout.join(' '), { yes: 'Fight', no: 'Back' }))) return;
     enterNode(run, node);
     // an unfinished battle (closed tab, reload) is offered again, never skipped

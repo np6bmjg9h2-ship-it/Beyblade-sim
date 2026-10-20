@@ -13,6 +13,7 @@ import {
 } from '../data/rift.js';
 import { bondLevel, BEAST_INDEX } from '../data/beasts.js';
 import { legalTwists } from '../data/arenaTwists.js';
+import { consumeFlags } from './riftFlags.js';
 import { validateLoadout } from './loadout.js';
 import { makeUid } from './items.js';
 import { addItem } from './loot.js';
@@ -191,6 +192,8 @@ export function completeNode(profile, run) {
 export function recordBattle(profile, run, node, { won, how = null, forfeit = false } = {}) {
   run.stats.battles++;
   const out = { won, shards: 0, essence: 0, met: true, heart: null };
+  // event flags are spent by the fight that used them (an Echo waits until its boss is beaten)
+  if (won || node.type !== 'boss') for (const name of consumeFlags(run, node)) run.log.push(`${name} spent.`);
   if (!won) {
     run.stats.losses++;
     out.heart = loseHeart(profile, run);

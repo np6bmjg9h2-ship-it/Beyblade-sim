@@ -11,7 +11,8 @@ import { NODE_TYPES, STATUS_IDS, STATUSES, EVENT_INDEX, FORGE_BONUS, FORGE_MAX_L
 import { baseOf } from '../../systems/items.js';
 import { riftState, nodeById, maxHearts } from '../../systems/rift.js';
 import { restockPrice } from '../../systems/riftLoot.js';
-import { traderStock, buy, restock, forgeState, forgeCost, forgeJob, shrineOffers, takeShrine, campRest, campTune, eventAction, findRunItem } from '../../systems/riftNodes.js';
+import { traderStock, buy, restock, forgeState, forgeCost, forgeJob, shrineOffers, takeShrine, campRest, campTune, eventAction, eventOptions, findRunItem } from '../../systems/riftNodes.js';
+import { flagNotes } from '../../systems/riftFlags.js';
 import { offerCard, partCard, charmCard, runStatus, chooseDrop } from './riftReward.js';
 
 const JOB_NAMES = { upgrade: 'Upgrade', reroll: 'Reroll trait', engrave: 'Engrave a trait', infuse: 'Infuse', enhance: 'Enhance charm' };
@@ -141,6 +142,7 @@ export class RiftNodeScreen {
   event() {
     const P = this.P, run = this.run, node = this.node;
     const E = EVENT_INDEX[node.event];
+    if (PACK_EVENTS.includes(node.event)) return this.packEvent(E);
     if (node.event === 'smith' && node.free) return h('div', { class: 'col gap' }, h('div', { class: 'small' }, 'The smith rolls up their sleeves: one job, free of charge.'), this.forge());
     const act = (label, action, okText, opts = {}) => btn(label, async () => {
       const r = eventAction(P, run, node, action);
@@ -156,9 +158,32 @@ export class RiftNodeScreen {
     };
     return h('div', { class: 'panel col gap' }, h('div', {}, E?.desc || ''), node.done ? h('div', { class: 'small muted' }, 'Nothing more happens here.') : actions[node.event]?.());
   }
+
+  // Event pack: one card per choice, gain and cost shown before the pick.
+  packEvent(E) {
+    const P = this.P, run = this.run, node = this.node;
+    const notes = flagNotes(run).map((t) => h('div', { class: 'small', style: { color: '#c6b8ff' } }, t));
+    if (node.done) return h('div', { class: 'panel col gap' }, h('div', {}, E.desc), h('div', { class: 'small muted' }, node.result || 'Nothing more happens here.'), ...notes);
+    const opts = eventOptions(P, run, node);
+    const card = (o) => h('div', { class: 'loot-card shrine-card', style: { '--rc': NODE_TYPES.event.color } },
+      ...[h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Choice')), h('div', { class: 'lc-name' }, o.label),
+        h('div', { class: 'lc-desc' }, h('b', { style: { color: '#7fe3a8' } }, 'Gain: '), o.gain),
+        h('div', { class: 'lc-desc' }, h('b', { style: { color: '#ff7a8a' } }, 'Cost: '), o.cost),
+        o.disabled ? h('div', { class: 'small muted' }, o.disabled) : null].filter(Boolean));
+    const cards = opts.map((o) => btn(card(o), async () => {
+      const r = eventAction(P, run, node, o.action, o.arg);
+      if (r.ok) this.note = describeEvent(r);
+      await this.after(r, null);
+    }, { class: 'loot-btn', id: `ev-${o.action}${o.arg ?? ''}`, disabled: !!o.disabled, desc: o.disabled || `${o.label}. Gain: ${o.gain}. Cost: ${o.cost}.` }));
+    return h('div', { class: 'col gap' }, h('div', { class: 'panel' }, E.desc), ...notes,
+      cards.length ? h('div', { class: 'loot-row', 'data-wrap': '', 'data-scroll': 'event' }, cards) : h('div', { class: 'small muted' }, 'You have nothing to offer here. Leave when you are ready.'));
+  }
 }
 
+const PACK_EVENTS = ['gambler', 'echo', 'mirror', 'library', 'arena'];
+
 function describeEvent(r) {
+  if (r.text) return r.text;
   if (r.charms) return r.charms.length ? `Inside: ${r.charms.map((c) => CHARM_INDEX[c.id].name).join(', ')}.` : 'The box was empty.';
   if (r.wheel) return r.wheel.kind === 'shards' ? `+${r.wheel.amount} shards!` : r.wheel.charm ? `${r.wheel.kind === 'curse' ? 'Cursed! ' : ''}${CHARM_INDEX[r.wheel.charm.id].name} joins your charms.` : 'Nothing.';
   if (r.healed) return 'You recover a heart.';

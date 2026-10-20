@@ -2,9 +2,10 @@
 // events). Node state (stock, forge uses, what was taken) is stored on the
 // node object inside run.map, so it survives reloads and can't be rerolled.
 
-import { FORGE_USES, FORGE_MAX_LEVEL } from '../data/rift.js';
+import { FORGE_USES, FORGE_MAX_LEVEL, EVENT_INDEX } from '../data/rift.js';
 import { CHARM_INDEX } from '../data/riftCharms.js';
-import { rollTraderStock, restockPrice, forgePrice, forgeCheck, applyForge, rollShrine, spinWheel, openCuriosity, rollPartChoice, rollCharms, rollCharm, runRng } from './riftLoot.js';
+import { rollTraderStock, restockPrice, forgePrice, forgeCheck, applyForge, rollShrine, spinWheel, openCuriosity, rollPartChoice, rollCharms, rollCharm, rollBoons, runRng } from './riftLoot.js';
+import { ECHO_GIFTS } from './riftFlags.js';
 import { spend, takePart, addCharm, heal, maxHearts, loseHeart, bagFull } from './rift.js';
 
 const fail = (reason) => ({ ok: false, reason });
@@ -133,8 +134,9 @@ export function campTune(profile, run, node, uid) {
 
 // ---------------------------------------------------------------- events
 
-export function eventAction(profile, run, node, action) {
+export function eventAction(profile, run, node, action, arg = null) {
   if (node.done) return fail('Nothing more happens here.');
+  if (PACK[node.event] && action !== 'leave') return packAction(profile, run, node, action, arg);
   const out = { ok: true };
   switch (node.event) {
     case 'curiosity':
@@ -170,5 +172,112 @@ export function eventAction(profile, run, node, action) {
   }
   if (action !== 'leave' && node.event !== 'smith') node.done = true;
   if (action === 'leave') node.done = true;
+  return out;
+}
+
+// ---------------------------------------------------------------- event pack
+// Gambling Spinner, The Echo, Cracked Mirror, Quiet Library, Abandoned Arena.
+// eventOptions lists every choice with its gain and cost (and why it is shut)
+// before the player picks; packAction resolves it on the run's seeded rng.
+
+const PACK = { gambler: 1, echo: 1, mirror: 1, library: 1, arena: 1 };
+const rarityOf = (h) => CHARM_INDEX[h.id]?.rarity;
+const charmName = (h) => CHARM_INDEX[h.id]?.name || h.id;
+const libraryFee = (run) => EVENT_INDEX.library.fee + EVENT_INDEX.library.feePerAct * run.act;
+const scavengeShards = (run) => EVENT_INDEX.arena.scavenge + EVENT_INDEX.arena.scavengePerAct * run.act;
+const pct = (x) => `${Math.round(x * 100)}%`;
+const lowHearts = (run, n) => (run.hearts <= n ? 'You need more than one heart for this.' : '');
+
+// The Echo's offer: two gifts, rolled once and kept on the node.
+export function echoOffers(run, node) {
+  if (!node.echoes) node.echoes = runRng(run, 'echo-offer', node.id).shuffle(Object.keys(ECHO_GIFTS)).slice(0, EVENT_INDEX.echo.offers);
+  return node.echoes;
+}
+
+// Every choice: { action, arg, label, gain, cost, disabled } (disabled = reason or '').
+export function eventOptions(profile, run, node) {
+  const E = EVENT_INDEX[node.event] || {};
+  const o = (action, arg, label, gain, cost, disabled = '') => ({ action, arg, label, gain, cost, disabled });
+  const charmsOf = (pred) => run.charms.map((h, i) => ({ h, i })).filter(({ h }) => pred(rarityOf(h)));
+  switch (node.event) {
+    case 'gambler': return [
+      ...charmsOf((r) => NEXT_RARITY[r]).map(({ h, i }) => o('wager', i, `Wager ${charmName(h)}`, `${pct(E.odds)}: a random ${NEXT_RARITY[rarityOf(h)]} charm in its place`, `${pct(1 - E.odds)}: ${charmName(h)} is lost`)),
+      o('stake', null, `Bet ${E.stake} shards`, `${pct(E.odds)}: ${E.payout} shards back`, `${E.stake} shards (lost on tails)`, run.shards < E.stake ? `Needs ${E.stake} shards.` : ''),
+    ];
+    case 'echo': return echoOffers(run, node).map((id) => o('gift', id, `Take the ${ECHO_GIFTS[id].name}`, `Next boss fight only: ${ECHO_GIFTS[id].desc.replace(/\.$/, '')}`, `${E.heartCost} heart now`, run.flags?.echo ? 'You already carry an echo.' : lowHearts(run, E.heartCost)));
+    case 'mirror': return [
+      ...charmsOf((r) => r === 'common' || r === 'rare').map(({ h, i }) => o('reflect', i, `Reflect ${charmName(h)}`, `A second ${charmName(h)} (counts twice, and for its family)`, 'A random cursed charm comes through the crack')),
+      ...charmsOf((r) => r === 'cursed').map(({ h, i }) => o('smash', i, `Smash it on ${charmName(h)}`, `${charmName(h)} is destroyed`, `${E.heartCost} heart`, lowHearts(run, E.heartCost))),
+    ];
+    case 'library': return [
+      o('study', null, 'Study the notes', 'Choose a boon: +1 level', 'Your next elite gains an extra elite trait'),
+      o('pay', null, `Pay the librarian (${libraryFee(run)} shards)`, 'Choose a boon: +1 level, quietly', `${libraryFee(run)} shards`, run.shards < libraryFee(run) ? `Needs ${libraryFee(run)} shards.` : ''),
+    ];
+    case 'arena': return [
+      o('fight', null, 'Fight the wounded spinner', `${pct(E.winChance)}: choose one of three parts (better rarity)`, `${pct(1 - E.winChance)}: lose ${E.heartCost} heart`, lowHearts(run, E.heartCost)),
+      o('scavenge', null, 'Scavenge the stands', `${scavengeShards(run)} shards`, 'Nothing'),
+    ];
+    default: return [];
+  }
+}
+
+function packAction(profile, run, node, action, arg) {
+  const opt = eventOptions(profile, run, node).find((x) => x.action === action && (x.arg ?? null) === (arg ?? null));
+  if (!opt) return fail('That choice is not offered here.');
+  if (opt.disabled) return fail(opt.disabled);
+  const E = EVENT_INDEX[node.event];
+  const rng = runRng(run, 'event', node.event, node.id);
+  const out = { ok: true, choice: action };
+  run.flags ||= {};
+  if (action === 'wager') {
+    const old = run.charms[arg];
+    const next = rollCharm(run, rng, { rarities: [NEXT_RARITY[rarityOf(old)]] });
+    if (!next) return fail('The spinner has nothing better to put up.');
+    out.win = rng.chance(E.odds);
+    run.charms.splice(arg, 1);
+    if (out.win) { addCharm(profile, run, next); out.charm = next; out.text = `Heads! ${charmName(old)} becomes ${charmName(next)}.`; } else out.text = `Tails. The spinner pockets ${charmName(old)}.`;
+  } else if (action === 'stake') {
+    spend(run, E.stake);
+    out.win = rng.chance(E.odds);
+    if (out.win) run.shards += E.payout;
+    out.text = out.win ? `Heads! +${E.payout} shards.` : `Tails. ${E.stake} shards gone.`;
+  } else if (action === 'gift') {
+    loseHeart(profile, run);
+    run.flags.echo = arg;
+    out.text = `${ECHO_GIFTS[arg].name} follows you. It will fight beside you at the next boss.`;
+  } else if (action === 'reflect') {
+    const src = run.charms[arg];
+    const curse = rollCharm(run, rng, { rarities: ['cursed'] });
+    if (!curse) return fail('The crack has no curse left to give you.');
+    run.charms.push({ id: src.id, enhanced: false });
+    addCharm(profile, run, curse);
+    out.charm = curse;
+    out.text = `A second ${charmName(src)} joins you, and ${charmName(curse)} with it.`;
+  } else if (action === 'smash') {
+    const gone = run.charms[arg];
+    loseHeart(profile, run);
+    run.charms.splice(arg, 1);
+    out.text = `The mirror shatters, and ${charmName(gone)} with it.`;
+  } else if (action === 'study' || action === 'pay') {
+    const options = rollBoons(profile, run, rng);
+    if (!options.length) return fail('You already know everything these notes teach.');
+    if (action === 'pay') spend(run, libraryFee(run));
+    else run.flags.nextEliteAffix = (run.flags.nextEliteAffix || 0) + 1;
+    run.pending.push({ kind: 'boon', title: 'Quiet Library: study a boon (+1 level)', options });
+    out.text = action === 'pay' ? 'The librarian keeps your secret.' : 'Somewhere, an elite hears you were reading.';
+  } else if (action === 'fight') {
+    out.win = rng.chance(E.winChance);
+    if (out.win) {
+      const options = rollPartChoice(profile, run, node, 3, { rarityBoost: 1 });
+      if (options.length) run.pending.push({ kind: 'part', title: 'Abandoned Arena: take a part', options });
+      out.text = 'The wounded spinner topples. Its case is yours.';
+    } else { loseHeart(profile, run); out.text = 'It still has a bite. You limp away a heart lighter.'; }
+  } else if (action === 'scavenge') {
+    out.shards = scavengeShards(run);
+    run.shards += out.shards;
+    out.text = `You find ${out.shards} shards under the seats.`;
+  }
+  node.done = true;
+  node.result = out.text;
   return out;
 }
