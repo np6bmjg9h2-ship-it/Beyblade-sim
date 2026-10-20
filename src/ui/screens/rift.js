@@ -22,6 +22,7 @@ import {
   riftState, startRun, canStart, currentChoices, nodeById, enterNode, completeNode, recordBattle, maxHearts, buyTalent, talentCost, BATTLE_NODES, homeBound,
 } from '../../systems/rift.js';
 import { riftParticipant, nodeOpponent, nodeRules, familyCounts } from '../../systems/riftBattle.js';
+import { bossKit, weaknessText, nodeArena } from '../../data/riftBosses.js';
 import { BattleScreen } from './battle.js';
 import { RiftRewardScreen, RiftPartsScreen, RiftSummaryScreen, runStatus, heartsLine } from './riftReward.js';
 import { RiftNodeScreen } from './riftNodes.js';
@@ -31,6 +32,8 @@ const TABS = [{ id: 'run', label: 'Run' }, { id: 'talents', label: 'Talents' }, 
 // What a battle node holds beyond a plain fight, as sentences.
 function scoutLines(node) {
   const out = [];
+  const kit = node.type === 'boss' ? bossKit(node.rival) : null;
+  if (kit) out.push(`${kit.weakness.name}: ${weaknessText(kit)} ${kit.weakness.hint}`);
   if (node.twist) out.push(`${TWIST_INDEX[node.twist].name}: ${twistText(node.twist)}`);
   if (node.vault) out.push(`${VAULT_INDEX[node.vault].name}: ${VAULT_INDEX[node.vault].desc}`);
   else for (const a of node.affixes || []) out.push(`${AFFIX_INDEX[a].name}: ${AFFIX_INDEX[a].desc}`);
@@ -132,11 +135,13 @@ export class RiftScreen {
   nodeButton(n, open, done) {
     const T = NODE_TYPES[n.type];
     const lines = [];
-    if (n.arena) lines.push(ARENA_INDEX[n.arena]?.name + (n.twist ? ` · ${TWIST_INDEX[n.twist].name}` : ''));
+    const kit = n.type === 'boss' ? bossKit(n.rival) : null;
+    if (n.arena) lines.push(ARENA_INDEX[nodeArena(n)]?.name + (n.twist ? ` · ${TWIST_INDEX[n.twist].name}` : ''));
     if (n.type === 'boss') lines.push(CHARACTER_INDEX[n.rival]?.name || 'A rival');
+    if (kit) lines.push(`Weakness: ${kit.weakness.name}`);
     if (n.affixes?.length && n.type !== 'vault') lines.push(n.affixes.map((a) => AFFIX_INDEX[a]?.name).join(', '));
     if (n.vault) lines.push(VAULT_INDEX[n.vault]?.name);
-    const desc = `${T.desc}${n.vault ? ` ${VAULT_INDEX[n.vault].desc}` : ''}${n.affixes?.length && n.type !== 'vault' ? ` Elite trait: ${n.affixes.map((a) => `${AFFIX_INDEX[a].name} (${AFFIX_INDEX[a].desc})`).join(' ')}` : ''}${n.twist ? ` ${TWIST_INDEX[n.twist].name}: ${twistText(n.twist)}` : ''}${n.event ? ' What waits here is unknown until you arrive.' : ''}`;
+    const desc = `${T.desc}${n.vault ? ` ${VAULT_INDEX[n.vault].desc}` : ''}${n.affixes?.length && n.type !== 'vault' ? ` Elite trait: ${n.affixes.map((a) => `${AFFIX_INDEX[a].name} (${AFFIX_INDEX[a].desc})`).join(' ')}` : ''}${n.twist ? ` ${TWIST_INDEX[n.twist].name}: ${twistText(n.twist)}` : ''}${n.event ? ' What waits here is unknown until you arrive.' : ''}${kit ? ` Weakness: ${weaknessText(kit)} ${kit.weakness.hint}` : ''}`;
     const b = btn(h('div', { class: 'rift-node-in' }, h('div', { class: 'rn-type' }, T.name), ...lines.map((l) => h('div', { class: 'rn-sub' }, l))),
       () => this.choose(n), { class: 'rift-node type-' + n.type + (open ? ' open' : '') + (done ? ' done' : ''), id: 'node-' + n.id, disabled: !open, desc });
     b.style.setProperty('--nc', T.color);
@@ -189,7 +194,7 @@ export class RiftScreen {
     // scout sheet: a twisted floor, elite traits or a vault rule are read
     // before committing; backing out spends nothing
     const scout = scoutLines(node);
-    if (scout.length && !(await this.ui.confirm(`${NODE_TYPES[node.type].name} · ${ARENA_INDEX[node.arena]?.name}`, scout.join(' '), { yes: 'Fight', no: 'Back' }))) return;
+    if (scout.length && !(await this.ui.confirm(`${NODE_TYPES[node.type].name} · ${ARENA_INDEX[nodeArena(node)]?.name}`, scout.join(' '), { yes: 'Fight', no: 'Back' }))) return;
     enterNode(run, node);
     // an unfinished battle (closed tab, reload) is offered again, never skipped
     if (BATTLE_NODES.includes(node.type)) run.inBattle = node.id;
@@ -211,10 +216,10 @@ export class RiftScreen {
     if (node.rival) markSeen(P, node.rival);
     const session = {
       mode: 'rift', title: `${RIFT_ACTS[node.act].name} · ${NODE_TYPES[node.type].name}${node.twist ? ` · ${TWIST_INDEX[node.twist].name}` : ''}`,
-      arenaId: node.twist ? `${node.arena}+${node.twist}` : node.arena,
+      arenaId: node.twist ? `${node.arena}+${node.twist}` : nodeArena(node),
       format: node.type === 'boss' ? 'bo3' : 'single', seed: mixSeeds(node.seed, run.stats.battles),
       participants: [me, opp], difficulty: opp.difficulty, noRewards: true, rules: nodeRules(node),
-      riftInfo: { act: node.act, depth: run.depth, node: node.type, hearts: run.hearts, charms: run.charms.map((c) => c.id + (c.enhanced ? '+' : '')), boons: { ...run.boons }, affixes: node.affixes || [], twist: node.twist || null },
+      riftInfo: { act: node.act, depth: run.depth, node: node.type, hearts: run.hearts, charms: run.charms.map((c) => c.id + (c.enhanced ? '+' : '')), boons: { ...run.boons }, affixes: node.affixes || [], twist: node.twist || null, weakness: opp.weakness || null },
       allowRematch: false, allowRestart: false, forfeitLabel: 'Retreat', forfeitWarning: 'Retreating counts as a loss: you lose a heart.',
       onForfeit: () => queueMicrotask(() => this.afterBattle(node, { won: false, forfeit: true })),
       onFinish: (res, rw, screen) => {

@@ -467,6 +467,7 @@ export class BattleScreen {
         if (f.ability.channel) tags.push('CHANNEL ' + f.ability.channel.name);
         for (const tm of f.mods.timed) if (tm.origin === 'ability' && !tm.id.startsWith('counter')) tags.push(tm.name);
         for (const tm of f.mods.timed) if (tm.origin === 'rift') tags.push(tm.name.toUpperCase());
+        if (f.p?.weakness && f.mods.active.has('weakness:' + f.p.weakness)) tags.push('WEAKNESS ACTIVE'); // Rift boss window open
         r.status.textContent = [...new Set(tags)].join(' · ');
       });
       // timer & round

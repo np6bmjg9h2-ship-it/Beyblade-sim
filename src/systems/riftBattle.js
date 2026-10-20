@@ -13,7 +13,8 @@ import { setSources } from '../data/sets.js';
 import { computeSkillEffects } from '../data/skills.js';
 import { bondLevel } from '../data/beasts.js';
 import { opponentFrom } from './modes.js';
-import { rivalParticipant } from './rivals.js';
+import { rivalParticipant, rivalPlan } from './rivals.js';
+import { bossKit, weaknessSource } from '../data/riftBosses.js';
 import { buildBattleFx } from './synergy.js';
 
 const addTo = (o, x) => { for (const [k, v] of Object.entries(x || {})) if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
@@ -131,12 +132,16 @@ export function nodeOpponent(profile, run, node) {
   const difficulty = nodeDifficulty(profile, run, node);
   let p;
   if (node.type === 'boss') {
-    p = rivalParticipant(profile, node.rival, act.tier, { difficulty, seed: node.seed, pid: 'rift-boss' });
+    // a neutral plan: a Rift boss never adapts to your habits (it would hide the weakness)
+    const plan = rivalPlan({ habits: null, rivals: {} }, node.rival, act.tier, { seed: node.seed });
+    p = rivalParticipant(profile, node.rival, act.tier, { difficulty, seed: node.seed, pid: 'rift-boss', plan });
   } else {
     const tier = Math.min(5, act.tier + (node.type === 'battle' ? 0 : 1));
     p = opponentFrom({ archetype: node.archetype, difficulty, tier }, { id: 'rift-opp', seedKey: `rift:${run.seed}:${node.id}` });
   }
   p.modSources = [...(p.modSources || [])];
+  const kit = node.type === 'boss' ? bossKit(node.rival) : null;
+  if (kit) { p.modSources.push(weaknessSource(kit)); p.weakness = kit.weakness.id; }
   const names = [];
   for (const id of node.affixes || []) {
     const a = AFFIX_INDEX[id];
