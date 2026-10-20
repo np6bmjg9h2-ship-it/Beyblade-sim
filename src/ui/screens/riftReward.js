@@ -80,7 +80,7 @@ export function charmCard(run, held, { price = null, short = false } = {}) {
   const owned = run.charms.some((x) => x.id === held.id);
   const n = (familyCounts(run)[c.family] || 0) + (owned ? 0 : 1);
   return h('div', { class: 'loot-card charm rarity-' + c.rarity + (held.enhanced ? ' enhanced' : ''), style: { '--rc': R.color } },
-    h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Charm'), h('span', { class: 'chip', style: { color: R.color, borderColor: R.color } }, held.enhanced ? `Enhanced ${R.name}` : R.name)),
+    h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Charm'), h('span', { class: 'chip', style: { color: R.color, borderColor: R.color } }, held.enhanced ? `Enhanced ${R.name}` : c.keystone ? `${R.name} Keystone` : R.name)),
     h('div', { class: 'lc-name' }, c.name),
     owned ? null : fitChip(charmFit(run, held)),
     h('div', { class: 'lc-desc' }, c.desc(charmK(held))),

@@ -5,6 +5,11 @@
 //   statusPower  { id: extra strength }     statusTime { id: extra seconds }
 //   sweet        sweet-spot chance          sweetMul (lock stress, default 2)
 //   sweetSpirit  spirit per sweet spot      secondWind (fraction of launch spin)
+//   keystones    { id: params } rule-changing legendaries (data/riftCharms.js):
+//     rustprophet { stacks, lock }  Rust stacks on one target; at full stacks the lock drops
+//     tideturner  { below }         notice only (its drag flip is two modifier sources)
+//     hollowcore  { spin, max }     every sweet spot restores spin (fraction of launch spin)
+//     laststand   {}                notice only (its bonus is built from the run's hearts)
 // Everything acts through what the game already simulates: timed modifier
 // channels, the lock-stress multiplier the abilities use, the spirit meter,
 // and the simulation's ability helpers (energy booked to the 'ability'
@@ -26,11 +31,20 @@ export class RiftEffects {
   constructor(battle) {
     this.b = battle;
     this.rng = new Rng(mixSeeds(battle.seed, battle.round, 'rift'));
-    this.state = battle.fighters.map(() => ({ until: {}, brittle: 0, armed: null, windUsed: false }));
+    this.state = battle.fighters.map(() => ({ until: {}, brittle: 0, rust: 0, hollow: 0, told: {}, armed: null, windUsed: false }));
     for (const f of battle.fighters) this.arm(f);
   }
 
   cfg(f) { return f.p.rift || null; }
+  ks(f, id) { return this.cfg(f)?.keystones?.[id] || null; }
+
+  // A keystone fired: one HUD notice (once per round unless `repeat`).
+  tell(f, id, text, repeat = false, extra = {}) {
+    const S = this.state[f.index];
+    if (S.told[id] && !repeat) return;
+    S.told[id] = true;
+    this.b.emit('keystone', { fighter: f, id, name: this.ks(f, id)?.name || id, text, ...extra });
+  }
 
   // Roll whether this fighter's next hit lands on the sweet spot.
   arm(f) {
@@ -51,6 +65,11 @@ export class RiftEffects {
       const top = f.top;
       if (!top?.active) continue;
       if (S.armed) top.nextHitStressMul = Math.max(top.nextHitStressMul || 1, S.armed.mul);
+      if (f.launch?.launched && this.b.phase === 'battle') {
+        if (this.ks(f, 'laststand')) this.tell(f, 'laststand', 'LAST STAND');
+        const tide = this.ks(f, 'tideturner');
+        if (tide && top.spinFraction() < tide.below) this.tell(f, 'tideturner', 'THE TIDE TURNS');
+      }
       const wind = this.cfg(f)?.secondWind;
       if (wind && !S.windUsed && f.launch?.launched && this.b.phase === 'battle' && top.spinFraction() < WIND_BELOW) {
         S.windUsed = true;
@@ -75,6 +94,7 @@ export class RiftEffects {
       this.b.emit('sweetSpot', { fighter: att });
       const sp = this.cfg(att)?.sweetSpirit;
       if (sp) att.ability.gain(sp);
+      this.hollowCore(att);
     }
     if (e.impulse >= MIN_IMPULSE) {
       for (const [att, def] of pairs) {
@@ -89,6 +109,21 @@ export class RiftEffects {
     for (const f of [fa, fb]) this.arm(f);
   }
 
+  // Hollow Core: a sweet spot restores a slice of the round's launch spin,
+  // never above it and at most `max` times a round. The energy goes through
+  // the simulation's restoreSpin, so it is booked to the 'ability' ledger.
+  hollowCore(att) {
+    const h = this.ks(att, 'hollowcore');
+    const S = this.state[att.index];
+    const top = att.top;
+    if (!h || S.hollow >= h.max || !top?.active) return;
+    const w = top.spinAbs, w2 = Math.min(top.maxSpinRate, w + h.spin * top.maxSpinRate);
+    if (!(w2 > w)) return;
+    S.hollow++;
+    const e = this.b.sim.restoreSpin(top, 0.5 * top.I3 * (w2 * w2 - w * w));
+    this.tell(att, 'hollowcore', 'HOLLOW CORE: SPIN BACK', true, { energy: e });
+  }
+
   inflict(att, def, id) {
     const S = this.state[def.index];
     const t = this.b.battleTime;
@@ -98,6 +133,20 @@ export class RiftEffects {
     const st = STATUSES[id];
     const k = 1 + (c.statusPower?.[id] || 0);
     const dur = st.duration + (c.statusTime?.[id] || 0);
+    const prophet = id === 'rust' ? this.ks(att, 'rustprophet') : null;
+    if (prophet) {
+      // Rust Prophet: Rust on a rusted target stacks; at full stacks the lock drops `lock`
+      S.rust = S.until.rust > t ? Math.min(prophet.stacks, S.rust + 1) : 1;
+      const full = S.rust >= prophet.stacks;
+      const deltas = st.deltas.map(([ch, v]) => [ch, ch === 'burstThreshold' && full ? -prophet.lock : v * k]);
+      const name = S.rust > 1 ? `${st.name} ×${S.rust}` : st.name;
+      def.mods.removeTimed('rift:rust');
+      def.mods.addTimed('rift:rust', name, deltas, dur, 'rift');
+      S.until.rust = t + dur;
+      this.b.emit('riftStatus', { fighter: def, by: att, status: id, name, color: st.color });
+      if (full) this.tell(att, 'rustprophet', 'RUST PROPHECY', true);
+      return;
+    }
     def.mods.addTimed('rift:' + id, st.name, st.deltas.map(([ch, v]) => [ch, v * k]), dur, 'rift');
     S.until[id] = t + dur;
     this.b.emit('riftStatus', { fighter: def, by: att, status: id, name: st.name, color: st.color });

@@ -256,6 +256,7 @@ export class BattleScreen {
       case 'sweetSpot': this.notify(`${e.fighter.name}: SWEET SPOT!`, 'gold'); if (involvesHuman(e.fighter)) { app.input.rumble(0.5, 0.8, 120); this.freeze(0, true); } break;
       case 'meltdownHit': this.notify(`${e.fighter.name}: MELTDOWN HIT!`, 'crit'); break;
       case 'secondWind': app.audio.heal(); this.notify(`${e.fighter.name}: SECOND WIND!`, 'good'); break;
+      case 'keystone': this.notify(`${e.fighter.name}: ${e.text}!`, involvesHuman(e.fighter) ? 'gold' : 'bad'); break;
       case 'mechanism':
         if (e.kind === 'clutch') {
           app.audio.burst();

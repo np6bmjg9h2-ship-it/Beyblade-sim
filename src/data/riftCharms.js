@@ -12,6 +12,11 @@
 //   statusPower { status: extra strength fraction }, statusTime { status: extra s }
 //   sweet       sweet-spot chance; sweetMul (lock stress on a sweet spot); sweetSpirit
 //   econ        { shards, trader, forge, spoils, healBoss, healElite, maxHearts, oppSkill }
+//   keystone    { id: params }        a rule-changing effect read by game/riftEffects.js
+//
+// Keystones are legendaries tagged `keystone: true`. fx(k, run) may read the
+// run (Last Stand reads the hearts) when the participant is built. They are
+// left out of ordinary charm rolls (riftLoot.rollCharm `keystone` option).
 
 const D2R = Math.PI / 180;
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -80,6 +85,19 @@ charm({ id: 'gamblersdie', name: 'Gambler\'s Die', rarity: 'legendary', family: 
 charm({ id: 'spiritengine', name: 'Spirit Engine', rarity: 'legendary', family: 'storm', desc: () => 'Spirit gain +25%, ability power +10%.', fx: () => ({ skill: { spiritGain: 0.25, abilityPower: 0.1 } }) });
 charm({ id: 'crownofspoils', name: 'Crown of Spoils', rarity: 'legendary', family: 'void', desc: () => 'Spoils offer one extra choice, and battles pay 30% more shards.', fx: () => ({ econ: { spoils: 1, shards: 0.3 } }) });
 
+// ---------------------------------------------------------------- keystone legendaries
+export const KEYSTONE = {
+  rustprophet: { chance: 0.2, stacks: 3, lock: 0.4 },
+  tideturner: { below: 0.35, cost: [0.1, 0.05], flip: [-0.3, -0.2] },
+  hollowcore: { launch: -0.2, sweet: 0.06, spin: 0.06, max: 5 },
+  laststand: { hearts: 1, bonus: 0.25 },
+};
+const KR = KEYSTONE.rustprophet, KT = KEYSTONE.tideturner, KH = KEYSTONE.hollowcore, KL = KEYSTONE.laststand;
+charm({ id: 'rustprophet', name: 'Rust Prophet', rarity: 'legendary', keystone: true, family: 'iron', desc: () => `Your hits Rust ${pct(KR.chance)} of the time. Rust stacks up to ${KR.stacks} on one target; at ${KR.stacks} its lock drops ${pct(KR.lock)}.`, fx: () => ({ status: { rust: KR.chance }, keystone: { rustprophet: { stacks: KR.stacks, lock: KR.lock } } }) });
+charm({ id: 'tideturner', name: 'Tideturner', rarity: 'legendary', keystone: true, family: 'tide', desc: () => `Your drag flips at ${pct(KT.below)} spin: above it tip drag +${pct(KT.cost[0])} and air drag +${pct(KT.cost[1])}; below it tip drag -${pct(-KT.flip[0])} and air drag -${pct(-KT.flip[1])}.`, fx: () => ({ mods: [when({ type: 'spinAbove', value: KT.below }, [['tipSpinDrag', KT.cost[0]], ['aeroDrag', KT.cost[1]]]), when({ type: 'spinBelow', value: KT.below }, [['tipSpinDrag', KT.flip[0]], ['aeroDrag', KT.flip[1]]])], keystone: { tideturner: { below: KT.below } } }) });
+charm({ id: 'hollowcore', name: 'Hollow Core', rarity: 'legendary', keystone: true, family: 'void', desc: () => `You launch ${pct(-KH.launch)} weaker, sweet-spot chance +${pct(KH.sweet)}, and every sweet spot restores ${pct(KH.spin)} of your launch spin (up to ${KH.max} a round).`, fx: () => ({ skill: { launchPower: KH.launch }, sweet: KH.sweet, keystone: { hollowcore: { spin: KH.spin, max: KH.max } } }) });
+charm({ id: 'laststand', name: 'Last Stand', rarity: 'legendary', keystone: true, family: 'ember', desc: () => `At exactly one heart: lock stress dealt, ability power and steering +${pct(KL.bonus)}.`, fx: (k, run) => (run?.hearts === KL.hearts ? { mods: [always([['burstStressDealt', KL.bonus], ['abilityPower', KL.bonus], ['steerForce', KL.bonus]])], keystone: { laststand: {} } } : {}) });
+
 // ---------------------------------------------------------------- cursed
 charm({ id: 'glassfang', name: 'Glass Fang', rarity: 'cursed', family: 'ember', desc: () => 'Blade face +4° and restitution +10%. Curse: lock strength -30%.', fx: () => ({ mods: [always([['faceAngle', 4 * D2R], ['restitution', 0.1], ['burstThreshold', -0.3]])] }) });
 charm({ id: 'leechcoil', name: 'Leech Coil', rarity: 'cursed', family: 'tide', desc: () => 'Tip spin drag -25%. Curse: launch energy -8%.', fx: () => ({ mods: [always([['tipSpinDrag', -0.25]])], skill: { launchPower: -0.08 } }) });
@@ -91,6 +109,8 @@ charm({ id: 'bloodmoon', name: 'Blood Moon', rarity: 'cursed', family: 'void', d
 export const CHARMS = C;
 export const CHARM_INDEX = Object.fromEntries(C.map((c) => [c.id, c]));
 
+export const KEYSTONES = C.filter((c) => c.keystone);
+export const isKeystone = (id) => !!CHARM_INDEX[id]?.keystone;
 export const canEnhance = (c) => c.rarity === 'common' || c.rarity === 'rare';
 export const charmK = (held) => (held.enhanced ? ENHANCE_K : 1);
 export const charmDesc = (held) => CHARM_INDEX[held.id]?.desc(charmK(held)) || '';

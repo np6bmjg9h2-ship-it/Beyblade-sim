@@ -29,7 +29,7 @@ export function runFx(profile, run) {
   const list = [];
   for (const h of run.charms) {
     const c = CHARM_INDEX[h.id];
-    if (c) list.push({ src: 'charm:' + h.id, name: c.name, fx: c.fx(charmK(h)) });
+    if (c) list.push({ src: 'charm:' + h.id, name: c.name, fx: c.fx(charmK(h), run) });
   }
   for (const [fam, n] of Object.entries(familyCounts(run))) {
     if (n >= RESONANCE_COUNT) list.push({ src: 'family:' + fam, name: `${FAMILIES[fam].name} Resonance`, fx: FAMILIES[fam].bonus });
@@ -45,7 +45,7 @@ export function runFx(profile, run) {
 
 // Merge a list of fx objects into one summary.
 export function combineFx(list) {
-  const out = { mods: [], skill: {}, launch: {}, status: {}, statusPower: {}, statusTime: {}, econ: {}, sweet: 0, sweetMul: 2, sweetSpirit: 0, secondWind: 0, awaken: false };
+  const out = { mods: [], skill: {}, launch: {}, status: {}, statusPower: {}, statusTime: {}, econ: {}, sweet: 0, sweetMul: 2, sweetSpirit: 0, secondWind: 0, awaken: false, keystones: {} };
   for (const { src, name, fx } of list) {
     (fx.mods || []).forEach((m, i) => out.mods.push({ id: `rift:${src}:${i}`, name, origin: 'rift', cond: m.cond || { type: 'always' }, deltas: m.deltas }));
     addTo(out.skill, fx.skill);
@@ -59,6 +59,7 @@ export function combineFx(list) {
     out.secondWind = Math.max(out.secondWind, fx.secondWind || 0);
     if (fx.sweetMul) out.sweetMul = Math.max(out.sweetMul, fx.sweetMul);
     if (fx.awaken) out.awaken = true;
+    for (const [id, v] of Object.entries(fx.keystone || {})) out.keystones[id] = { ...v, name };
   }
   return out;
 }
@@ -112,7 +113,7 @@ export function riftParticipant(profile, run) {
     modSources: [...sets.sources, ...sk.sources, ...fx.mods, ...forgeSources(run), ...syn.sources],
     reactive: syn.reactive, synergies: syn.ids,
     launchMods, skillMods, knownTechniques: profile.techniques, color: profile.player.color,
-    rift: { status, statusPower, statusTime, sweet: fx.sweet, sweetMul: fx.sweetMul, sweetSpirit: fx.sweetSpirit, secondWind: fx.secondWind },
+    rift: { status, statusPower, statusTime, sweet: fx.sweet, sweetMul: fx.sweetMul, sweetSpirit: fx.sweetSpirit, secondWind: fx.secondWind, keystones: fx.keystones },
   };
 }
 

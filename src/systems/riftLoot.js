@@ -58,9 +58,11 @@ export function rollRunPart(profile, run, rng, { minRarity = null, rarityBoost =
 
 // ---------------------------------------------------------------- charms
 
-export function rollCharm(run, rng, { rarities = null, cursedMul = 1, exclude = [], families = null } = {}) {
+// keystone: false (default) leaves keystone legendaries out, true rolls only
+// keystones, 'any' allows both. families: only these charm families.
+export function rollCharm(run, rng, { rarities = null, cursedMul = 1, exclude = [], families = null, keystone = false } = {}) {
   const held = new Set([...run.charms.map((h) => h.id), ...exclude]);
-  const pool = CHARMS.filter((c) => !held.has(c.id) && (!rarities || rarities.includes(c.rarity)) && (!families || families.includes(c.family)));
+  const pool = CHARMS.filter((c) => !held.has(c.id) && (!rarities || rarities.includes(c.rarity)) && (!families || families.includes(c.family)) && (keystone === 'any' || !!c.keystone === keystone));
   if (!pool.length) return null;
   const weights = pool.map((c) => ({ c, weight: CHARM_RARITIES[c.rarity].weight * (c.rarity === 'cursed' ? cursedMul : 1) / pool.filter((x) => x.rarity === c.rarity).length }));
   return { id: rng.weighted(weights).c.id, enhanced: false };

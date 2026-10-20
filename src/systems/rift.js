@@ -241,9 +241,12 @@ export function queueRewards(profile, run, node, met = true) {
     P.push({ kind: 'charm', title: 'Elite spoils: choose a charm', options: rollCharms(run, runRng(run, 'elite', node.id), 3, { rarities: ['common', 'rare', 'rare', 'cursed'], cursedMul: depthRules(run.depth).cursedMul }).map((c) => ({ type: 'charm', charm: c })) });
     P.push({ kind: 'boon', title: 'Choose a boon', options: rollBoons(profile, run, runRng(run, 'boon', node.id)) });
   } else if (node.type === 'vault') {
-    if (met) P.push({ kind: 'charm', title: 'Vault: choose a charm', options: rollCharms(run, runRng(run, 'vault', node.id), 3, { rarities: ['rare', 'legendary', 'cursed'] }).map((c) => ({ type: 'charm', charm: c })) });
+    if (met) P.push({ kind: 'charm', title: 'Vault: choose a charm', options: rollCharms(run, runRng(run, 'vault', node.id), 3, { rarities: ['rare', 'legendary', 'cursed'], keystone: 'any' }).map((c) => ({ type: 'charm', charm: c })) });
   } else if (node.type === 'boss') {
-    P.push({ kind: 'charm', title: 'Boss treasure: choose a legendary charm', options: rollCharms(run, runRng(run, 'boss', node.id), 2, { rarities: ['legendary'] }).map((c) => ({ type: 'charm', charm: c })) });
+    // from the second Rift on, one of the two is a keystone that changes how a battle plays
+    const rng = runRng(run, 'boss', node.id);
+    const treasure = run.act >= 1 ? [...rollCharms(run, rng, 1, { rarities: ['legendary'] }), ...rollCharms(run, rng, 1, { keystone: true })] : rollCharms(run, rng, 2, { rarities: ['legendary'] });
+    P.push({ kind: 'charm', title: 'Boss treasure: choose a legendary charm', options: treasure.map((c) => ({ type: 'charm', charm: c })) });
     P.push({ kind: 'part', title: 'Boss spoils: choose a part', options: rollPartChoice(profile, run, node, 3, { minRarity: run.act >= 2 ? 'epic' : 'rare', rarityBoost: 1, fit: true }) });
     P.push({ kind: 'boon', title: 'Choose a boon', options: rollBoons(profile, run, runRng(run, 'boon', node.id)) });
   }
