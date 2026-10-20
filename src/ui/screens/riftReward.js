@@ -19,6 +19,9 @@ import { resolveLaunchGear } from '../../game/launch.js';
 import { riftState, pickReward, equipFromBag, dropFromBag, unequipAux, keepableParts, lockerSize, finishRun, maxHearts, sendHome, homeBound, lockerChoices } from '../../systems/rift.js';
 import { familyCounts } from '../../systems/riftBattle.js';
 import { skipShards, fitsBuild } from '../../systems/riftLoot.js';
+import { partFit, charmFit } from '../../systems/riftFit.js';
+
+const fitChip = (why) => (why ? h('div', { class: 'lc-fit' }, why) : null);
 
 // ---------------------------------------------------------------- shared bits
 
@@ -60,6 +63,7 @@ export function partCard(profile, run, item, { price = null, short = false, comp
   return h('div', { class: 'loot-card rarity-' + item.rarity, style: { '--rc': R.color } },
     h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, SLOT_NAMES[item.slot]), rarityChip(item.rarity)),
     h('div', { class: 'lc-name' }, base?.name || item.base, item.forge ? h('span', { class: 'lc-plus' }, ` +${item.forge}`) : null),
+    fits ? fitChip(partFit(profile, run, item)) : null,
     st ? h('div', { class: 'lc-el', style: { '--ec': st.color } }, `${st.name} ring: hits inflict ${st.name} ${Math.round(RING_ELEMENT_CHANCE * 100)}% of the time`) : null,
     item.forge && FORGE_BONUS[item.slot] ? h('div', { class: 'lc-desc' }, `Forge +${item.forge}: ${FORGE_BONUS[item.slot].desc(item.forge)}`) : null,
     traits.length ? h('div', { class: 'lc-traits' }, traits.map((t) => h('div', { class: 'lc-trait' + (TRAIT_INDEX[t.id]?.special ? ' special' : '') }, h('b', {}, TRAIT_INDEX[t.id]?.name || t.id), ' ', TRAIT_INDEX[t.id]?.desc(t.mag) || ''))) : h('div', { class: 'lc-desc muted' }, 'No traits.'),
@@ -78,6 +82,7 @@ export function charmCard(run, held, { price = null, short = false } = {}) {
   return h('div', { class: 'loot-card charm rarity-' + c.rarity + (held.enhanced ? ' enhanced' : ''), style: { '--rc': R.color } },
     h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Charm'), h('span', { class: 'chip', style: { color: R.color, borderColor: R.color } }, held.enhanced ? `Enhanced ${R.name}` : R.name)),
     h('div', { class: 'lc-name' }, c.name),
+    owned ? null : fitChip(charmFit(run, held)),
     h('div', { class: 'lc-desc' }, c.desc(charmK(held))),
     h('div', { class: 'lc-fam', style: { '--fc': fam.color } }, `${fam.name} ${Math.min(n, RESONANCE_COUNT)}/${RESONANCE_COUNT}`, h('span', { class: 'muted' }, n >= RESONANCE_COUNT ? ` · Resonance: ${fam.bonus.desc}` : ` · at ${RESONANCE_COUNT}: ${fam.bonus.desc}`)),
     priceTag(price, short));

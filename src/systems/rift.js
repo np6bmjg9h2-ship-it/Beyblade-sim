@@ -25,10 +25,16 @@ export function riftState(profile) {
   const R = profile.rift = profile.rift || {};
   R.essence ??= 0; R.essenceEarned ??= 0; R.talents ??= {}; R.depthUnlocked ??= 0;
   R.runs ??= 0; R.clears ??= 0; R.bestDepth ??= -1; R.bestAct ??= 0; R.history ??= []; R.active ??= null;
+  // runs saved before the viable-offer guarantee never get a surprise one
+  if (R.active) { R.active.firstOfferMade ??= true; R.active.dry ??= 0; }
   return R;
 }
 
 // ---------------------------------------------------------------- map
+
+// The first battle of a run is against an opponent that teaches rather than
+// punishes (playtest: 10 of 13 lost runs ended at depth 0 after 2-5 fights).
+export const OPENER_ARCHETYPES = ['wall', 'drifter'];
 
 function makeNode(run, rng, a, f, i, type) {
   const act = RIFT_ACTS[a];
@@ -36,6 +42,8 @@ function makeNode(run, rng, a, f, i, type) {
   const node = { id: `a${a}f${f}n${i}`, act: a, floor: f, type, seed: rng.nextU32() };
   if (BATTLE_NODES.includes(type)) node.arena = rng.pick(act.arenas);
   if (type === 'battle' || type === 'elite' || type === 'vault') node.archetype = rng.pick(act.archetypes);
+  // no extra rng draw: the rest of the map stays the same for a seed
+  if (type === 'battle' && a === 0 && f === 0) node.archetype = OPENER_ARCHETYPES[node.seed % OPENER_ARCHETYPES.length];
   if (type === 'elite') node.affixes = [rng.pick(ELITE_AFFIXES).id];
   if (type === 'battle' && D.normalAffix && rng.chance(D.normalAffix)) node.affixes = [rng.pick(ELITE_AFFIXES).id];
   if (type === 'vault') { const v = rng.pick(VAULT_RULES); node.vault = v.id; if (v.affixes) node.affixes = [...v.affixes]; }
@@ -136,7 +144,7 @@ export function startRun(profile, { loadoutIndex = profile.activeLoadout, depth 
     beast: L.beast ? { id: L.beast } : null, vaults: (T.vault || 0) > 0,
     act: 0, floor: 0, map: [], path: [], current: null,
     hearts: 0, shards: START_SHARDS + 25 * (T.pockets || 0), essence: 0,
-    equipped, bag: [], charms: [], boons: {}, pending: [], counter: 0, secondWindUsed: false,
+    equipped, bag: [], charms: [], boons: {}, pending: [], counter: 0, secondWindUsed: false, firstOfferMade: false, dry: 0,
     stats: { battles: 0, wins: 0, losses: 0, elites: 0, bosses: 0, vaults: 0, ringOuts: 0, shatters: 0, shardsEarned: 0, partsFound: 0 },
     log: [],
   };
@@ -179,9 +187,12 @@ export function recordBattle(profile, run, node, { won, how = null, forfeit = fa
     run.stats.losses++;
     out.heart = loseHeart(profile, run);
     run.log.push(`${forfeit ? 'Retreated from' : 'Lost'} ${node.type === 'boss' ? 'the boss' : 'a battle'} in ${RIFT_ACTS[node.act].name}.`);
-    // a lost boss must be fought again; any other node is passed without rewards
-    if (run.status === 'active' && node.type !== 'boss') completeNode(profile, run);
-    else if (node.type === 'boss') run.current = null;
+    // a lost boss must be fought again; any other node is passed with a
+    // consolation: half the shards and a pick of two
+    if (run.status === 'active' && node.type !== 'boss') {
+      if (!forfeit) consolation(profile, run, node, out);
+      completeNode(profile, run);
+    } else if (node.type === 'boss') run.current = null;
     return out;
   }
   const fx = runEffects(profile, run);
@@ -205,6 +216,16 @@ export function recordBattle(profile, run, node, { won, how = null, forfeit = fa
   return out;
 }
 
+export const CONSOLATION = { shards: 0.5, options: 2 };
+
+function consolation(profile, run, node, out) {
+  const fx = runEffects(profile, run);
+  out.shards = Math.round((SHARD_REWARD[node.type] + SHARD_REWARD.perAct * node.act) * CONSOLATION.shards * (1 + (fx.econ.shards || 0)));
+  run.shards += out.shards;
+  run.stats.shardsEarned += out.shards;
+  run.pending.push({ kind: 'spoils', title: 'Consolation: choose one', options: rollSpoils(profile, run, node, { n: CONSOLATION.options, label: 'consolation' }) });
+}
+
 export function queueRewards(profile, run, node, met = true) {
   const P = run.pending;
   if (node.type === 'battle') P.push({ kind: 'spoils', title: 'Spoils: choose one', options: rollSpoils(profile, run, node) });
@@ -215,7 +236,7 @@ export function queueRewards(profile, run, node, met = true) {
     if (met) P.push({ kind: 'charm', title: 'Vault: choose a charm', options: rollCharms(run, runRng(run, 'vault', node.id), 3, { rarities: ['rare', 'legendary', 'cursed'] }).map((c) => ({ type: 'charm', charm: c })) });
   } else if (node.type === 'boss') {
     P.push({ kind: 'charm', title: 'Boss treasure: choose a legendary charm', options: rollCharms(run, runRng(run, 'boss', node.id), 2, { rarities: ['legendary'] }).map((c) => ({ type: 'charm', charm: c })) });
-    P.push({ kind: 'part', title: 'Boss spoils: choose a part', options: rollPartChoice(profile, run, node, 3, { minRarity: run.act >= 2 ? 'epic' : 'rare', rarityBoost: 1 }) });
+    P.push({ kind: 'part', title: 'Boss spoils: choose a part', options: rollPartChoice(profile, run, node, 3, { minRarity: run.act >= 2 ? 'epic' : 'rare', rarityBoost: 1, fit: true }) });
     P.push({ kind: 'boon', title: 'Choose a boon', options: rollBoons(profile, run, runRng(run, 'boon', node.id)) });
   }
   for (let i = P.length - 1; i >= 0; i--) if (!P[i].options.length) P.splice(i, 1);

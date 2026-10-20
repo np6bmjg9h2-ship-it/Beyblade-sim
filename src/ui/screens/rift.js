@@ -226,7 +226,7 @@ export class RiftScreen {
     if (r.won) {
       this.ui.toast(`Victory! +${r.shards} shards · +${r.essence} Essence${r.met ? '' : ' · vault rule not met'}`, 'good', 3500);
     } else if (r.heart === 'revived') this.ui.toast('Second Wind! You fight on with one heart.', 'warn', 4000);
-    else if (r.heart === 'hurt') this.ui.toast(`Defeat: you lose a heart (${run.hearts} left).`, 'bad', 3500);
+    else if (r.heart === 'hurt') this.ui.toast(`Defeat: you lose a heart (${run.hearts} left).${r.shards ? ` Consolation: +${r.shards} shards.` : ''}`, 'bad', 3500);
     this.flow();
   }
 

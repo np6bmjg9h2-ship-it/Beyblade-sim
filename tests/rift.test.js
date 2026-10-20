@@ -88,7 +88,7 @@ test('losing costs a heart; a lost boss must be fought again; Second Wind saves 
   const node = currentChoices(run)[0];
   recordBattle(p, run, node, { won: false });
   assert.equal(run.hearts, h0 - 1);
-  assert.equal(run.floor, 1, 'an ordinary lost node is passed without rewards');
+  assert.equal(run.floor, 1, 'an ordinary lost node is passed (with a consolation)');
   run.floor = FLOORS_PER_ACT;
   const boss = currentChoices(run)[0];
   recordBattle(p, run, boss, { won: false });

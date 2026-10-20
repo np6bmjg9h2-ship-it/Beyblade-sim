@@ -672,6 +672,7 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 .lc-cmp-title, .lc-equipped { font: italic 700 11px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .lc-equipped { margin-top: auto; color: var(--good); }
 .lc-warn { color: var(--bad); font-size: 12px; }
+.lc-fit { align-self: flex-start; font: 700 11px var(--ui); color: var(--good); }
 .lc-price { margin-top: auto; align-self: flex-end; font: 400 20px var(--display); letter-spacing: .05em; color: var(--gold); text-shadow: var(--ol2); }
 .lc-price.short { color: var(--bad); }
 .rift-node .trader { min-height: 0; flex: 0 1 auto; }

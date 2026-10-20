@@ -15,6 +15,7 @@ import { rollRarity } from './loot.js';
 import { validateBuild } from './assembly.js';
 import { runEffects } from './riftBattle.js';
 import { resolveLaunchGear } from '../game/launch.js';
+import { optionFit, offerViable, roleFamilies } from './riftFit.js';
 
 const PART_SLOT_WEIGHTS = { ring: 28, tip: 22, disc: 18, lock: 12, core: 10, aux: 10 };
 
@@ -57,9 +58,9 @@ export function rollRunPart(profile, run, rng, { minRarity = null, rarityBoost =
 
 // ---------------------------------------------------------------- charms
 
-export function rollCharm(run, rng, { rarities = null, cursedMul = 1, exclude = [] } = {}) {
+export function rollCharm(run, rng, { rarities = null, cursedMul = 1, exclude = [], families = null } = {}) {
   const held = new Set([...run.charms.map((h) => h.id), ...exclude]);
-  const pool = CHARMS.filter((c) => !held.has(c.id) && (!rarities || rarities.includes(c.rarity)));
+  const pool = CHARMS.filter((c) => !held.has(c.id) && (!rarities || rarities.includes(c.rarity)) && (!families || families.includes(c.family)));
   if (!pool.length) return null;
   const weights = pool.map((c) => ({ c, weight: CHARM_RARITIES[c.rarity].weight * (c.rarity === 'cursed' ? cursedMul : 1) / pool.filter((x) => x.rarity === c.rarity).length }));
   return { id: rng.weighted(weights).c.id, enhanced: false };
@@ -89,10 +90,10 @@ export function spoilsCount(profile, run) {
   return 3 + (talents(profile).keen || 0) + (runEffects(profile, run).econ.spoils || 0);
 }
 
-// Pick-one rewards after an ordinary battle: parts, a charm, shards.
-export function rollSpoils(profile, run, node) {
-  const rng = runRng(run, 'spoils', node.id);
-  const n = spoilsCount(profile, run);
+// Pick-one rewards after an ordinary battle: parts, a charm, shards. A lost
+// battle pays a smaller consolation offer (n = 2).
+export function rollSpoils(profile, run, node, { n = spoilsCount(profile, run), label = 'spoils' } = {}) {
+  const rng = runRng(run, label, node.id);
   const D = depthRules(run.depth);
   const out = [];
   const charmSlots = n >= 4 ? 2 : 1;
@@ -105,7 +106,35 @@ export function rollSpoils(profile, run, node) {
     if (item) out.push({ type: 'part', item });
     else out.push({ type: 'shards', amount: 40 + 10 * run.act });
   }
-  return rng.shuffle(out);
+  return rng.shuffle(guaranteeFit(profile, run, out, rng));
+}
+
+// ---------------------------------------------------------------- viable offers
+
+export const FIT_TRIES = 24;
+
+// The run's first part offer, and any offer after two in a row with nothing
+// that fits the build, holds at least one option that fits (riftFit.js).
+// Runs after the normal roll and before the shuffle, so the rng order of an
+// offer that already fits is unchanged. Rarity is never boosted.
+export function guaranteeFit(profile, run, options, rng, { minRarity = null, rarityBoost = 0 } = {}) {
+  const need = !run.firstOfferMade || (run.dry || 0) >= 2;
+  run.firstOfferMade = true;
+  if (offerViable(profile, run, options)) { run.dry = 0; return options; }
+  if (!need) { run.dry = (run.dry || 0) + 1; return options; }
+  run.dry = 0;
+  let k = options.length - 1;
+  while (k > 0 && options[k].type === 'charm') k--;
+  const out = options.slice();
+  for (let t = 0; t < FIT_TRIES; t++) {
+    const item = rollRunPart(profile, run, rng, { minRarity, rarityBoost });
+    if (item && optionFit(profile, run, { type: 'part', item })) { out[k] = { type: 'part', item }; return out; }
+  }
+  const fams = roleFamilies(run);
+  const c = fams.length && rollCharm(run, rng, { rarities: ['common', 'rare'], families: fams, exclude: out.filter((o) => o.charm).map((o) => o.charm.id) });
+  if (c) { out[k] = { type: 'charm', charm: c }; return out; }
+  out[k] = { ...out[k], forced: true };
+  return out;
 }
 
 export function rollPartChoice(profile, run, node, n = 3, opts = {}) {
@@ -115,7 +144,7 @@ export function rollPartChoice(profile, run, node, n = 3, opts = {}) {
     const item = rollRunPart(profile, run, rng, opts);
     if (item) out.push({ type: 'part', item });
   }
-  return out;
+  return out.length && opts.fit ? guaranteeFit(profile, run, out, rng, opts) : out;
 }
 
 // ---------------------------------------------------------------- prices
