@@ -85,7 +85,10 @@ stable top score points.
   rarer parts. The Rift is the loot grind: beating a Rift's boss secures the
   parts you found (they come home even if the run ends), a full clear brings
   everything home, and the Locker saves your best unsecured find. Runs
-  resume after a reload.
+  resume after a reload. The first offer always fits your build, deeper
+  floors can be twisted (Slick Ring, Glass Floor), bosses show one weakness
+  to exploit, four keystone legendaries reshape a run, and some events leave
+  consequences that reach later fights.
 - **Modes hub** — **Practice Lab** (launch range with launch analysis,
   sparring targets with the physics debug overlay, a Build Lab that compares
   two builds with spin-decay curves and simulated head-to-heads), **Custom

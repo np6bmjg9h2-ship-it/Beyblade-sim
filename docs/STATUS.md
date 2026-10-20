@@ -38,11 +38,12 @@ item gives its second action (favourite, slot options).
 | Skill over RPM S1-S5 | c2a3311..16147b3 | Launch judging, strike attribution and counters, earned spirit, dash windup, openings and punishes, AI judgment, seeded spawn angle (details in `docs/HANDOFF.md`) |
 | Real physics, anime rules | 40f8428..faf2895 | User decision 2026-10-19: physics stays realistic, the rules reward active play. Judges' cards on time-outs (HUD), spirit for initiative, rubber ring edges with real spin steal (Grip Fang); AI clean launch and even-matchup conserving; fairness gate 1 retargeted (still failing) |
 | Story ch1-6 doubled | 9bf61f1 | 40 -> 93 nodes, harder bosses (bo5, tiers 4-6), setback fights with recovery scenes, between-round lines, chapters in `src/data/story/chN.js`, story engine branches (`when`, won/lost flags), tiers to 8 |
+| Rift Depth M1 | 7c5312f..be65b68 | Plan `rift-depth-plan.md` §3 done: early-run fix (viable first offer, dry-streak pity, consolation on loss; `systems/riftFit.js`), arena twists Slick Ring and Glass Floor (`data/arenaTwists.js`, `resolveArena("base+twist")`), 4 keystone legendaries, boss weaknesses for Sora, Daichi, Mirelle, Nyx (`data/riftBosses.js`), 5-event pack with lasting `run.flags` (`systems/riftFlags.js`). Open: attack build 0/20 vs Mirelle, stamina 5% vs Sora, Glass Floor drops defense 25% -> 16% on Standard (n=8), Cracked Mirror duplicates stack, twists steep/dome/thinrim/lowg not built |
 | Playbook | de3b450..1325d80 | D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, recorded as triggers; Playbook screen in the Workshop; AI telegraphs its plans and reads the player's patterns |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 204/204 (2026-10-20). Browser tests: last full run 17/17 (2026-10-14); scenario `playbook` added 2026-10-20.
+outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 246/246 (2026-10-20). Browser tests: last full run 17/17 (2026-10-14); scenarios `playbook` and `rift` pass (2026-10-20).
 
 ## Phase 5: DONE
 
@@ -55,10 +56,21 @@ the Balance build now reads the spin race instead of trading hits it loses.
 Guard: `npm run balance:check` (25-70% band). Experiments:
 `tools/balance-tune.js` with part / AI / `PHYSICS` overrides and `SEED_OFFSET`.
 
+## In progress: Blender part art
+
+User request (2026-10-20): "3d models with blender based on the references,
+thinner parts". Pipeline committed in 214d68c: `render/meshAsset.js` (shared
+decoder), `tools/blender/parts-dump.mjs` (part numbers -> `.tools/parts.json`),
+generic `tools/blender/mesh-to-module.mjs`. Three technical-artist agents
+model rings, discs and tips in worktrees `.claude/worktrees/art-rings|art-discs|art-bases`
+(new `render/parts/<slot>Model.js`, procedural fallback kept; reports in
+`.claude/research/reviews/art-*-report.md`). Disc `thickness` is physics:
+thinning it is a separate step behind the balance gate.
+
 ## Next steps
 
-The ordered list is in `docs/HANDOFF.md` ("Start here"): Rift Run depth
-milestone 1, story chapters 7-20, fairness gate 1, Playbook M2, then the
+The ordered list is in `docs/HANDOFF.md` ("Start here"): Blender part art
+(in progress), story chapters 7-20, fairness gate 1, Playbook M2, then the
 older queue (battle feel, ring art branch, catalogue expansion, inventory
 filters, store pack odds). Daily Seed stays paused on branch
 `wip/daily-seed`. Multiplayer is paused by request (local versus first,

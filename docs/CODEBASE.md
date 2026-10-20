@@ -26,7 +26,7 @@ generated in code (no image or model files).
 ```sh
 npm install              # esbuild + three
 npm run build            # bundle src/ -> dist/chaos-spin.js (embeds the sim worker)
-npm test                 # 114 Node unit tests (node --test tests/*.test.js)
+npm test                 # 246 Node unit tests (node --test tests/*.test.js)
 npm run test:browser     # build, then 15 end-to-end scenarios in headless Chromium
 npm run balance -- 8 all # AI-vs-AI round robin of reference builds on every stadium
 node tools/preview/shoot.js slot ring --audit   # render part models + geometry audit
@@ -169,6 +169,8 @@ Inspect screen switches the renderer to its own turntable scene.
 | `partGen.js` | 190 | Daily Store prototypes: seeded generator for rings, discs, tips, locks and launchers inside catalogue ranges (role archetypes, power/window trade-off for launchers), with generated names and descriptions. Definitions travel inside items (`item.def`), so `baseOf`, assembly, launch gear, renderer and workers need no registry. |
 | `store.js` | 150 | Shop: odds per offer from the loot rarity weights, packs/capsules/bundles via `rollLoot` (deterministic per profile, guaranteed first item), crates, daily deals (exact items from a day-seeded stream, bought once per day). Catalogue in `data/store.js`, screens in `ui/screens/store.js`. |
 | `rift.js` | 386 | Rift Run state on `profile.rift`: seeded act maps, start, node flow, battle results, hearts, reward queue and picking, bag, end of run (Essence, Locker, career rewards), talents. |
+| `riftFit.js` | 90 | Pure fit checks: does a part or charm serve the run's build (roles from the ring, strong traits, synergy completion, empty slots, charm families toward Resonance, element). Drives the viable-first-offer guarantee and dry-streak pity in `riftLoot.js` and the fit chips on reward cards. |
+| `riftFlags.js` | 69 | Lasting event consequences (`run.flags`) that reach a battle (`echo`: a gift as player modSources in the next boss fight; `nextEliteAffix`: extra traits on the next elite). Pure: never rolls `run.counter`, so scout sheet, battle and replay agree; old saves have no flags (read with `?.`). |
 | `riftBattle.js`, `riftLoot.js`, `riftNodes.js` | ~560 | Run effects (charms, resonance, boons) → battle participants and opponents (elite affixes, vault rules); counter-seeded loot, prices, forge jobs, shrine and event rolls; trader, forge, shrine, camp and event actions. Everything rolls from `runRng(run, label…)`, so a run replays from its seed. |
 
 ### data/ (content)
@@ -180,7 +182,12 @@ nodes may carry `when` conditions, battles set `<node>:won/lost` flags and
 may carry `roundLines`; rewards can teach `patterns`), tournaments (9 plus story events plus 5 league divisions),
 challenges (12), skills (5 paths), upgrades and tuning; Rift Run content
 (`rift.js` acts, nodes, depths, statuses, affixes, vaults, events, economy,
-talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons). Part numbers are
+talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons; `riftBosses.js` boss kits for Sora, Daichi, Mirelle
+and Nyx, each ONE visible weakness as a conditional modifier source on existing
+channels, its text generated from the numbers; `arenaTwists.js` Slick Ring and
+Glass Floor, pure `+ - * /` functions on a stadium def, resolved by
+`resolveArena("<base>+<twist>")` in `arenas.js`, which is also the id replays
+and saves store). Part numbers are
 physical (mm, g) and consumed by `assembly.js`.
 
 ### render/
@@ -189,7 +196,12 @@ ones (Realistic, `setRenderStyle`); `environment.js` (procedural hall or the
 Blender panorama → PMREM environment, crowd sprite loader), `post.js`
 (bloom/FXAA/MSAA composer for Realistic), `assets/` (generated data-URI
 modules from `tools/blender/`: never hand-edit; regenerate with Blender and
-`tools/blender/pano-to-module.mjs`).
+`tools/blender/pano-to-module.mjs` or `mesh-to-module.mjs`).
+`meshAsset.js` (45 lines) decodes the compact Blender meshes (int16 positions
+over bounds, int8 normals, uint16 indices, groups by palette slot) once per
+mesh and caches crease-line edges; used by launchers and the Blender part
+models. `tools/blender/parts-dump.mjs` writes `.tools/parts.json` from
+`data/parts.js`, so Blender builds from the physics numbers.
 | File | Lines | Purpose |
 |---|---|---|
 | `renderer.js` | 368 | Owns the WebGLRenderer, lights, camera rig, arena, top visuals, launchers, the battle-event → effects mapping, pooled physics debug overlay, ink-layer toggle, the inspect stage switch. Preloads both battlers' spirits at round start. |
@@ -260,6 +272,10 @@ context; the simulation worker entry.
    row's 7th field); never mutate the human's control object (a frame may run
    several ticks with the same input). `RULES_REV` (battle.js) goes up with
    every rules change; older replays warn that they may play differently.
+   **Rift map streams:** a new kind of node roll gets its own seeded stream
+   (`mixSeeds(run.seed, '<label>', ...)`), never a draw from the map RNG.
+   Arena twists roll this way (`systems/rift.js`), so every existing seed's
+   map is unchanged; never on the run's first battle.
 2. **Fixed timestep.** Simulation results must not depend on render frame
    rate (TICK 1/120 s, 16 substeps). This includes the countdown: charge,
    IGNITE and spawns advance in ticks (`Battle.step`), tested at 30/60/144 fps.
@@ -320,6 +336,7 @@ context; the simulation worker entry.
 | `tests/skillRules.test.js`, `dash.test.js`, `strike.test.js` | Openings and punishes, the judges' card, dash windup and counter reads, strike attribution. |
 | `tests/playbook.test.js` | Every pattern starts, steers and ends; Orbit holds its circle; Slingshot loads and dives; stick nudge/break; a match with patterns replays identically; the AI reads a Feint and telegraphs its plans. |
 | `tests/rift.test.js` | Rift Run: seeded maps and constraints, rewards and skips, hearts and Second Wind, charms/resonance/boons into participants, forge, trader, shrine, camp, events, Locker, talents, statuses, fusions, sweet spots, a headless two-act run. |
+| `tests/riftFit.test.js`, `arenaTwists.test.js`, `riftKeystones.test.js`, `riftBosses.test.js`, `riftEvents.test.js` | Rift Depth M1: fit checks and the viable first offer; twists resolve, are pure and leave seeds' maps unchanged; keystones; boss weaknesses; events and `run.flags`. |
 | `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
 | `tests/browser/run.js` | 18 end-to-end scenarios (incl. `touch`, `relics`, `playbook`) driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop (incl. crafting, the Forge and a left-spin launcher's spin switch), beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal, Daily Store, right-stick scrolling), career (new game → build → Inspect → Rookie Cup title → prizes → Store crate → upgrade → equip a prize → skill point → save → reload → battle). It uses the GPU when there is one (about 4 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. `npm run balance:check` gates the 25-70% band. |
