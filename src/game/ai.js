@@ -170,13 +170,33 @@ export class AIController {
     }
   }
 
+  // Reading the opponent's playbook pattern (its name is on the HUD), seen
+  // `reaction` late, once per pattern, landing with probability readSkill:
+  // a Feint is ignored (no reflex counter to whiff), a Slingshot dive is
+  // sidestepped, a Herd drive is answered by heading home and bracing.
+  readPattern(time, pat, P) {
+    if (!pat) { this.ignoreFeint = false; return; }
+    const key = `${pat.id}:${pat.startTime}`;
+    if (time - pat.startTime < P.reaction) return;
+    const phaseKey = `${key}:${pat.phase}`;
+    if (this.readPatternKey === phaseKey) return;
+    const act = pat.id === 'feint' || (pat.id === 'slingshot' && pat.phase === 'dive') || (pat.id === 'herd' && pat.phase === 'drive');
+    if (!act) return;
+    this.readPatternKey = phaseKey;
+    const readSkill = P.readSkill ?? Math.min(0.95, 0.35 + 0.5 * (P.counterSkill || 0));
+    if (!this.rngRead.chance(readSkill)) return;
+    if (pat.id === 'feint') { this.ignoreFeint = true; this.counteredApproach = true; this.counterAt = null; }
+    else if (pat.id === 'slingshot') { this.plan = 'evade'; this.nextDecision = Math.max(this.nextDecision, time + 0.4); }
+    else { this.plan = 'recover'; this.braceUntil = time + 0.8; this.nextDecision = Math.max(this.nextDecision, time + 0.6); }
+  }
+
   // Counter as a read, checked every tick: from what it saw `reaction`
   // seconds ago, the AI predicts when the opponent's strike lands and presses
   // so the counter window covers it. Only when the opponent is the striker
   // (counters never fire on your own hits or clashes); once per approach,
   // landing with probability counterSkill, so the AI also misses.
   readCounter(time, snap, me, opp, P) {
-    if (!(P.counterSkill > 0)) return;
+    if (!(P.counterSkill > 0) || this.ignoreFeint) return;
     const sm = snap.me, so = snap.opp;
     const dx = so.p.x - sm.p.x, dz = so.p.z - sm.p.z, d = dm.hypot(dx, dz);
     if (d < 1e-4) return;
@@ -196,7 +216,7 @@ export class AIController {
   update(dt, ctx) {
     const c = emptyControls();
     const P = this.profile;
-    const { time, me, opp, arena, ability, oppAbility, roundTime = null } = ctx;
+    const { time, me, opp, arena, ability, oppAbility, roundTime = null, oppPattern = null } = ctx;
     if (P.passive) return c;
     this.observe(time, me.top, opp.top, ability.spirit, oppAbility?.spirit ?? 0, oppAbility?.windup, openness(opp.top, opp.assembly?.summary?.critSpin).degree);
     const snap = this.delayed();
@@ -213,6 +233,7 @@ export class AIController {
     const oppR = dm.hypot(oP.x, oP.z) / R;
     const mySpin = me.top.spinFraction();
     const oppSpin = snap.opp.spinFrac;
+    this.readPattern(time, oppPattern, P);
     this.readWindup(time, snap, me, ability, P);
     if (this.counterAt !== null && time >= this.counterAt) { this.wantCounter = true; this.counterAt = null; }
     this.readCounter(time, snap, me, opp, P);

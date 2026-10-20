@@ -99,6 +99,9 @@ export const CLASH_BAND = 0.15;
 // Battle rules revision, stored in replays. Raise it whenever a rule change
 // makes the same inputs play out differently (older replays then show a
 // notice). 2: skill over RPM (launch judging, counters as reads, 2026-10-13).
+// AI plans named as the pattern they resemble (HUD telegraph only)
+const AI_PLAN_PATTERN = { center: 'anchor', circle: 'orbit', evade: 'sidestep', koPush: 'herd' };
+
 export const RULES_REV = 7; // 6: judges' cards on time, spirit for initiative, rubber ring edges; 7: playbook patterns
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
@@ -505,7 +508,9 @@ export class Battle extends Emitter {
         c.steer.x = Math.round(c.steer.x * 64) / 64; c.steer.z = Math.round(c.steer.z * 64) / 64;
         if (this.rec) this.recordControls(f.index, c);
       }
-      else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability, roundTime: this.rules.decisionAtTime ? this.roundTime : null });
+      else c = f.controller.update(TICK, { time, me: f, opp, arena: this.arena, ability: f.ability, oppAbility: opp.ability, roundTime: this.rules.decisionAtTime ? this.roundTime : null,
+        oppPattern: opp.pattern ? { id: opp.pattern.id, phase: opp.pattern.phase, startTime: opp.pattern.startTime } : null });
+        this.telegraphPlan(f);
       c = this.runPattern(f, opp, c);
       f.controls = c;
       this.applyControls(f, opp, c);
@@ -543,6 +548,19 @@ export class Battle extends Emitter {
     const row = [this.round, this.roundTicks, i, c.steer.x, c.steer.z, flags];
     if (c.pattern) row.push(c.pattern);
     this.rec.controls.push(row);
+  }
+
+  // The AI's current plan, named as the playbook pattern it resembles, so a
+  // player can read it on the HUD (behaviour unchanged; a plan must hold for
+  // 0.4 s and names are at least 1.5 s apart, so the feed does not flicker).
+  telegraphPlan(f) {
+    const id = AI_PLAN_PATTERN[f.controller?.plan];
+    const T = f.telegraph || (f.telegraph = { id: null, since: 0, shown: null, at: -9 });
+    if (id !== T.id) { T.id = id; T.since = this.battleTime; return; }
+    if (id && id !== T.shown && this.battleTime - T.since >= 0.4 && this.battleTime - T.at >= 1.5) {
+      T.shown = id; T.at = this.battleTime;
+      this.emit('playbook', { fighter: f, id, variant: 0, phase: 'start', ai: true });
+    }
   }
 
   // Playbook: a D-pad trigger starts a pattern; while it runs it steers, the

@@ -118,3 +118,30 @@ test('a match played with patterns replays to the identical result', () => {
   for (let g = 0; re.phase !== 'matchOver' && g < 200000; g++) { re.update(1 / 45, []); if (re.phase === 'roundOver') re.nextRound(); }
   assert.deepEqual(re.result.rounds.map((r) => [r.winner, r.how, +r.time.toFixed(4)]), live.result.rounds.map((r) => [r.winner, r.how, +r.time.toFixed(4)]));
 });
+
+// The AI reads a Feint by name (HUD) and does not swing at it; a top that
+// cannot read it still counters into the bait. Its own plans show as patterns.
+test('the AI reads a Feint (no counter press) and telegraphs its plans as patterns', () => {
+  const run = (readSkill) => {
+    const me = { ...participantFromDef(ARCHETYPE_INDEX.striker, { id: 'p' }), human: true, name: 'P' };
+    const ai = participantFromDef(ARCHETYPE_INDEX.counter, { id: 'ai', difficulty: 1.3 });
+    let presses = 0, told = 0;
+    for (const seed of [3, 9, 27]) {
+      const b = new Battle({ arenaId: 'standard', format: 'single', seed, roundTime: 40, rules: { slowmo: false }, participants: [me, ai] });
+      b.headless = true;
+      b.fighters[1].controller.profile.readSkill = readSkill;
+      b.on('playbook', (e) => { if (e.ai) told++; });
+      const c = emptyControls();
+      toBattle(b, c);
+      for (let g = 0; g < 60 * 30 && b.phase === 'battle'; g++) {
+        c.pattern = g % 150 === 0 ? 'feint:0' : null;
+        b.update(1 / 60, [c]);
+        if (b.fighters[1].controls?.counter) presses++;
+      }
+    }
+    return { presses, told };
+  };
+  const blind = run(0), sharp = run(1);
+  assert.ok(sharp.presses < blind.presses, `counter presses into feints: reader ${sharp.presses} vs blind ${blind.presses}`);
+  assert.ok(sharp.told > 0, 'the AI plan is telegraphed as a pattern');
+});
