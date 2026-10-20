@@ -46,11 +46,21 @@ options. Unplugging a controller mid-battle pauses the game.
 | Spirit Chip abilities: signature / secondary | RT / LT | F / G |
 | Ultimate | LB + RB together | R or V |
 | Spirit Guard / Spirit Surge | LB / RB | Q / E |
+| Playbook patterns (twice = variant) | D-pad up / down / left / right | 1 / 2 / 3 / 4 |
 | Camera / telemetry / pause | Y / View / Menu | C / Tab / Esc |
+
+**Playbook:** each D-pad direction runs a short steering pattern (Anchor,
+Orbit, Sidestep, Slingshot; Feint and Herd are learned in the story). A light
+stick nudges a pattern, a firm stick takes over. Equip them in Workshop →
+Loadouts → Playbook. Rounds that reach the time limit go to the judges'
+card (shown under the timer): clean strikes, counters, punishes and the more
+stable top score points.
 
 ## Modes
 
-- **Story** — six chapters (Harbor District → Arena Zero). Battler creation
+- **Story** — six chapters (Harbor District → Arena Zero), 93 scenes and
+  battles, with bosses in best-of-5, fights you may lose that change what
+  happens next, and lines between rounds; chapters 7-20 are planned. Battler creation
   (name, colour, pronouns, battle style with starter parts), guided training
   with objectives measured from real battle events, rival battles, choices
   that change later scenes, Spirit Chip discovery and story brackets. Losing

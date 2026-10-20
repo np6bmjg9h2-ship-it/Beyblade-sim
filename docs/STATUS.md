@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-13 (same battle on every device; Daily Seed paused). Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-20 (real physics + anime rules, Playbook, story ch1-6 doubled). For the next steps read `docs/HANDOFF.md` first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -35,10 +35,14 @@ item gives its second action (favourite, slot options).
 | iPhone and touch | 124494e | On-screen controls as a virtual gamepad (floating aim/steer and lean/camera sticks; LAUNCH hold-and-release; DASH, GRIP, CNTR, SKILL, SKILL 2, GUARD, SURGE, ULT mirroring each ability's ready/cooldown/locked state; CAM, pause, Continue); tappable prompt buttons; press-and-hold for secondary actions; phones zoom the menus to fit and ask to be turned sideways; phones start on Medium graphics; iOS audio unlock on touch end; fixed mouse clicks in menus (a UI layer swallowed them); browser scenario `touch` (iPhone-sized, real touch events) |
 | Loot engine M4 | a7658da | 12 handcrafted relics with signature powers and earn paths (story chapters 3-6, Arena Zero Championship, Rift Depth 3, Masterwork, 60 traits, awakening, Division 1, all rivals, Survival 12), recast if lost; the Journal (Relics, Parts with where to find them, Traits, Sets, Milestones with rewards, bad-luck counters); imprints from dismantling and engraving; spare copies train mastery; relic rarity reserved for relics |
 | Same battle on every device | (this commit) | From the 2026-10-13 research and team review: `core/dmath.js` replaces Math.sin/cos/atan2/exp/log/pow/hypot in everything that decides a battle (engines disagreed in the last bits, measured); `npm run test:determinism` checks Node, Chromium, Firefox and WebKit play identically; replays record countdown aim/technique/spin changes and recompute the AI; Workshop undo checked before it is used; balance and perf unchanged |
+| Skill over RPM S1-S5 | c2a3311..16147b3 | Launch judging, strike attribution and counters, earned spirit, dash windup, openings and punishes, AI judgment, seeded spawn angle (details in `docs/HANDOFF.md`) |
+| Real physics, anime rules | 40f8428..faf2895 | User decision 2026-10-19: physics stays realistic, the rules reward active play. Judges' cards on time-outs (HUD), spirit for initiative, rubber ring edges with real spin steal (Grip Fang); AI clean launch and even-matchup conserving; fairness gate 1 retargeted (still failing) |
+| Story ch1-6 doubled | 9bf61f1 | 40 -> 93 nodes, harder bosses (bo5, tiers 4-6), setback fights with recovery scenes, between-round lines, chapters in `src/data/story/chN.js`, story engine branches (`when`, won/lost flags), tiers to 8 |
+| Playbook | de3b450..1325d80 | D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, recorded as triggers; Playbook screen in the Workshop; AI telegraphs its plans and reads the player's patterns |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low. Unit tests: 114/114. Browser tests: 15/15 (about 4 min on the GPU).
+outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 204/204 (2026-10-20). Browser tests: last full run 17/17 (2026-10-14); scenario `playbook` added 2026-10-20.
 
 ## Phase 5: DONE
 
@@ -51,24 +55,14 @@ the Balance build now reads the spin race instead of trading hits it loses.
 Guard: `npm run balance:check` (25-70% band). Experiments:
 `tools/balance-tune.js` with part / AI / `PHYSICS` overrides and `SEED_OFFSET`.
 
-## Next steps (after the plan)
+## Next steps
 
-Daily Seed (loot engine M5) is paused by request (2026-10-13); the full
-mode is kept on branch `wip/daily-seed` (pushed), with its one open item
-noted in that commit. Current work: the ranked plan from the 2026-10-13
-research and team review, `../Beyblade-sim-research/2026-10-13/reports/improvement-plan.md`
-(copy in `.claude/research/`, not in git): quick tech wins, contact feel
-(hit-stop, finish slow-mo, why a hit won), loot curve and simulation
-harness, inventory filters, M6 Rift integration, AI and fairness gates.
-
-Current work: the loot-engine milestones in `docs/loot-engine.md` (next: M5 Daily Seed; then Rift integration, tools, story).
-
-1. Playtest and tune Rift Run's economy and difficulty, the Store prices and
-   the Daily Store prototypes (all first estimates).
-2. Story chapters 2-6 (content).
-3. Multiplayer is paused by request (local versus first, then share codes;
-   online play needs hosting outside the shared artifact).
-4. Optional bloom; rename "Bit-Beast" before any commercial release.
+The ordered list is in `docs/HANDOFF.md` ("Start here"): Rift Run depth
+milestone 1, story chapters 7-20, fairness gate 1, Playbook M2, then the
+older queue (battle feel, ring art branch, catalogue expansion, inventory
+filters, store pack odds). Daily Seed stays paused on branch
+`wip/daily-seed`. Multiplayer is paused by request (local versus first,
+then share codes; online play needs hosting outside the shared artifact).
 
 ## Ideas waiting for a decision
 
@@ -82,6 +76,6 @@ Current work: the loot-engine milestones in `docs/loot-engine.md` (next: M5 Dail
 ## Deferred / known
 
 - Optional bloom: not started (now measurable on the GPU).
-- Story chapters 2-6 are short (content work, after balance).
+- The published artifact (claude.ai) is still the 2026-10-12 build; republish to let the user playtest this work.
 - "Bit-Beast" is a franchise term (IP risk for a commercial release).
 - Several ruflo MCP server processes stay resident on this machine (not part of the game).

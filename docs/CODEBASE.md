@@ -135,11 +135,13 @@ Inspect screen switches the renderer to its own turntable scene.
 ### game/
 | File | Lines | Purpose |
 |---|---|---|
-| `battle.js` | 795 | Match controller: formats (single, bo3, bo5, points, endless), phases, launches, finishes, scoring, stats, events, replay record and playback, debug finish. |
+| `battle.js` | 1047 | Match controller: formats (single, bo3, bo5, points, endless), phases, launches, finishes, scoring, stats, events, replay record and playback, debug finish. |
 | `launch.js` | 207 | Launch model: charge meter, gold window, techniques, lean/aim → initial spin, velocity and tilt; launcher and cable gear. |
-| `ai.js` | 360 | AI controller that produces the same control frame as a human; personalities, skill (reaction, accuracy), velocity-control steering, contact awareness, rival tweaks, adaptation between rounds. `pressWhenBehind` presses for a knock-out when losing the spin race; `readRace` projects that race from both builds' estimated spin time (`assembly.summary.estSpinTime`) and holds the centre when it would outlast the opponent. |
+| `ai.js` | 556 | AI controller that produces the same control frame as a human; personalities, skill (reaction, accuracy), velocity-control steering, contact awareness, rival tweaks, adaptation between rounds. `pressWhenBehind` presses for a knock-out when losing the spin race; `readRace` projects that race from both builds' estimated spin time (`assembly.summary.estSpinTime`) and holds the centre when it would outlast the opponent. |
 | `abilities.js` | 301 | Spirit meter, Spirit Chip abilities (signature, secondary, ultimate), tactical guard and surge, timed modifiers. |
-| `humanController.js` | 163 | Turns input actions into the control frame. |
+| `humanController.js` | 152 | Turns input actions into the control frame; the D-pad sends playbook triggers (`c.pattern = 'id:variant'`, double-tap = variant). |
+| `playbook.js` | 178 | Playbook (D-pad patterns: Anchor, Orbit, Sidestep, Slingshot, Feint, Herd): `PATTERNS`, `patternSteer(state, ctx)` as a pure function of the battle state and integer ticks. `Battle.runPattern` runs it for any fighter each tick (stick 0.2-0.5 nudges, 0.5+ for 0.12 s breaks; `dashAim` foe/path); only the trigger is recorded, playback recomputes the steer. Design: `.claude/research/reviews/playbook-design.md`. |
+| `skillRules.js` | 33 | Openings (`openness`), punish window, spirit for skill moments, and the judges' card (`JUDGE` points) that decides a time-out (`Battle.decision`). |
 | `objectives.js` | 59 | Story training objectives measured from real battle events. |
 | `../physics/mechanisms.js` | 140 | Classic-series moving parts inside the simulation (spec.mech from assembly): magnet forces between tops (substep), spring tips (absorb when struck, hop), clutches (energy stored at launch, released on a hit or at low spin, tip change), automatic tip shifts. Booked to the `mechanism` ledger; emits `mechanism` events. TopBody keeps a live `tip` copy that these change. |
 | `itemEffects.js` | 125 | Reactive item effects: triggers from traits and synergies (hit, heavy hit, struck, wall, lock slip, ability, dash, counter, low spin, edge escape) with cooldowns, stacks and per-round limits, acting through timed modifiers, spirit, the next-hit lock-stress multiplier and `sim.restoreSpin` (ledger). Seeded RNG; created per round only when someone carries reactive effects. Order in one impact: abilities, Rift, items. Reports trigger counts for the results breakdown. |
@@ -172,8 +174,10 @@ Inspect screen switches the renderer to its own turntable scene.
 ### data/ (content)
 Parts (63 across 6 slots, 14 of them the classic series), traits (99, declarative specs in `traits.js`, channels and conditions in `channels.js`), synergies (19, `synergies.js`), sets (6), rarity (7), launchers (12) and
 cables (5), techniques, arenas (7), beasts (11) plus lore, AI profiles,
-opponents (8 archetypes), characters (10), story (6 chapters: ch1 11 nodes,
-ch2–6 5–7 nodes), tournaments (9 plus story events plus 5 league divisions),
+opponents (8 archetypes), characters (10), story (6 chapters, 93 nodes, one
+file per chapter in `data/story/chN.js`, registered in `data/story.js`;
+nodes may carry `when` conditions, battles set `<node>:won/lost` flags and
+may carry `roundLines`; rewards can teach `patterns`), tournaments (9 plus story events plus 5 league divisions),
 challenges (12), skills (5 paths), upgrades and tuning; Rift Run content
 (`rift.js` acts, nodes, depths, statuses, affixes, vaults, events, economy,
 talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons). Part numbers are
@@ -252,6 +256,10 @@ context; the simulation worker entry.
    technique and spin changes during the countdown at their tick; the AI's
    launches, false starts and spawns are recomputed on playback. v1
    recordings (saved before 2026-10-13) still play back.
+   Playbook patterns run inside the step from the recorded trigger (a control
+   row's 7th field); never mutate the human's control object (a frame may run
+   several ticks with the same input). `RULES_REV` (battle.js) goes up with
+   every rules change; older replays warn that they may play differently.
 2. **Fixed timestep.** Simulation results must not depend on render frame
    rate (TICK 1/120 s, 16 substeps). This includes the countdown: charge,
    IGNITE and spawns advance in ticks (`Battle.step`), tested at 30/60/144 fps.
@@ -272,6 +280,9 @@ context; the simulation worker entry.
    by `disposeTree` / `TopVisual.dispose()` / arena swap.
 7. **Saves.** Any change to persisted data needs a `SCHEMA_VERSION` bump and
    a migration step in `save.js`, and `normalizeProfile` must accept old saves.
+   (A new field with a default in `newProfile` is filled in by
+   `normalizeProfile` without a bump, e.g. `profile.playbook`.)
+   Story node ids and chapter ids are save keys: never rename or delete one.
 8. **Runs from `file://`.** No runtime network requests; fonts are embedded
    as base64; the worker is a Blob URL; one bundled script.
 9. **Input parity.** Every screen is fully usable with controller only and
@@ -306,29 +317,36 @@ context; the simulation worker entry.
 | `tests/render.test.js` | Spirit forms for every beast (finite, stadium-sized, animate safely); camera wall framing. |
 | `tests/classic.test.js` | Classic series: every part assembles; magnets attract/repel/pull plain metal with momentum and energy books intact; spring tips absorb and hop; clutches store and release (hit, timed fallback, low spin); auto shift; rollers on locks and rings; classic launchers; magnet flip; a deterministic battle. |
 | `tests/store.test.js` | Shop: odds add up and respect guarantees, prices and guarantees, pools (classic, launch gear, bundles), crates, capsule minimums, determinism, daily deals (exact item, once a day, next day new), old-save defaults. |
+| `tests/skillRules.test.js`, `dash.test.js`, `strike.test.js` | Openings and punishes, the judges' card, dash windup and counter reads, strike attribution. |
+| `tests/playbook.test.js` | Every pattern starts, steers and ends; Orbit holds its circle; Slingshot loads and dives; stick nudge/break; a match with patterns replays identically; the AI reads a Feint and telegraphs its plans. |
 | `tests/rift.test.js` | Rift Run: seeded maps and constraints, rewards and skips, hearts and Second Wind, charms/resonance/boons into participants, forge, trader, shrine, camp, events, Locker, talents, statuses, fusions, sweet spots, a headless two-act run. |
 | `tests/controls.test.js` | Keyboard + gamepad press counted once, menu auto-repeat, hat d-pads, non-standard layouts, disconnects, audio without Web Audio, head-on vs graze feedback. |
-| `tests/browser/run.js` | 15 end-to-end scenarios driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop (incl. crafting, the Forge and a left-spin launcher's spin switch), beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal, Daily Store, right-stick scrolling), career (new game → build → Inspect → Rookie Cup title → prizes → Store crate → upgrade → equip a prize → skill point → save → reload → battle). It uses the GPU when there is one (about 4 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
-| `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. |
+| `tests/browser/run.js` | 18 end-to-end scenarios (incl. `touch`, `relics`, `playbook`) driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop (incl. crafting, the Forge and a left-spin launcher's spin switch), beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal, Daily Store, right-stick scrolling), career (new game → build → Inspect → Rookie Cup title → prizes → Store crate → upgrade → equip a prize → skill point → save → reload → battle). It uses the GPU when there is one (about 4 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
+| `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. `npm run balance:check` gates the 25-70% band. |
+| `tools/fairness.js` | Fairness gates (`npm run fairness`): no-input bots on equal parts (gate 1, realistic targets: average launch < 70% at Elite, < 50% at Legend), gear curve, difficulty steps (>= +10 points; use n >= 150), luck. |
 | `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 
 ---
 
 ## 7. Known issues, risks and technical debt
 
-- **Balance:** after the Phase 5 pass (all stadiums): Attack ~53%, Defense
-  ~60%, Stamina ~59%, Burst ~49%, Balance ~30%. Model coefficients live in
+- **Balance:** `npm run balance:check` 2026-10-20: attack 58%, defense 29%,
+  stamina 47%, balance 52%, burst 63% (band 25-70%).
+- **Fairness gate 1 fails** (2026-10-20): a no-input bot with an average
+  launch beats the AI on equal parts 77% at Elite and 59% at Legend (targets
+  < 70% / < 50%). On equal parts the better launch wins the spin race; see
+  `docs/HANDOFF.md`. Model coefficients live in
   `PHYSICS` (`physics/simulation.js`); `tools/balance-tune.js` tests changes,
   `npm run balance:check` guards the 25-70% band.
-- **Story:** chapter 1 is complete (11 scenes); chapters 2–6 are thin (5–7
-  scenes). Characters have no portrait art (the dialogue shows initials).
+- **Story:** chapters 1-6 rewritten (93 nodes); chapters 7-20 are planned
+  (`.claude/research/reviews/story-expansion-plan.md`), not written. Characters have no portrait art (the dialogue shows initials).
 - **Visual review gaps** in the new cel-shaded part models: `glows` are
   collected but never pulsed; ring key-slots don't align with core tabs;
   higher-rarity trims only partly checked; no automatic quality downgrade on
   software rendering. Measured battle frame: 201 draw calls / 150k triangles
   at High with ink, 82 / 49k at Low without (see docs/audit-phase1.md).
 - **Large files** that are candidates for splitting: `physics/simulation.js`
-  (893), `game/battle.js` (795), `systems/tournament.js` (704),
+  (936), `game/battle.js` (1047), `systems/tournament.js` (704),
   `render/arenaMesh.js` (1168), `render/parts/ring.js` (1102).
 - **Browser tests are timing-sensitive** under software rendering (a few
   waits were hardened; others may still be marginal). At 3x test speed a fast

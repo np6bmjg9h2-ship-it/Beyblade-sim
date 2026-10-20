@@ -1,48 +1,86 @@
-# Handoff — 2026-10-14
+# Handoff — 2026-10-20
 
-Read this first in a new session; `docs/STATUS.md` has the long-term picture.
+Read this first in a new session; `docs/STATUS.md` has the long-term picture,
+`docs/CODEBASE.md` the architecture and invariants. Branch
+`claude/chaos-spin-arena-zero-ynh785`, everything committed and pushed;
+`main` is NOT fast-forwarded (it waits for fairness gate 1 to pass).
 
-## User playtest feedback (2026-10-19) — story and Rift need depth
+## Start here: the next steps, in order
 
-The user finished the story: good, but too short and needs development.
-- **Story length:** every existing chapter (ch1-ch6 in `src/data/story.js`)
-  must at least double in length.
-- **More chapters:** add chapters 7-20 after the current ending.
-- **Quality:** improve the writing and storytelling throughout, not just the length.
-- **Rift Run:** needs more depth as well.
+1. **Rift Run depth, milestone 1** (user approved): plan in
+   `.claude/research/reviews/rift-depth-plan.md` section 3: fix early losses
+   (viable first offer; 10 of 13 playtest losses were at depth 0), boss
+   weaknesses + phases, arena twists (slickring, glass first), four keystone
+   legendaries, a five-event pack with run flags. Battle-changing effects go
+   through seeded data and modSources (determinism).
+2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
+   section 4 (three acts, tiers 6-8, Stillwater Order arc, ~250 nodes). Add
+   the data first (10 rivals in characters.js, 6 arenas, story brackets, cast),
+   then writers in worktrees, one or two chapters each, files
+   `src/data/story/ch7.js`.. (register them in `src/data/story.js`).
+   Also open: `noBeast` opponents (ch5 Hollow), the setback hint card (plan
+   E13), chapter `act` headers (E5), side rematches (E10).
+3. **Fairness gate 1** still fails: average-launch no-input bot beats the AI
+   on equal parts 77% at Elite (target < 70%) and 59% at Legend (< 50%);
+   gate 3 steps are noisy around +10 at n=100 (use n >= 150). Finding: in a
+   mirror the better launch wins the spin race (a fully passive AI with a
+   clean launch wins only 30% vs the perfect-launch bot); centre AIs
+   (defense, stamina) still use their controlled centre launch, which loses
+   mirrors but is needed for balance (removing it dropped defense to 9%).
+   Ideas: matchup-aware launch (the AI sees the opponent's part cards),
+   AI playbook use (Slingshot/Feint at high judge).
+4. **Playbook M2**: Hound, Pendulum, Homecoming, Rail Ride; floor path
+   ribbon and opponent chevron; mastery stars; named chains; Spirit x1.5 for
+   strike patterns; AI using patterns (today it only telegraphs plans and
+   reads the player's). Design: `.claude/research/reviews/playbook-design.md`.
+5. Older queue (still valid): battle feel from the AMV study (17 items),
+   ring WIP branch `wip/ring-art2` review, S6-S9 of skill-loop spec,
+   catalogue expansion + visual customisation, inventory filters, store
+   pack odds (playtest: 12 of 37 pack items were Mythic).
 
-Telemetry from the user's play (artifact `24WkGVSTtfLpnzkhjHV1XJ`, collection
-`telemetry`, 8 sessions 2026-10-12..18, build `2026.10.12-m4`, 239 events):
-story = only 12 battles in total, 11 won (only loss: the ch1 Sora fight, which
-continues on a loss); Kaela and Theo fell in under 3.5 s a round, so the story
-is short and easy. Rift: 20 runs (6 won at depths 0-5, 13 lost, 1 abandoned;
-10 of the losses at depth 0), 129 Rift battles.
-Store: 16,320 credits spent, and 12 of 37 pack items were Mythic (packs look
-too generous; check against the loot curve). FPS 40-57 on Intel UHD 620.
+## User decisions this session (2026-10-19/20)
 
-## Session 2026-10-19/20: done (commits 40f8428..)
+- **Realistic physics stays; the fun goes in the rules** ("real physics,
+  anime rules"). Fairness gate 1 retargeted accordingly (see tools/fairness.js
+  header). Any arcade-style physics change still needs the user's approval.
+- Approved and built: judges' cards, spirit for initiative (passive 0.8/s),
+  rubber spin steal, the Playbook, the story plan (ch1-6 doubled, ch7-20 to
+  come), the Rift depth plan.
+- Playtest verdict (2026-10-19): story good but too short and too easy; Rift
+  needs depth. Telemetry: artifact `24WkGVSTtfLpnzkhjHV1XJ`, collection
+  `telemetry` (8 sessions, build 2026.10.12-m4): 12 story battles, 11 won;
+  Rift 20 runs (6 won, 13 lost, 10 of them at depth 0); FPS 40-57 on Intel
+  UHD 620. The published artifact is still the 2026-10-12 build.
 
-- AI: clean launch for non-centre AIs, even-matchup conserving; fairness gate
-  1 retargeted (user: realistic physics): average-launch bot < 70% at Elite,
-  < 50% at Legend, perfect bot report only. Still FAILING (77% / 59%).
-- Rules (user approved): judges' cards on time-out (HUD "JUDGES a-b"),
-  spirit for initiative, rubber ring edges (Grip Fang). Spin steal is real in
-  the solver (test) but small (~1-2% spin per hit).
-- Story: engine (`when`, `<node>:won/lost`, tiers to 8, roundLines, chapter
-  files src/data/story/chN.js); ch1-6 rewritten 40 -> 93 nodes by writers.
-  Open from writer reports: `noBeast` opponents (ch5 Hollow), setback hint
-  card (E13), wanted flags unused (ch1_bench_left, ch2_jar, ch2_asked).
-- Playbook M1 (src/game/playbook.js): 6 D-pad patterns in the battle step,
-  only triggers recorded, RULES_REV 7, determinism OK on 4 engines;
-  Playbook screen (Workshop > Loadouts > Playbook); ch2 teaches Herd, Feint.
+## Done this session (commits 40f8428..1325d80, all pushed)
 
-Next: (1) AI uses patterns (map plans to patterns, telegraph, reads), then
-re-tune gate 1; (2) Rift depth milestone 1 (`rift-depth-plan.md`);
-(3) chapters 7-20 (`story-expansion-plan.md` section 4: needs 10 rivals,
-6 arenas, brackets as data first); (4) playbook M2 (Hound, Pendulum,
-Homecoming, Rail Ride, ribbon on the floor, mastery).
+| Area | What | Where |
+|---|---|---|
+| AI | clean launch for non-centre AIs; even-matchup conserving (rest the stick, dodge only strikes already coming, strike only open tops near the rim); chases the judges' card in the last 15 s | `src/game/ai.js` |
+| Rules | judges' cards on time-out (strike 1, heavy/opening/punish/interrupt/counter 2, stability 2), live HUD "JUDGES a - b"; spirit skill moments 15, struck 0.4, passive 0.8/s | `battle.js` decision(), `skillRules.js` JUDGE |
+| Physics | rubber ring edges (`ring.rubber`, `PHYSICS.rubberMu` 0.6): spin steal measured (+6.7 rad/s to the slower opposite-spin top vs +1.8 plastic); new ring Grip Fang (L) | `simulation.js`, `parts.js`, physics test |
+| Story | engine: node `when`, `<node>:won/lost` flags, lost continue battles pay nothing, roundLines between rounds, tiers to 8, chapters in `src/data/story/chN.js`; ch1-6 rewritten 40 -> 93 nodes (writers), harder bosses (bo5, tier 4-6), setback fights + recovery scenes; ch6 bracket (top 4) leads into scripted Valen semi and Aurelia final | `src/systems/story.js`, `src/data/story/` |
+| Playbook | 6 D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, only triggers recorded; double-tap variants; stick nudge/break; Playbook screen; ch2 teaches Herd (Rook) and Feint (Mirelle); AI telegraphs its plans as patterns and reads Feint/Slingshot/Herd | `src/game/playbook.js`, `ui/screens/playbook.js` |
 
-## Where we stopped
+RULES_REV is 7. Checks at 1325d80: unit 204/204, balance check passes
+58/29/47/52/63, `test:determinism` OK on Node/Chromium/Firefox/WebKit,
+browser scenario `playbook` passes (full browser suite not re-run this session).
+
+## Agents (how it worked this session)
+
+- The studio agents in `.claude/agents/` only load when the session starts in
+  the project folder. From another folder, spawn `general-purpose` and tell
+  it to read `.claude/agents/<role>.md`; that worked every time.
+- Writers in worktrees `.claude/worktrees/story-a/-b/-c` (one or two chapter
+  files each) finished in 20-27 minutes; a UI agent built the Playbook screen
+  in 3 minutes (two bugs found from its screenshot, lessons added to
+  `.claude/research/reviews/LESSONS.md`). Worktrees are left in place;
+  remove with `git worktree remove` when no longer needed.
+- Plans written by agents this session (all in `.claude/research/reviews/`):
+  `story-expansion-plan.md`, `rift-depth-plan.md`, `playbook-design.md`,
+  writer reports `story-a/b/c-report.md`, `playbook-ui-report.md`.
+
+## Earlier: skill over RPM (2026-10-14)
 
 Working on **skill over RPM** (spec: `.claude/research/reviews/skill-loop-spec.md`,
 build order S0-S9). Baseline (`npm run fairness`, 2,800 battles,
