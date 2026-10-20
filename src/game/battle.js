@@ -14,7 +14,7 @@ import { TopBody } from '../physics/topBody.js';
 import { newPattern, patternSteer, PATTERNS, NUDGE, BREAK, BREAK_TICKS } from './playbook.js';
 import { openness, SKILL_SPIRIT, PUNISH_WINDOW, JUDGE, JUDGE_STRIKE_J, JUDGE_HEAVY_J } from './skillRules.js';
 import { Simulation, TICK } from '../physics/simulation.js';
-import { ARENA_INDEX } from '../data/arenas.js';
+import { ARENA_INDEX, resolveArena } from '../data/arenas.js';
 import { BEAST_INDEX } from '../data/beasts.js';
 import { assembleTop } from '../systems/assembly.js';
 import { ModifierStack, collectTraitSources } from '../systems/modifiers.js';
@@ -121,7 +121,7 @@ export class Battle extends Emitter {
     this.opts = opts;
     this.seed = opts.seed ?? ((Math.random() * 2 ** 31) | 0);
     this.rng = new Rng(this.seed);
-    this.arenaDef = ARENA_INDEX[opts.arenaId] || ARENA_INDEX.standard;
+    this.arenaDef = resolveArena(opts.arenaId) || ARENA_INDEX.standard;
     this.arena = new Arena(this.arenaDef);
     this.format = FORMATS[opts.format] || FORMATS.bo3;
     this.roundTime = opts.roundTime ?? 120;

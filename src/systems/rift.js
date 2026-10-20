@@ -12,6 +12,7 @@ import {
   HEARTS_BASE, BAG_SIZE, SHARD_REWARD, START_SHARDS, ESSENCE_REWARD, CAREER_REWARD, MAX_DEPTH, RIFT_TALENTS, TALENT_INDEX, depthRules,
 } from '../data/rift.js';
 import { bondLevel, BEAST_INDEX } from '../data/beasts.js';
+import { legalTwists } from '../data/arenaTwists.js';
 import { validateLoadout } from './loadout.js';
 import { makeUid } from './items.js';
 import { addItem } from './loot.js';
@@ -49,6 +50,13 @@ function makeNode(run, rng, a, f, i, type) {
   if (type === 'vault') { const v = rng.pick(VAULT_RULES); node.vault = v.id; if (v.affixes) node.affixes = [...v.affixes]; }
   if (type === 'boss') { node.rival = rng.pick(act.bosses); if (D.bossAffix) node.affixes = [rng.pick(ELITE_AFFIXES).id]; }
   if (type === 'event') node.event = rng.pick(RIFT_EVENTS).id;
+  // twists roll on their own stream, so a seed's map is otherwise unchanged;
+  // never on the run's first battle, which teaches the plain stadium
+  if (type === 'battle' || type === 'elite' || type === 'vault') {
+    const trng = new Rng(mixSeeds(run.seed, 'twist', a, f, i));
+    const legal = legalTwists(node.arena, run.depth);
+    if (!(a === 0 && f === 0) && legal.length && trng.chance(D.twistChance)) node.twist = trng.pick(legal).id;
+  }
   return node;
 }
 

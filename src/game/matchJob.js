@@ -6,7 +6,7 @@ import { Battle } from './battle.js';
 import { Simulation, TICK } from '../physics/simulation.js';
 import { TopBody } from '../physics/topBody.js';
 import { Arena } from '../physics/arena.js';
-import { ARENA_INDEX } from '../data/arenas.js';
+import { ARENA_INDEX, resolveArena } from '../data/arenas.js';
 import { assembleTop } from '../systems/assembly.js';
 import { ModifierStack, collectTraitSources } from '../systems/modifiers.js';
 import { resolveLaunchGear, computeLaunch, PERFECT_CENTER } from './launch.js';
@@ -51,7 +51,7 @@ export function summarizeResult(r) {
 // modifiers with always-true conditions apply (no opponent exists).
 export function runSpinTest(job) {
   const p = job.participant;
-  const arena = new Arena(ARENA_INDEX[job.arenaId] || ARENA_INDEX.standard);
+  const arena = new Arena(resolveArena(job.arenaId) || ARENA_INDEX.standard);
   const asm = assembleTop(p.build, { spin: p.spin || 'R' });
   const top = new TopBody(asm.spec, { id: 'solo', side: 0 });
   const sim = new Simulation({ arena, tops: [top] });

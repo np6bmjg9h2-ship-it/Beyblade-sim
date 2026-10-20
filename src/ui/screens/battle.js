@@ -8,7 +8,7 @@ import { h, btn } from '../ui.js';
 import { Battle, FINISH_NAMES, RULES_REV } from '../../game/battle.js';
 import { PATTERNS } from '../../game/playbook.js';
 import { HumanController } from '../../game/humanController.js';
-import { ARENA_INDEX } from '../../data/arenas.js';
+import { resolveArena } from '../../data/arenas.js';
 import { TECHNIQUE_INDEX } from '../../data/launchers.js';
 import { BEAST_INDEX } from '../../data/beasts.js';
 import { TECHNIQUE_DEFS } from '../../game/abilities.js';
@@ -77,7 +77,7 @@ export class BattleScreen {
     app.renderer.rig.mode = app.settings.gameplay.camera || 'broadcast';
     app.renderer.rig.setPlayerSide(0);
     app.renderer.rig.yawOff = 0; app.renderer.rig.pitchOff = 0; app.renderer.rig.zoomOff = 0;
-    app.renderer.setArena(ARENA_INDEX[s.arenaId]);
+    app.renderer.setArena(resolveArena(s.arenaId));
     app.renderer.settings.debug = s.debugOverlay ?? !!app.settings.graphics.debugOverlay;
     this.telemetry = s.telemetry ?? !!app.settings.gameplay.telemetry;
     app.audio.playMusic(s.music || (s.isFinal ? 'final' : s.mode === 'lab' || s.mode === 'training' ? 'lab' : 'battle'));

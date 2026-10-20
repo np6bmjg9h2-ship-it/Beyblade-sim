@@ -42,7 +42,7 @@ export const FLOOR_GUARANTEE = ['battle', 'trader', ['forge', 'camp']];
 
 export const RIFT_DEPTHS = [
   { n: 0, rule: 'The Rift as it is.' },
-  { n: 1, rule: 'Elite battles turn up more often.' },
+  { n: 1, rule: 'Elite battles turn up more often, and some floors are twisted (slick rings, glass floors).' },
   { n: 2, rule: 'Opponents launch and steer more precisely.' },
   { n: 3, rule: 'Trader and forge prices +25%.' },
   { n: 4, rule: 'Bosses carry an elite trait.' },
@@ -66,6 +66,7 @@ export function depthRules(d = 0) {
     boonChoices: d >= 8 ? -1 : 0,
     rewardMul: 1 + 0.2 * d,
     luck: 0.12 * d,
+    twistChance: d >= 1 ? 0.15 + 0.05 * d : 0,
   };
 }
 

@@ -181,7 +181,7 @@ function lookFor(def) {
   const th = def.theme;
   const tag = def.surface?.tag;
   const fallback = { motif: tag === 'ice' ? 'facets' : tag === 'rough' ? 'lava' : 'pinwheel', sigil: 'star', props: 'hall', deck: tone(th.wall, -0.3, -0.2), body: tone(th.floorEdge, -0.05) };
-  const L = { rField: 0.8, sigilR: 0.17, floorTint: '#d6d6d6', floorFinish: tag === 'ice' ? 'gloss' : 'matte', glow: false, ...(LOOKS[def.id] || fallback) };
+  const L = { rField: 0.8, sigilR: 0.17, floorTint: '#d6d6d6', floorFinish: tag === 'ice' ? 'gloss' : 'matte', glow: false, ...(LOOKS[def.baseId || def.id] || fallback) };
   L.pal = {
     field: th.floor,
     fieldHi: mix(th.floor, th.accent, 0.1),
@@ -585,7 +585,7 @@ function paintFloor(def, L, size, dense) {
   const R = def.radius, pal = L.pal;
   const P = polarPainter(size, R, pal.edge);
   const G = L.glow ? polarPainter(size, R, '#000000') : null;
-  const rand = rng(hash(def.id));
+  const rand = rng(hash(def.baseId || def.id));
   const rF = L.rField * R;
   // flat zones: field inside, steeper outer slope outside, screen-tone on the slope
   P.disk(rF, pal.field);
@@ -1003,7 +1003,7 @@ function buildSurroundings(group, def, L, quality) {
   const pal = L.pal, kind = L.props, R = def.radius;
   const low = quality === 'low', high = quality === 'high';
   const ink = low ? null : { px: 2, maxMm: 8 };
-  const rand = rng(hash(def.id + ':props'));
+  const rand = rng(hash((def.baseId || def.id) + ':props'));
   const sky = kind === 'sky';
   const groundY = sky ? -0.36 : GROUND_Y;
 

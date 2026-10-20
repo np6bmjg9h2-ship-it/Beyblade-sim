@@ -3,6 +3,8 @@
 // bands change friction in rings, wall openings are knockout exits.
 // All of these feed straight into the physics (see physics/arena.js).
 
+import { applyTwist } from './arenaTwists.js';
+
 export const ARENAS = [
   {
     id: 'standard', name: 'Standard Stadium', unlock: null,
@@ -84,3 +86,14 @@ export const ARENAS = [
 ];
 
 export const ARENA_INDEX = Object.fromEntries(ARENAS.map((a) => [a.id, a]));
+
+// A stadium by id; "<base>+<twist>" gives the twisted def (arenaTwists.js),
+// cached so every caller shares one object.
+const twisted = {};
+export function resolveArena(id) {
+  if (ARENA_INDEX[id] || typeof id !== 'string' || !id.includes('+')) return ARENA_INDEX[id];
+  if (twisted[id]) return twisted[id];
+  const [base, twist] = id.split('+');
+  const def = ARENA_INDEX[base] && applyTwist(ARENA_INDEX[base], twist);
+  return def && def.twist ? (twisted[id] = def) : undefined;
+}

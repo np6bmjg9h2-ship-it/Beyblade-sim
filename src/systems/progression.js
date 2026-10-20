@@ -229,10 +229,11 @@ export function updateStats(profile, result, hi, session, battle) {
   S.impacts = (S.impacts || 0) + st.impacts;
   S.counters = (S.counters || 0) + (st.counters || 0);
   S.distance = (S.distance || 0) + st.distance;
-  S.arenaUse[battle.arenaDef.id] = (S.arenaUse[battle.arenaDef.id] || 0) + 1;
+  const stadium = battle.arenaDef.baseId || battle.arenaDef.id;
+  S.arenaUse[stadium] = (S.arenaUse[stadium] || 0) + 1;
   const L = profile.loadouts.find((l) => l.id === battle.fighters[hi].p.loadoutId);
   if (L) S.buildUse[L.name] = (S.buildUse[L.name] || 0) + 1;
   S.history = S.history || [];
-  S.history.unshift({ t: Date.now(), mode: session.mode, opp: result.fighters[1 - hi].name, won: result.winner === hi, draw: result.winner == null, score: result.score.map((s) => s.rounds).join('-'), arena: battle.arenaDef.id });
+  S.history.unshift({ t: Date.now(), mode: session.mode, opp: result.fighters[1 - hi].name, won: result.winner === hi, draw: result.winner == null, score: result.score.map((s) => s.rounds).join('-'), arena: stadium });
   S.history.length = Math.min(S.history.length, 50);
 }

@@ -57,7 +57,7 @@ export function matchRecord(result, session, battle, rewards, extra = {}) {
   const hi = Math.max(0, result.fighters.findIndex((f) => f.human));
   const me = battle.fighters[hi], opp = battle.fighters[1 - hi];
   return {
-    t: new Date().toISOString(), kind: 'match', mode: session.mode || battle.mode, arena: battle.arenaDef?.id, format: battle.format?.id,
+    t: new Date().toISOString(), kind: 'match', mode: session.mode || battle.mode, arena: battle.arenaDef?.baseId || battle.arenaDef?.id, twist: battle.arenaDef?.twist || null, format: battle.format?.id,
     seed: battle.seed, won: result.winner === hi, draw: result.winner == null,
     rounds: result.rounds.map((r) => [r.winner === hi ? 'me' : r.winner == null ? 'draw' : 'opp', r.how, r1(r.time)]),
     me: fighterRecord(me, true), opp: fighterRecord(opp, false),
