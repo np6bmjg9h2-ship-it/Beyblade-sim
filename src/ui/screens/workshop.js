@@ -23,6 +23,7 @@ import { compareSwap, verdictLine } from '../../systems/compare.js';
 import { compareBlock } from '../compare.js';
 import { synergySummary, buildBreakdown, synergyJournal } from '../synergyPanel.js';
 import { renderJournal } from '../journal.js';
+import { PlaybookScreen } from './playbook.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -112,6 +113,7 @@ export class WorkshopScreen {
       selector('Intended role', ROLES.map((r) => ({ value: r, label: r })), L.role || 'Balance', (v) => { L.role = v; }, { id: 'role' }),
       h('div', { class: 'row gap' },
         btn('Inspect 3D', () => this.inspectLoadout(L), { id: 'inspect3d', disabled: !loadoutSummary(P, L).assembly, desc: 'Turn the assembled top around in 3D, explode it into its parts and look at each one.' }),
+        btn('Playbook', () => this.ui.push(new PlaybookScreen()), { id: 'playbook', desc: 'Equip the four D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd).' }),
         btn('Rename', () => this.renameLoadout(), { desc: 'Give this loadout a custom name.' }),
         btn(this.loadoutIndex === P.activeLoadout ? 'Active ✓' : 'Set active', () => { P.activeLoadout = this.loadoutIndex; this.ui.refresh(this); this.ui.toast(`${L.name} is now your active loadout.`, 'good'); }, { class: 'primary', desc: 'The active loadout is used in Quick Battle, tournaments and story battles.' }),
         P.loadouts.length > 1 ? btn('Delete', () => this.deleteLoadout(), { class: 'danger' }) : null));

@@ -949,3 +949,17 @@ table.standings tr.releg td:first-child { box-shadow: inset 4px 0 0 var(--bad); 
 .imprint-row { padding: 6px 10px; background: rgba(4,5,11,0.35); border-left: 4px solid var(--accent); }
 .coll-item[data-focus] { cursor: pointer; }
 .coll-item.focused { background: var(--focus); color: var(--focus-ink); }
+
+/* Playbook screen */
+.pb-cols { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(300px, 1fr); gap: 16px; flex: 1; min-height: 0; }
+.pb-cols > .panel { min-height: 0; overflow: auto; }
+.pb-left { display: flex; flex-direction: column; overflow: hidden !important; }
+.pb-list { flex: 1; min-height: 0; overflow: auto; padding-right: 4px; }
+.pb-dpad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: ". up ." "left . right" ". down ."; gap: 8px; margin-bottom: 10px; }
+.pbd-up { grid-area: up; } .pbd-down { grid-area: down; } .pbd-left { grid-area: left; } .pbd-right { grid-area: right; }
+.pb-slot-in, .pb-row { display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center; }
+.pb-row { align-items: flex-start; text-align: left; }
+.btn.pb-pat.locked { opacity: 0.55; }
+.pb-callout { font-style: italic; color: var(--accent2); margin-bottom: 8px; }
+.pb-detail .small { margin-top: 6px; }
+@media (max-width: 760px) { .pb-cols { grid-template-columns: 1fr; overflow: auto; } .pb-cols > .panel, .pb-left, .pb-list { overflow: visible !important; } }

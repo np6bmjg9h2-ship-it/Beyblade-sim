@@ -20,6 +20,28 @@ is short and easy. Rift: 20 runs (6 won at depths 0-5, 13 lost, 1 abandoned;
 Store: 16,320 credits spent, and 12 of 37 pack items were Mythic (packs look
 too generous; check against the loot curve). FPS 40-57 on Intel UHD 620.
 
+## Session 2026-10-19/20: done (commits 40f8428..)
+
+- AI: clean launch for non-centre AIs, even-matchup conserving; fairness gate
+  1 retargeted (user: realistic physics): average-launch bot < 70% at Elite,
+  < 50% at Legend, perfect bot report only. Still FAILING (77% / 59%).
+- Rules (user approved): judges' cards on time-out (HUD "JUDGES a-b"),
+  spirit for initiative, rubber ring edges (Grip Fang). Spin steal is real in
+  the solver (test) but small (~1-2% spin per hit).
+- Story: engine (`when`, `<node>:won/lost`, tiers to 8, roundLines, chapter
+  files src/data/story/chN.js); ch1-6 rewritten 40 -> 93 nodes by writers.
+  Open from writer reports: `noBeast` opponents (ch5 Hollow), setback hint
+  card (E13), wanted flags unused (ch1_bench_left, ch2_jar, ch2_asked).
+- Playbook M1 (src/game/playbook.js): 6 D-pad patterns in the battle step,
+  only triggers recorded, RULES_REV 7, determinism OK on 4 engines;
+  Playbook screen (Workshop > Loadouts > Playbook); ch2 teaches Herd, Feint.
+
+Next: (1) AI uses patterns (map plans to patterns, telegraph, reads), then
+re-tune gate 1; (2) Rift depth milestone 1 (`rift-depth-plan.md`);
+(3) chapters 7-20 (`story-expansion-plan.md` section 4: needs 10 rivals,
+6 arenas, brackets as data first); (4) playbook M2 (Hound, Pendulum,
+Homecoming, Rail Ride, ribbon on the floor, mastery).
+
 ## Where we stopped
 
 Working on **skill over RPM** (spec: `.claude/research/reviews/skill-loop-spec.md`,

@@ -619,6 +619,27 @@ scenarios.screens = async () => {
   } finally { await h.close(); }
 };
 
+scenarios.playbook = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    await h.focusId('playbook'); await h.padButton(0);
+    if (await h.eval(() => window.__app.ui.current.constructor.screenName) !== 'PlaybookScreen') throw new Error('Playbook screen did not open');
+    // put Anchor on the right slot: it swaps with Slingshot
+    await h.focusId('pbslot-right'); await h.padButton(0);
+    await h.focusId('pbpat-anchor'); await h.padButton(0);
+    const slots = await h.eval(() => window.__app.profile.playbook.slots);
+    if (slots[3] !== 'anchor' || slots[0] !== 'slingshot') throw new Error('assign/swap failed: ' + slots);
+    // an unlearned pattern is refused
+    await h.focusId('pbpat-herd'); await h.padButton(0);
+    if ((await h.eval(() => window.__app.profile.playbook.slots))[3] !== 'anchor') throw new Error('an unlearned pattern was equipped');
+    await h.shot('pb01_playbook');
+    await h.padButton(1);
+    return { errors: h.errors, slots };
+  } finally { await h.close(); }
+};
+
 scenarios.lab = async () => {
   const h = await launch();
   try {
