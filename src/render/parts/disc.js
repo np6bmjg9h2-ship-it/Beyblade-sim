@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MM, TAU, partGroup, toonMaterial, inked, segs, canvasTexture, rarityGlow, extrudeShape, metalFinish } from './common.js';
 import { CLASSIC_DISCS, buildClassicDisc } from './discClassic.js';
+import { buildDiscModel } from './discModel.js';
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -629,11 +630,6 @@ export function buildDisc(part, ctx = {}) {
     massTxt: `${Math.round(part.mass || 0)}G`,
   };
   const C = palette(part, ctx, d);
-  const K = { main: [], dark: [], alt: [], accent: [], chrome: [] };
-  const deco = [];
-  (KINDS[d.kind] || KINDS.ten)(K, L, d, deco);
-
-  const g = partGroup('disc');
   const mats = {
     main: () => toonMaterial(C.main, { finish: metalFinish(part, 'metal'), ...rarityGlow(ctx.rarity) }),
     dark: () => toonMaterial(C.dark, { finish: 'metal', spec: 0.6 }),
@@ -642,6 +638,22 @@ export function buildDisc(part, ctx = {}) {
     chrome: () => toonMaterial('#dce3ec', { finish: 'chrome' }),
   };
   const inkOpts = { main: {}, dark: {}, alt: {}, accent: { px: 1.5 }, chrome: { px: 1, maxMm: 0.2 } };
+
+  // Blender model (tools/blender/discs.py) when one matches the part; its
+  // print regions name the label and mass as $label / $mass
+  const model = buildDiscModel(part, ctx, mats, inkOpts);
+  if (model) {
+    const name = (s) => (s === '$label' ? d.label : s === '$mass' ? L.massTxt : s);
+    const deco = (model.meta.deco || []).map((D) => ({ ...D, texts: D.texts.map((t) => ({ a: t.a, s: name(t.s) })) }));
+    const m = L.micro && decalMesh(deco, C, L, part.id + '|mesh|' + d.label);
+    if (m) model.group.add(m);
+    return { group: model.group, height: T * MM, glows: model.glows };
+  }
+
+  const K = { main: [], dark: [], alt: [], accent: [], chrome: [] };
+  const deco = [];
+  (KINDS[d.kind] || KINDS.ten)(K, L, d, deco);
+  const g = partGroup('disc');
   const glows = [];
   for (const key of Object.keys(mats)) {
     if (!K[key].length) continue;
