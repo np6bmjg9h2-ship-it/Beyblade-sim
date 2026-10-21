@@ -8,7 +8,8 @@
 import { CHARM_INDEX, FAMILIES, RESONANCE_COUNT, charmK } from '../data/riftCharms.js';
 import { BOON_INDEX } from '../data/riftBoons.js';
 import { RIFT_ACTS, ACT_DIFFICULTY, AFFIX_INDEX, VAULT_INDEX, FORGE_BONUS, RING_ELEMENT_CHANCE, depthRules } from '../data/rift.js';
-import { SLOTS, SLOT_NAMES } from '../data/parts.js';
+import { SLOTS, SLOT_NAMES, PART_INDEX } from '../data/parts.js';
+import { validateBuild } from './assembly.js';
 import { setSources } from '../data/sets.js';
 import { computeSkillEffects } from '../data/skills.js';
 import { bondLevel } from '../data/beasts.js';
@@ -147,6 +148,11 @@ export function nodeOpponent(profile, run, node) {
     p.modSources.push(weaknessSource(kit)); p.weakness = kit.weakness.id;
     if (kit.launcher) p.launcher = LAUNCHER_INDEX[kit.launcher];
     if (kit.spinRead) p.spinRead = kit.spinRead;
+    if (kit.parts) { // the kit's part swaps, kept only where the build still assembles
+      const build = { ...p.build };
+      for (const [slot, id] of Object.entries(kit.parts)) build[slot] = PART_INDEX[id];
+      if (validateBuild(build).ok) p.build = build;
+    }
   }
   const names = [];
   for (const id of node.affixes || []) {

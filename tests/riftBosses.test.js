@@ -113,6 +113,7 @@ test('bosses keep the drawn arena; Mirelle brings a two-way launcher and reads s
   assert.equal(opp.launcher.spinMech, 'dual');
   assert.equal(opp.spin, 'L');
   assert.ok(opp.spinRead > 0);
+  assert.equal(opp.build.tip.id, 'tip_bearing');
   const sora = nodeOpponent(p, run, { id: 'b', type: 'boss', rival: 'sora', act: 0, arena: 'standard', seed: 5, affixes: [] });
   assert.ok(!sora.spinRead);
 });

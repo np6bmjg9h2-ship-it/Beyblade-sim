@@ -25,9 +25,13 @@
   two-way launcher (was always R) and attackers match the spin they face.
   Gate probe (scratchpad `rift/gate.mjs`, equal act-tier gear, n=12-16):
   prepared attackers 56-63%, unprepared right-spin attackers 0% (must buy the
-  launcher), **defense/stamina/balance 92-100% vs her (open; drag mods, rubber
-  ring, aggression and next-act gear did not move it; her balance build loses
-  the spin race)**. Stamina vs Sora 5% kept (attack beats stamina).
+  launcher). Defense/stamina/balance were 92-100% vs her; fixed 2026-10-22
+  with kit `parts: { tip: 'tip_bearing' }` (applied only where the build
+  still validates). Act 3, n=16: wall 56%, drifter 69%, prepared balance 63%,
+  prepared attack 56%, unprepared balance 6% and right-spin attack 0% (the
+  hint and trader are the way out). Act 2 (lower tier): wall 81%, drifter
+  88%, prepared balance 75%, prepared attack 56%. Stamina vs Sora 5% kept
+  (attack beats stamina).
 - User asked for **online multiplayer** (2026-10-21), then deferred it
   (2026-10-22: "we can add multiplayer later"). Options when it resumes:
   ghost challenge codes through the artifact db (recommended first, reuses
@@ -120,8 +124,7 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 ## Start here: the next steps, in order
 
 1. **Art follow-ups / Rift M1 leftovers**: the open art items in session 3
-   above (LOD, decals, Blender cores); Rift: Mirelle too easy for
-   defense/stamina/balance, Glass Floor vs defense, twists
+   above (LOD, decals, Blender cores); Rift: Glass Floor vs defense, twists
    steep/dome/thinrim/lowg. Online multiplayer is deferred (see session 4). Republish the claude.ai
    artifact so the user can playtest (still the 2026-10-12 build).
 2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
