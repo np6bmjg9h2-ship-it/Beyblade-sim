@@ -10,6 +10,7 @@
 
 import * as THREE from 'three';
 import { MM, TAU, partGroup, toonMaterial, inked, tone, segs, canvasTexture, rarityGlow, extrudeShape, makeCanvas, planarUV } from './common.js';
+import { buildDiscModel } from './discModel.js';
 
 // kind, polygon sides (or lobes), and the outline numbers per part
 export const CLASSIC_DISCS = {
@@ -163,6 +164,26 @@ export function buildClassicDisc(part, ctx = {}) {
   const q = ctx.quality || 'high';
   const g = partGroup('disc');
   const glows = [];
+  // Blender model (tools/blender/discs.py): zinc plate on a darker spacer, or
+  // the resin magnet with its pole prints on the plate faces
+  const magnet = d.kind === 'magnet';
+  const face = magnet ? '#2a2d34' : tone(part.color || '#a7aeb8', -0.24, -0.04);
+  const model = buildDiscModel(part, ctx, {
+    main: () => toonMaterial(face, magnet
+      ? { finish: 'plastic', specEdge: 0.985, rimColor: '#4a505e', ...rarityGlow(ctx.rarity) }
+      : { finish: 'metal', spec: 0.9, specEdge: 0.985, rimColor: tone(face, 0.3), ...rarityGlow(ctx.rarity) }),
+    dark: () => toonMaterial(magnet ? '#3a3f4a' : tone(face, -0.12), { finish: 'metal', spec: 0.6 }),
+  });
+  if (model) {
+    const f = model.meta.faces;
+    if (magnet && f && q !== 'low') {
+      const pole = ctx.parts?.disc?._item?.pole === 'S' ? 'S' : 'N';
+      const r1 = (part.rIn ?? 6) + 5.6, r2 = part.rOut * d.flat;
+      model.group.add(poleDecal(r1, r2 - 0.9, f.top + 0.03, pole, q));
+      model.group.add(poleDecal(r1, r2 - 0.9, f.bottom - 0.03, pole === 'S' ? 'N' : 'S', q, true));
+    }
+    return { group: model.group, height: (part.thickness ?? 4) * MM, glows: model.glows };
+  }
   const piece = BUILD[d.kind](part, d, q);
   if (d.kind === 'magnet') {
     const body = toonMaterial('#2a2d34', { finish: 'plastic', specEdge: 0.985, rimColor: '#4a505e', ...rarityGlow(ctx.rarity) });
