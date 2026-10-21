@@ -186,6 +186,9 @@ const charmName = (h) => CHARM_INDEX[h.id]?.name || h.id;
 const libraryFee = (run) => EVENT_INDEX.library.fee + EVENT_INDEX.library.feePerAct * run.act;
 const scavengeShards = (run) => EVENT_INDEX.arena.scavenge + EVENT_INDEX.arena.scavengePerAct * run.act;
 const pct = (x) => `${Math.round(x * 100)}%`;
+// The mirror copies a battle charm once: not economy charms (shards, trader,
+// healing would stack outside a battle's balance), not a charm already held twice.
+const reflectable = (run, h) => !CHARM_INDEX[h.id]?.fx(1).econ && run.charms.filter((x) => x.id === h.id).length < 2;
 const lowHearts = (run, n) => (run.hearts <= n ? 'You need more than one heart for this.' : '');
 
 // The Echo's offer: two gifts, rolled once and kept on the node.
@@ -206,7 +209,7 @@ export function eventOptions(profile, run, node) {
     ];
     case 'echo': return echoOffers(run, node).map((id) => o('gift', id, `Take the ${ECHO_GIFTS[id].name}`, `Next boss fight only: ${ECHO_GIFTS[id].desc.replace(/\.$/, '')}`, `${E.heartCost} heart now`, run.flags?.echo ? 'You already carry an echo.' : lowHearts(run, E.heartCost)));
     case 'mirror': return [
-      ...charmsOf((r) => r === 'common' || r === 'rare').map(({ h, i }) => o('reflect', i, `Reflect ${charmName(h)}`, `A second ${charmName(h)} (counts twice, and for its family)`, 'A random cursed charm comes through the crack')),
+      ...charmsOf((r) => r === 'common' || r === 'rare').filter(({ h }) => reflectable(run, h)).map(({ h, i }) => o('reflect', i, `Reflect ${charmName(h)}`, `A second ${charmName(h)} (counts twice, and for its family)`, 'A random cursed charm comes through the crack')),
       ...charmsOf((r) => r === 'cursed').map(({ h, i }) => o('smash', i, `Smash it on ${charmName(h)}`, `${charmName(h)} is destroyed`, `${E.heartCost} heart`, lowHearts(run, E.heartCost))),
     ];
     case 'library': return [

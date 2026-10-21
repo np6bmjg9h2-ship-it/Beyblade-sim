@@ -124,6 +124,12 @@ test('Cracked Mirror: a reflected charm counts twice and brings a curse; smashin
   const opts = eventOptions(p, r2, evNode('mirror'));
   assert.ok(!opts.some((o) => o.action === 'reflect' && o.arg === 2), 'curses cannot be reflected');
   assert.ok(!opts.some((o) => o.action === 'smash' && o.arg !== 2));
+  // economy charms are never copied, and a pair is not copied again
+  r2.charms.push({ id: 'coinpurse', enhanced: false }, { id: 'lockwax', enhanced: false });
+  const opts2 = eventOptions(p, r2, evNode('mirror'));
+  const reflected = opts2.filter((o) => o.action === 'reflect').map((o) => r2.charms[o.arg].id);
+  assert.ok(!reflected.includes('coinpurse'), 'Coin Purse cannot be reflected');
+  assert.ok(!reflected.includes('lockwax'), 'a charm held twice cannot be reflected');
 });
 
 test('Quiet Library: study gives a boon pick and marks the next elite; paying skips the mark', () => {
