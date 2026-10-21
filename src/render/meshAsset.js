@@ -4,6 +4,7 @@
 // and uint16 indices. Decoded once per mesh object and shared.
 
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const decoded = new WeakMap(); // mesh record -> [{ mat, geo, edges }]
 
@@ -42,4 +43,75 @@ export function decodeMesh(m, creaseDeg = 35) {
   });
   decoded.set(m, parts);
   return parts;
+}
+
+// Fewer draw calls: decoded parts regrouped so each key (a material bin) is
+// one geometry. keyOf(slot) -> key, or null to keep that part on its own
+// (spinners). Order of first appearance is kept. Cached per parts list and
+// slot -> key mapping; the result shares geometry like decodeMesh.
+const merged = new WeakMap(); // parts -> Map(signature -> [{ key, slots, geo, edges }])
+
+// Only the decoded attributes: a shared geometry may already carry extras
+// (addInk's inkNormal) that the others lack, which mergeGeometries refuses.
+function bare(g) {
+  const b = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal']) if (g.attributes[name]) b.setAttribute(name, g.attributes[name]);
+  if (g.index) b.setIndex(g.index);
+  return b;
+}
+
+function mergeGeo(list) {
+  if (list.length === 1) return list[0];
+  const geo = mergeGeometries(list.map(bare), false);
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+export function mergeParts(parts, keyOf) {
+  if (!parts) return null;
+  const keys = parts.map((p) => keyOf(p.mat));
+  const sig = keys.map((k, i) => (k == null ? '#' + i : k)).join('|');
+  let cache = merged.get(parts);
+  if (!cache) merged.set(parts, (cache = new Map()));
+  if (cache.has(sig)) return cache.get(sig);
+  const byKey = new Map(), out = [];
+  parts.forEach((p, i) => {
+    const k = keys[i];
+    const e = k == null ? null : byKey.get(k);
+    if (e) { e.slots.push(p.mat); e.geos.push(p.geo); e.edgeGeos.push(p.edges); return; }
+    const entry = { key: k ?? p.mat, slots: [p.mat], geos: [p.geo], edgeGeos: [p.edges] };
+    if (k != null) byKey.set(k, entry);
+    out.push(entry);
+  });
+  const res = out.map((e) => ({ key: e.key, slots: e.slots, geo: mergeGeo(e.geos), edges: mergeGeo(e.edgeGeos) }));
+  cache.set(sig, res);
+  return res;
+}
+
+// One LineSegments for many crease-line sets, coloured per set
+// (items: [{ edges, color }]). The merged positions are cached per edges
+// list; the colours are built per call (they follow the part's colours).
+const linePos = new WeakMap(); // first edges geometry -> [{ list, attr }]
+
+export function creaseLines(items) {
+  const list = items.map((it) => it.edges);
+  let cached = linePos.get(list[0])?.find((c) => c.list.length === list.length && c.list.every((g, i) => g === list[i]));
+  if (!cached) {
+    const geo = mergeGeo(list);
+    cached = { list, attr: geo.getAttribute('position') };
+    if (!linePos.has(list[0])) linePos.set(list[0], []);
+    linePos.get(list[0]).push(cached);
+  }
+  const col = new Float32Array(cached.attr.count * 3);
+  let at = 0;
+  const c = new THREE.Color();
+  for (const it of items) {
+    c.set(it.color);
+    for (let n = it.edges.getAttribute('position').count; n > 0; n--, at += 3) { col[at] = c.r; col[at + 1] = c.g; col[at + 2] = c.b; }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', cached.attr);
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeBoundingSphere();
+  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
 }

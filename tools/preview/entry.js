@@ -150,7 +150,10 @@ if (C.mode === 'slot') {
     const asm = assembleTop(hostBuild(part), { force: true });
     const ctx = partContext(part.slot, asm, { color: C.color || part.color, beast: C.beast, quality: C.quality });
     const model = PART_BUILDERS[part.slot](part, ctx);
-    window.__audit.push(audit(part, model, ctx));
+    const a = audit(part, model, ctx);
+    a.draws = 0; // objects the renderer issues a draw call for (ink hulls and lines included)
+    model.group.traverse((o) => { if (o.isMesh || o.isLine) a.draws++; });
+    window.__audit.push(a);
     const obj = new THREE.Group();
     obj.add(model.group);
     const box = new THREE.Box3().setFromObject(model.group);

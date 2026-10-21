@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { TIP_MESHES } from '../assets/tips.js';
-import { decodeMesh } from '../meshAsset.js';
+import { decodeMesh, mergeParts, creaseLines } from '../meshAsset.js';
 import { inked, inkFor } from './common.js';
 
 const CREASE_DEG = 35;
@@ -23,28 +23,36 @@ export function buildTipModel(k) {
   if (!parts) return null;
   const cap = k.look.cap;
   const binOf = (slot) => (slot === 'flange' ? cap.flange : slot === 'tabs' ? cap.tabs || 'body' : slot);
+  // one mesh per bin; spinning slots stay apart so they can turn
+  const pieces = mergeParts(parts, (slot) => (m.spin?.includes(slot) ? null : binOf(slot)));
   const mats = new Map();
-  const meshes = [], spinners = [];
-  for (const p of parts) {
-    const bin = binOf(p.mat);
+  const meshes = [], spinners = [], lines = [];
+  for (const p of pieces) {
+    const bin = binOf(p.slots[0]);
     let mat = mats.get(bin);
     if (!mat) {
       mats.set(bin, (mat = k.material(bin)));
       if (bin === 'trim' && mat.emissiveIntensity > 0) k.glows.push(mat);
     }
     let mesh;
+    const ink = mat.color ? inkFor('#' + mat.color.getHexString(), 0.35) : '#150f22';
     if (bin === 'clear') {
       mesh = new THREE.Mesh(p.geo, mat);
       mesh.userData.noInk = true;
       mesh.renderOrder = 1;
     } else {
       mesh = inked(p.geo, mat, INK);
-      const ink = mat.color ? inkFor('#' + mat.color.getHexString(), 0.35) : '#150f22';
-      mesh.add(new THREE.LineSegments(p.edges, new THREE.LineBasicMaterial({ color: ink })));
+      if (m.spin?.includes(p.slots[0])) mesh.add(creaseLines([{ edges: p.edges, color: ink }]));
+      else lines.push({ edges: p.edges, color: ink });
     }
-    mesh.name = 'tip-' + p.mat;
-    if (m.spin?.includes(p.mat)) spinners.push(mesh);
+    mesh.name = 'tip-' + bin;
+    if (m.spin?.includes(p.slots[0])) spinners.push(mesh);
     meshes.push(mesh);
+  }
+  if (lines.length) {
+    const crease = creaseLines(lines);
+    crease.name = 'tip-lines';
+    meshes.push(crease);
   }
   // printed emblem on the plate top (kit decal), then the kit's group
   k.emblem(m.plateR * (m.wide ? 0.66 : 0.78));

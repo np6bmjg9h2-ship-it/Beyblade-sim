@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { RING_MESHES } from '../assets/rings.js';
 import { MM, partGroup, toonMaterial, inked, tone, inkFor, shellFinish } from './common.js';
 import { mix, INK_LAYER, renderStyle } from '../toon.js';
-import { decodeMesh } from '../meshAsset.js';
+import { decodeMesh, mergeParts, creaseLines } from '../meshAsset.js';
 
 const CREASE_DEG = 35;
 const FINISH = { main: 'plastic', frame: 'plastic', sec: 'gloss', metal: 'metal', acc: 'gloss', rubber: 'rubber', roller: 'gloss' };
@@ -68,16 +68,18 @@ export function buildRingModel(part, ctx) {
     return (mats[slot] = m);
   };
   const addParts = (list, into) => {
-    for (const p of list) {
-      const mesh = inked(p.geo, matOf(p.mat), INK[p.mat] || INK.main);
-      mesh.name = 'ring-' + p.mat;
-      if (lines) {
-        const line = new THREE.LineSegments(p.edges, new THREE.LineBasicMaterial({ color: inkFor(C[p.mat] || C.main, 0.45) }));
-        line.layers.set(INK_LAYER);
-        line.raycast = () => {};
-        mesh.add(line);
-      }
+    const lineSets = [];
+    for (const p of mergeParts(list, (slot) => slot)) {
+      const mesh = inked(p.geo, matOf(p.key), INK[p.key] || INK.main);
+      mesh.name = 'ring-' + p.key;
+      lineSets.push({ edges: p.edges, color: inkFor(C[p.key] || C.main, 0.45) });
       into.add(mesh);
+    }
+    if (lines && lineSets.length) {
+      const line = creaseLines(lineSets);
+      line.layers.set(INK_LAYER);
+      line.raycast = () => {};
+      into.add(line);
     }
   };
   addParts(parts, group);

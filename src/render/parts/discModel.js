@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import { DISC_MESHES } from '../assets/discs.js';
-import { decodeMesh } from '../meshAsset.js';
+import { decodeMesh, mergeParts, creaseLines } from '../meshAsset.js';
 import { partGroup, inkFor } from './common.js';
 import { addInk } from '../toon.js';
 
@@ -33,9 +33,9 @@ export function buildDiscModel(part, ctx, mats, inkOpts = {}) {
   const body = new THREE.Group();
   if (meta.handed && ctx.spin === 'L') body.scale.z = -1;
   g.add(body);
-  const made = {}, glows = [];
-  for (const p of parts) {
-    const slot = mats[p.mat] ? p.mat : 'main';
+  const made = {}, glows = [], lines = [];
+  for (const p of mergeParts(parts, (slot) => (mats[slot] ? slot : 'main'))) {
+    const slot = p.key;
     let mat = made[slot];
     if (!mat) {
       mat = made[slot] = mats[slot]();
@@ -43,10 +43,10 @@ export function buildDiscModel(part, ctx, mats, inkOpts = {}) {
     }
     const mesh = new THREE.Mesh(p.geo, mat);
     mesh.castShadow = true;
-    const line = new THREE.LineBasicMaterial({ color: inkFor('#' + mat.color.getHexString(), 0.35) });
-    mesh.add(new THREE.LineSegments(p.edges, line));
+    lines.push({ edges: p.edges, color: inkFor('#' + mat.color.getHexString(), 0.35) });
     addInk(mesh, inkOpts[slot] || {});
     body.add(mesh);
   }
+  body.add(creaseLines(lines));
   return { group: g, glows, meta };
 }
