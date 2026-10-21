@@ -14,6 +14,23 @@
   build 2026.10.21: the page now loads `dist/chaos-spin.js` + `styles.css` +
   `fonts.css` (the old unbundled `src/*` files are still in the artifact,
   unreferenced). Title screen checked in Chrome.
+- Rift Cracked Mirror: no copies of economy charms, no third copy (9e78748).
+- **Spin lock found and fixed by rules (4808d4d, user OK "let's try, adjust
+  later")**: opposite-spin hits tighten the struck lock and carry little
+  recoil, so right-spin attack/burst went 0/32 rounds vs ANY left-spin top.
+  Rift Mirelle now: weakness `sameSpin` (lock -20%), Twin-Gear launcher,
+  `spinRead` 0.4 (opens left, keeps a winning spin, answers a lost round);
+  traders in her acts sell a run-only Twin-Gear (`run.launcherBase`,
+  `runLauncherOf`); boss cards show spin; AI defaults to its build spin on a
+  two-way launcher (was always R) and attackers match the spin they face.
+  Gate probe (scratchpad `rift/gate.mjs`, equal act-tier gear, n=12-16):
+  prepared attackers 56-63%, unprepared right-spin attackers 0% (must buy the
+  launcher), **defense/stamina/balance 92-100% vs her (open; drag mods, rubber
+  ring, aggression and next-act gear did not move it; her balance build loses
+  the spin race)**. Stamina vs Sora 5% kept (attack beats stamina).
+- User asked for **online multiplayer** (2026-10-21): options given (lockstep
+  netplay on the deterministic sim needs a relay/Worker outside the artifact;
+  or ghost challenge codes through the artifact db). Awaiting choice.
 
 ## Session 3 (2026-10-20/21): Blender part art done, thinner discs and cores
 
@@ -101,9 +118,9 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 ## Start here: the next steps, in order
 
 1. **Art follow-ups / Rift M1 leftovers**: the open art items in session 3
-   above (draw calls, LOD, decals, Blender cores); Rift: attack 0/20 vs
-   Mirelle, stamina 5% vs Sora, Glass Floor vs defense, Cracked Mirror
-   stacking, twists steep/dome/thinrim/lowg. Republish the claude.ai
+   above (LOD, decals, Blender cores); Rift: Mirelle too easy for
+   defense/stamina/balance, Glass Floor vs defense, twists
+   steep/dome/thinrim/lowg; online multiplayer (user request). Republish the claude.ai
    artifact so the user can playtest (still the 2026-10-12 build).
 2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
    section 4 (three acts, tiers 6-8, Stillwater Order arc, ~250 nodes). Add
