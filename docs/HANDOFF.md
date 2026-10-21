@@ -28,9 +28,11 @@
   launcher), **defense/stamina/balance 92-100% vs her (open; drag mods, rubber
   ring, aggression and next-act gear did not move it; her balance build loses
   the spin race)**. Stamina vs Sora 5% kept (attack beats stamina).
-- User asked for **online multiplayer** (2026-10-21): options given (lockstep
-  netplay on the deterministic sim needs a relay/Worker outside the artifact;
-  or ghost challenge codes through the artifact db). Awaiting choice.
+- User asked for **online multiplayer** (2026-10-21), then deferred it
+  (2026-10-22: "we can add multiplayer later"). Options when it resumes:
+  ghost challenge codes through the artifact db (recommended first, reuses
+  replays, no server) or lockstep netplay on the deterministic sim (needs a
+  relay/Worker outside the artifact).
 
 ## Session 3 (2026-10-20/21): Blender part art done, thinner discs and cores
 
@@ -120,7 +122,7 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 1. **Art follow-ups / Rift M1 leftovers**: the open art items in session 3
    above (LOD, decals, Blender cores); Rift: Mirelle too easy for
    defense/stamina/balance, Glass Floor vs defense, twists
-   steep/dome/thinrim/lowg; online multiplayer (user request). Republish the claude.ai
+   steep/dome/thinrim/lowg. Online multiplayer is deferred (see session 4). Republish the claude.ai
    artifact so the user can playtest (still the 2026-10-12 build).
 2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
    section 4 (three acts, tiers 6-8, Stillwater Order arc, ~250 nodes). Add

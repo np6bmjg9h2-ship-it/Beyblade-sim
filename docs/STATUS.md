@@ -78,8 +78,9 @@ The ordered list is in `docs/HANDOFF.md` ("Start here"): art follow-ups and
 Rift M1 leftovers, story chapters 7-20, fairness gate 1, Playbook M2, then the
 older queue (battle feel, ring art branch, catalogue expansion, inventory
 filters, store pack odds). Daily Seed stays paused on branch
-`wip/daily-seed`. Multiplayer is paused by request (local versus first,
-then share codes; online play needs hosting outside the shared artifact).
+`wip/daily-seed`. Online multiplayer is deferred by the user (2026-10-22); when it resumes,
+challenge codes through the artifact db first, then lockstep netplay (needs
+hosting outside the shared artifact).
 
 ## Ideas waiting for a decision
 
