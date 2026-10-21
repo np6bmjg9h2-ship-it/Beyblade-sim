@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MM, TAU, partGroup, toonMaterial, inked, tone, segs, canvasTexture, rarityGlow, extrudeShape } from './common.js';
 import { classicTipLooks } from './tipClassic.js';
+import { hasTipModel, buildTipModel } from './tipModel.js';
 
 const DEG = Math.PI / 180;
 const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
@@ -752,5 +753,7 @@ export function buildTip(part, ctx) {
   look.body = look.body || part.color || '#eeeeee';
   look.pale = look.pale || part.color || '#f2f2f2';
   look.code = codeFor(part.name);
-  return look.fn(new TipKit(part, ctx, look));
+  const kit = new TipKit(part, ctx, look);
+  // Blender model when one is built for this id, else the procedural design
+  return (hasTipModel(part.id) && buildTipModel(kit)) || look.fn(kit);
 }
