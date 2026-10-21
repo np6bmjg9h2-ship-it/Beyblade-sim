@@ -14,6 +14,7 @@ import { MM, TAU, partGroup, toonMaterial, inked, tone, inkFor, segs, canvasText
 import { mix } from '../toon.js';
 import { sampleProfile } from '../../physics/profile.js';
 import { CLASSIC_RINGS, buildClassicRing } from './ringClassic.js';
+import { buildRingModel } from './ringModel.js';
 
 const UV_R = 28; // mm: the decal sheet spans [-UV_R, UV_R] top-down
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -531,6 +532,9 @@ const SHEET = { high: 1024, medium: 512, low: 256 };
 const TRI_BUDGET = { high: 8800, medium: 6500, low: 4800 };
 
 export function buildRing(part, ctx) {
+  // the Blender model when one is baked for these numbers (ringModel.js)
+  const model = buildRingModel(part, ctx);
+  if (model) return model;
   if (CLASSIC_RINGS[part.id]) return buildClassicRing(part, ctx);
   const design = DESIGNS[part.id] || parametric(part);
   // many-bladed rings (unknown ids, traits) can run over the triangle
