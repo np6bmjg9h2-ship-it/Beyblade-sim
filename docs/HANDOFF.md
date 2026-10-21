@@ -1,4 +1,19 @@
-# Handoff — 2026-10-21 (session 3)
+# Handoff — 2026-10-21 (session 4)
+
+## Session 4 (2026-10-21): draw calls, story test, playtest build
+
+- Blender part models merge per material bin and draw all crease lines as
+  one vertex-coloured LineSegments (`meshAsset.js` `mergeParts` /
+  `creaseLines`): draw objects tips 274 -> 153, discs 120 -> 95, rings
+  216 -> 163, renders unchanged (1c0428e). `shoot.js slot <s> --audit` prints
+  `draws` per part.
+- Browser `story` scenario was failing since the ch1 rewrite (new nodes
+  training2, orrery_test, dockfight); fixed (51d6e50). Full browser suite
+  19/19 (`rift` timed out once in the full run, passes alone).
+- Playtest artifact `24WkGVSTtfLpnzkhjHV1XJ` republished (version 16) with
+  build 2026.10.21: the page now loads `dist/chaos-spin.js` + `styles.css` +
+  `fonts.css` (the old unbundled `src/*` files are still in the artifact,
+  unreferenced). Title screen checked in Chrome.
 
 ## Session 3 (2026-10-20/21): Blender part art done, thinner discs and cores
 
