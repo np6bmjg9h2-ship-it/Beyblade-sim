@@ -27,7 +27,6 @@ TAU = 2 * pi
 PLATE_T = 0.9   # seating plate thickness (mm): the old flanges were 1.3-2.2
 SHARP = radians(25)
 
-
 def contact(fr, b, to, steps, end=0.0):
     """Exact contact profile, as contactRuns in tip.js: flat face fr at y = 0
     rounding over with b about (fr, b), up to the tangent towards `to` or to
@@ -46,7 +45,6 @@ def contact(fr, b, to, steps, end=0.0):
     if to:
         pts.append(tuple(to))
     return pts
-
 
 class Tip:
     def __init__(self, part):
@@ -253,11 +251,9 @@ class Tip:
                     bad += 1
         return bad, rmax
 
-
 def _rot(axis, a):
     from mathutils import Matrix
     return Matrix.Rotation(a, 3, axis)
-
 
 # ------------------------------------------------------------ designs
 # Each mirrors the look of its procedural original in tip.js (same colour
@@ -270,7 +266,6 @@ def needle(t):
     t.fins('trim', 8, 2.0, 4.6, w=0.42, phase=TAU / 16)
     t.plate(tabs=3)
 
-
 def pivotball(t):
     R = t.b
     t.rev('chrome', contact(0, R, None, 13, radians(22)) + [(0, R + R * sin(radians(22)))], n=24)
@@ -280,7 +275,6 @@ def pivotball(t):
     t.hub('body', 2.6, 4.45, facets=10)
     t.fins('trim', 10, 2.7, 4.5, w=0.4)
     t.plate(tabs=3)
-
 
 def flatstrike(t):
     f = contact(t.fr, t.b, None, 9, 0)
@@ -293,7 +287,6 @@ def flatstrike(t):
         t.stud('chrome', 3.15, 2.1, TAU / 16 + i * TAU / 4, rad=0.28, h=0.24)
     t.plate(tabs=3)
 
-
 def rubberflat(t):
     f = contact(t.fr, t.b, None, 9, 0)
     t.rev('rubber', f + [(3.42, 0.98), (3.42, 2.25), (3.15, 2.5), (0, 2.5)], n=28)
@@ -303,7 +296,6 @@ def rubberflat(t):
     t.hub('body', 2.9, 3.45, facets=12)
     t.fins('trim', 6, 3.0, 3.6, w=0.55, phase=TAU / 12)
     t.plate(tabs=3)
-
 
 def semiflat(t):
     f = contact(t.fr, t.b, None, 9, 0)
@@ -316,7 +308,6 @@ def semiflat(t):
     t.fins('body', 8, 2.1, 6.0, w=0.45)
     t.plate(tabs=3)
 
-
 def wideball(t):
     R = t.b
     t.rev('pale', contact(0, R, None, 15, radians(5)) + [(0, R + R * sin(radians(5)))], n=28)
@@ -325,7 +316,6 @@ def wideball(t):
     t.hub('body', 3.4, 4.7, facets=12)
     t.fins('trim', 12, 4.6, 5.2, w=0.42)
     t.plate(notches=4)
-
 
 def bearing(t):
     y0 = 4.85
@@ -341,7 +331,6 @@ def bearing(t):
     t.plate(tabs=3)
     t.spin = ['chrome']
 
-
 def griphold(t):
     f = contact(t.fr, t.b, None, 9, 0)
     t.rev('rubber', f + [(f[-1][0], 2.05), (2.35, 2.35), (0, 2.35)], n=24)
@@ -352,7 +341,6 @@ def griphold(t):
     for i in range(6):
         t.stud('chrome', 2.5 * cos(pi / 6), 4.2, i * TAU / 6 + TAU / 12, rad=0.3, h=0.24, sides=8)
     t.plate(tabs=3, phase=TAU / 12)
-
 
 def orbit(t):
     f = contact(t.fr, t.b, None, 9, 0)
@@ -366,7 +354,6 @@ def orbit(t):
     t.plate(notches=3)
     t.spin = ['ring']
 
-
 def steelball(t):
     R = t.b
     t.rev('chrome', contact(0, R, None, 13, radians(24)) + [(0, R + R * sin(radians(24)))], n=24)
@@ -379,7 +366,6 @@ def steelball(t):
     t.fins('body', 8, 3.1, 4.8, w=0.45, phase=0)
     t.plate(tabs=3)
 
-
 def springjump(t):
     f = contact(t.fr, t.b, None, 9, 0)
     ft = f[-1]
@@ -391,7 +377,6 @@ def springjump(t):
     t.hub('body', 2.2, 5.75, facets=10, flare=0.5)
     t.fins('trim', 5, 2.3, 6.0, w=0.5)
     t.plate(tabs=3)
-
 
 def _clutch(t, h0, arm_slot):
     yh = h0[1]
@@ -406,7 +391,6 @@ def _clutch(t, h0, arm_slot):
         t.prism(arm_slot, [(4.3, ya), (6.3, ya), (6.6, ya + 0.3), (6.6, t.y0 + 0.05), (4.3, t.y0 + 0.05)], 1.2, a + TAU / 8, skew=0.5)
     t.plate(tabs=3)
 
-
 def clutchhit(t):
     f = contact(t.fr, t.b, None, 9, 0)
     t.rev('pale', f + [(f[-1][0], 1.5), (f[-1][0] - 0.3, 1.8), (0, 1.8)], n=24)
@@ -414,12 +398,10 @@ def clutchhit(t):
     t.rev('rubber', [(2.3, y0), (2.9, y0), (3.2, y0 + 0.35), (3.2, y0 + 1.0), (2.3, y0 + 1.0)], n=24, closed=True)
     _clutch(t, (3.1, y0 + 0.9), 'trim')
 
-
 def clutchfinal(t):
     t.rev('chrome', contact(0, t.b, (1.0, 2.4), 9) + [(1.0, 3.0), (0, 3.0)], n=20)
     t.rev('trim', [(0.9, 2.6), (1.7, t.safe(1.7, 2.6)), (1.95, t.safe(1.95, 2.9)), (1.95, 3.4), (0.9, 3.4)], n=20, closed=True)
     _clutch(t, (1.9, 3.3), 'dark')
-
 
 def autoshift(t):
     t.rev('chrome', contact(0, t.b, (0.95, 3.2), 9) + [(0.95, 3.6), (0, 3.6)], n=20)
@@ -433,7 +415,6 @@ def autoshift(t):
     t.fins('trim', 6, 2.4, 5.0, w=0.45, phase=TAU / 6)
     t.plate(tabs=3)
 
-
 def hybrid(t):
     t.rev('chrome', contact(t.fr, t.b, (2.0, 2.9), 9) + [(2.0, 3.6), (0, 3.6)], n=24)
     t.rev('dark', [(1.45, 2.55), (2.6, 2.55), (3.0, 2.95), (3.0, 3.4), (2.7, 3.7), (1.45, 3.7)], n=24, closed=True)
@@ -443,7 +424,6 @@ def hybrid(t):
     t.fins('trim', 8, 2.4, 6.8, w=0.42, phase=TAU / 16)
     t.plate(tabs=3)
 
-
 DESIGNS = {
     'tip_needle': needle, 'tip_pivotball': pivotball, 'tip_flatstrike': flatstrike,
     'tip_rubberflat': rubberflat, 'tip_semiflat': semiflat, 'tip_wideball': wideball,
@@ -451,7 +431,6 @@ DESIGNS = {
     'tip_steelball': steelball, 'tip_springjump': springjump, 'tip_clutchhit': clutchhit,
     'tip_clutchfinal': clutchfinal, 'tip_autoshift': autoshift, 'tip_hybrid': hybrid,
 }
-
 
 # ------------------------------------------------------------ export
 
@@ -501,7 +480,6 @@ def export(tid, t):
         json.dump(meta, f)
     bad, rmax = t.check()
     print(f'{tid}: {meta["tris"]} tris, {len(meta["groups"])} groups, {len(blob)} bytes, rMax {rmax:.2f} (limit {t.br + 0.3}), envelope violations {bad}')
-
 
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(PARTS) as f:
