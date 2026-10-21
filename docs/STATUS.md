@@ -56,21 +56,23 @@ the Balance build now reads the spin race instead of trading hits it loses.
 Guard: `npm run balance:check` (25-70% band). Experiments:
 `tools/balance-tune.js` with part / AI / `PHYSICS` overrides and `SEED_OFFSET`.
 
-## In progress: Blender part art
+## Blender part art (done 2026-10-21)
 
 User request (2026-10-20): "3d models with blender based on the references,
-thinner parts". Pipeline committed in 214d68c: `render/meshAsset.js` (shared
-decoder), `tools/blender/parts-dump.mjs` (part numbers -> `.tools/parts.json`),
-generic `tools/blender/mesh-to-module.mjs`. Three technical-artist agents
-model rings, discs and tips in worktrees `.claude/worktrees/art-rings|art-discs|art-bases`
-(new `render/parts/<slot>Model.js`, procedural fallback kept; reports in
-`.claude/research/reviews/art-*-report.md`). Disc `thickness` is physics:
-thinning it is a separate step behind the balance gate.
+thinner parts". Pipeline 214d68c (`render/meshAsset.js`, `tools/blender/parts-dump.mjs`,
+`mesh-to-module.mjs`); models merged 8e4fe3f (12 discs), ae0f166 (15 tips),
+f585bd1 (17 rings): `tools/blender/{discs,tips,rings}.py` -> `render/assets/*.js`,
+`render/parts/{disc,tip,ring}Model.js`, procedural fallback when a part's
+numbers differ from the bake (rolled items, prototypes). Tris at or below
+before (rings ~103k -> ~57k total). Physics untouched. Open: disc physics
+thinning (~25-30% per disc, proposal in `art-discs-report.md`) needs the
+user's OK and the balance gate; tip draw calls 5-8 meshes (merge per
+material); no low-quality meshes; +2.3 MB of mesh modules; rings lost the
+procedural decals; `disc.js` 671 lines.
 
 ## Next steps
 
-The ordered list is in `docs/HANDOFF.md` ("Start here"): Blender part art
-(in progress), story chapters 7-20, fairness gate 1, Playbook M2, then the
+The ordered list is in `docs/HANDOFF.md` ("Start here"): story chapters 7-20, fairness gate 1, Playbook M2, then the
 older queue (battle feel, ring art branch, catalogue expansion, inventory
 filters, store pack odds). Daily Seed stays paused on branch
 `wip/daily-seed`. Multiplayer is paused by request (local versus first,
