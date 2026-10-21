@@ -74,7 +74,8 @@ procedural decals; `disc.js` 671 lines.
 
 ## Next steps
 
-The ordered list is in `docs/HANDOFF.md` ("Start here"): story chapters 7-20, fairness gate 1, Playbook M2, then the
+The ordered list is in `docs/HANDOFF.md` ("Start here"): art follow-ups and
+Rift M1 leftovers, story chapters 7-20, fairness gate 1, Playbook M2, then the
 older queue (battle feel, ring art branch, catalogue expansion, inventory
 filters, store pack odds). Daily Seed stays paused on branch
 `wip/daily-seed`. Multiplayer is paused by request (local versus first,

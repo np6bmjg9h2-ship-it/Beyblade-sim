@@ -1,9 +1,52 @@
-# Handoff — 2026-10-20 (session 2)
+# Handoff — 2026-10-21 (session 3)
+
+## Session 3 (2026-10-20/21): Blender part art done, thinner discs and cores
+
+Branch `claude/chaos-spin-arena-zero-ynh785`, everything committed and pushed
+(head after this doc commit). Unit 246/246; browser `inspect` passes (full
+browser suite not re-run); balance 8/pair all stadiums 59/26/45/52/66 (was
+59/22/34/53/81, now all inside the 25-70 band).
+
+- **Docs** (a7c9c54): STATUS, CODEBASE (riftFit, riftFlags, riftBosses,
+  arenaTwists/resolveArena, meshAsset, twist-stream invariant), README.
+- **Blender part art** (user: "3d models with blender based on the
+  references, thinner parts"): three background technical-artist agents in
+  worktrees `.claude/worktrees/art-rings|art-discs|art-bases`, merged
+  8e4fe3f (12 discs), ae0f166 (15 tips), f585bd1 (17 rings).
+  `tools/blender/{rings,discs,tips}.py` read `.tools/parts.json`
+  (`node tools/blender/parts-dump.mjs`), run with
+  `.tools/blender-4.5.9-windows-x64/blender.exe -b --factory-startup --python tools/blender/<slot>s.py -- .tools/<slot>-out`,
+  then `node tools/blender/mesh-to-module.mjs .tools/<slot>-out src/render/assets/<slot>s.js <SLOT>_MESHES tools/blender/<slot>s.py`.
+  Game side `src/render/parts/{ring,disc,tip}Model.js`: the mesh is used only
+  when the part's numbers match the bake, else the procedural model.
+  **Any change to a part's numbers in `parts.js` needs a re-bake**, or that
+  part silently falls back to procedural. Reports:
+  `.claude/research/reviews/art-{rings,discs,bases}-report.md`; screenshots
+  in the session scratchpad.
+- **Thinner physics** (88a81a8, user OK): disc `thickness` ~25-30% down
+  (ten 3.0, heavyring 3.6, feather 2.2, wide 3.0, counter 3.8, orbit 3.2,
+  compact 2.4, titan 4.0, hexheavy 3.0, octawide 2.6, starlobe 2.8, magna 3.2),
+  core `height` ~30% down (helix 3.5, quad 3.8, apex 2.5, gravity 3.2, ...),
+  Apex-Low `maxDiscThickness` 2.6 (same discs fit), generated discs 2.2-4 mm,
+  RULES_REV 8. Slingshot dive lost speed (0.22 -> 0.15 m/s); fixed by the
+  firm stick from 15 cm instead of 10 (`playbook.js`), back to 0.22.
+- **Art follow-ups (open)**: tips 5-8 meshes each (merge per material for
+  draw calls); no low-quality meshes; +2.3 MB of mesh modules (rings 1.2 MB);
+  rings lost the procedural stickers/decals, Roller Guard still plain;
+  rolled items / prototypes with non-catalogue numbers draw procedural (mixed
+  look); disc hub collar looks tall alone; feather disc left spin not
+  rendered; `disc.js` 671 lines (> 500 rule); cores have no Blender model yet
+  (procedural, now thinner).
+- A balance run was once killed by Claude Code for low memory; it ran fine
+  later (167 s on 8 threads).
+- Art worktrees and older ones (`git worktree list`) can be removed with
+  `git worktree remove <path>` once no longer needed.
+
 
 ## Session 2 (2026-10-20): Rift Depth M1 done, Blender part art started
 
-Branch `claude/chaos-spin-arena-zero-ynh785`, commits `7c5312f..` (NOT
-pushed). Unit 246/246, browser scenario `rift` passes.
+Branch `claude/chaos-spin-arena-zero-ynh785`, commits `7c5312f..` (pushed
+in session 3). Unit 246/246, browser scenario `rift` passes.
 
 - **Rift Depth M1 complete** (plan `.claude/research/reviews/rift-depth-plan.md` §3):
   1 early-run fix (`src/systems/riftFit.js`: viable first offer + dry-streak
@@ -20,8 +63,8 @@ pushed). Unit 246/246, browser scenario `rift` passes.
   references, thinner parts")**: infra committed (`src/render/meshAsset.js`,
   `tools/blender/parts-dump.mjs` -> `.tools/parts.json`, generic
   `mesh-to-module.mjs <dir> <out.js> <EXPORT> <source.py>`). Three
-  technical-artist agents were STOPPED by the user early (only reference study
-  and before-screenshots done; no models). Worktrees left:
+  technical-artist agents were STOPPED by the user early, then restarted and
+  finished in session 3 (see above). Worktrees left:
   `.claude/worktrees/art-rings|art-discs|art-bases` (branches wt/art-*), briefs
   in this session's history; notes in `.claude/research/reviews/art-*-report.md`.
   Restart them with the same brief (Blender: `.tools/blender-4.5.9-windows-x64/blender.exe -b --factory-startup --python tools/blender/<slot>s.py -- .tools/<slot>-out`;
@@ -42,12 +85,11 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 
 ## Start here: the next steps, in order
 
-1. **Rift Run depth, milestone 1** (user approved): plan in
-   `.claude/research/reviews/rift-depth-plan.md` section 3: fix early losses
-   (viable first offer; 10 of 13 playtest losses were at depth 0), boss
-   weaknesses + phases, arena twists (slickring, glass first), four keystone
-   legendaries, a five-event pack with run flags. Battle-changing effects go
-   through seeded data and modSources (determinism).
+1. **Art follow-ups / Rift M1 leftovers**: the open art items in session 3
+   above (draw calls, LOD, decals, Blender cores); Rift: attack 0/20 vs
+   Mirelle, stamina 5% vs Sora, Glass Floor vs defense, Cracked Mirror
+   stacking, twists steep/dome/thinrim/lowg. Republish the claude.ai
+   artifact so the user can playtest (still the 2026-10-12 build).
 2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
    section 4 (three acts, tiers 6-8, Stillwater Order arc, ~250 nodes). Add
    the data first (10 rivals in characters.js, 6 arenas, story brackets, cast),
@@ -97,7 +139,7 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 | Story | engine: node `when`, `<node>:won/lost` flags, lost continue battles pay nothing, roundLines between rounds, tiers to 8, chapters in `src/data/story/chN.js`; ch1-6 rewritten 40 -> 93 nodes (writers), harder bosses (bo5, tier 4-6), setback fights + recovery scenes; ch6 bracket (top 4) leads into scripted Valen semi and Aurelia final | `src/systems/story.js`, `src/data/story/` |
 | Playbook | 6 D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, only triggers recorded; double-tap variants; stick nudge/break; Playbook screen; ch2 teaches Herd (Rook) and Feint (Mirelle); AI telegraphs its plans as patterns and reads Feint/Slingshot/Herd | `src/game/playbook.js`, `ui/screens/playbook.js` |
 
-RULES_REV is 7. Checks at 1325d80: unit 204/204, balance check passes
+RULES_REV was 7 (now 8, session 3). Checks at 1325d80: unit 204/204, balance check passes
 58/29/47/52/63, `test:determinism` OK on Node/Chromium/Firefox/WebKit,
 browser scenario `playbook` passes (full browser suite not re-run this session).
 

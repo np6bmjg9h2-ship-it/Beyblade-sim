@@ -202,6 +202,13 @@ over bounds, int8 normals, uint16 indices, groups by palette slot) once per
 mesh and caches crease-line edges; used by launchers and the Blender part
 models. `tools/blender/parts-dump.mjs` writes `.tools/parts.json` from
 `data/parts.js`, so Blender builds from the physics numbers.
+**Blender part models:** `parts/ringModel.js`, `discModel.js`, `tipModel.js`
+draw `assets/rings.js`, `discs.js`, `tips.js` (from `tools/blender/rings.py`,
+`discs.py`, `tips.py`) in the anime look; each returns null unless the part's
+numbers match the bake, and the slot builder then uses its procedural model.
+Changing a part's numbers therefore needs a re-bake (parts-dump, Blender,
+mesh-to-module) or the part quietly draws procedural. Cores, locks and aux
+modules are procedural only.
 | File | Lines | Purpose |
 |---|---|---|
 | `renderer.js` | 368 | Owns the WebGLRenderer, lights, camera rig, arena, top visuals, launchers, the battle-event → effects mapping, pooled physics debug overlay, ink-layer toggle, the inspect stage switch. Preloads both battlers' spirits at round start. |
@@ -211,7 +218,7 @@ models. `tools/blender/parts-dump.mjs` writes `.tools/parts.json` from
 | `parts/common.js` | 170 | **Part-builder contract** (read this first) and geometry helpers. |
 | `parts/index.js` | 72 | Builder registry, build context (`ctx`), stack placement, aux mount kinds. |
 | `parts/discClassic.js` · `ringClassic.js` · `tipClassic.js` · `lockClassic.js` | 120–330 each | Classic-series models: die-cast disc plates (dog-bone hole, spokes, lobes, N/S magnet print), stickered rings built from the physics outline (hoop, rollers as spinners, gem spikes, raked wings), tips (steel ball, coil spring, engine-gear clutches, auto shift) via the tip.js kit, and the roller lock (wheels on radial axles). Routed from the slot builders by part id. |
-| `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids. Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
+| `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids (ring, disc and tip try the Blender model first). Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
 | `arenaMesh.js` | 1168 | Cel-shaded stadiums built from the same arena definition as the physics (floor lathe of the height profile, walls, exits, crowd, backdrop). |
 | `effects.js` | 483 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Shatter debris (detached part groups), ring-out bursts, wobble warnings, head-on vs graze impact sprays (`glance` from the impact event). Pools are rebuilt when quality changes their size. Hosts the `SpiritSystem`. |
 | `spirits.js` | 261 | Spirit Chip manifestations: spirit shader (cel rim, scan stripes, lower-body fade), light pillar, sigil laid on the bowl slope, rise/fade timeline, pooling, shader warm-up and per-battle preload (no first-summon stall). Visual only. |
