@@ -484,6 +484,35 @@ async function advanceStory(h, until, max = 120, choiceDown = 0) {
   return h.eval(until);
 }
 
+// Story helpers, from a node's card. Training nodes are launched and their
+// objectives completed through the tracker (they need aiming skill); battles
+// are won by forced ring-outs.
+async function playTraining(h, label) {
+  await pressUntil(h, 'story-play', () => window.__app.ui.current?.constructor.screenName === 'BattleScreen');
+  await h.waitFor(() => window.__app.ui.current.battle?.phase === 'setup', 15000, label + ' setup');
+  await h.padButton(0);
+  await timedLaunch(h, { pad: true });
+  await h.waitFor(() => window.__app.ui.current.battle.phase === 'battle', 15000, label + ' running');
+  await h.eval(() => { const ob = window.__app.ui.current.objectives; for (const o of ob.list) { o.done = true; o.progress = o.n || 1; } ob.changed = true; });
+}
+
+async function playStoryBattle(h, label) {
+  await pressUntil(h, 'story-play', () => window.__app.ui.current?.constructor.screenName !== 'StoryScreen');
+  await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 60);
+  for (let round = 0; round < 5; round++) {
+    await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, label + ' setup');
+    await h.padButton(0);
+    await timedLaunch(h, { pad: true });
+    await forcePlayerRound(h);
+    await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, label + ' round over');
+    const done = await h.eval(() => !!window.__app.ui.current.battle.result);
+    await h.padButton(0);
+    if (done) break;
+  }
+  await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, label + ' results');
+  await h.padButton(1);
+}
+
 scenarios.story = async () => {
   const h = await launch();
   const scr = () => h.eval(() => window.__app.ui.current?.constructor.screenName);
@@ -533,24 +562,19 @@ scenarios.story = async () => {
     await h.shot('s06_training');
     // the remaining objectives need aiming skill; complete them through the tracker for the test
     await h.eval(() => { const ob = window.__app.ui.current.objectives; for (const o of ob.list) { o.done = true; o.progress = o.n || 1; } ob.changed = true; });
-    await advanceStory(h, () => window.__app.profile.story.node === 'ch1_sora1' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy);
+    // second training (Spin economy, vs an Iron Wall)
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_training2' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy))) throw new Error('second training not reached');
+    await playTraining(h, 'training 2');
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_sora1' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy))) throw new Error('Sora battle not reached');
     // first rival battle
-    await pressUntil(h, 'story-play', () => window.__app.ui.current?.constructor.screenName !== 'StoryScreen');
-    await advanceStory(h, () => window.__app.ui.current?.constructor.screenName === 'BattleScreen', 60);
-    for (let round = 0; round < 4; round++) {
-      await h.waitFor(() => window.__app.ui.current.battle.phase === 'setup', 15000, 'setup');
-      await h.padButton(0);
-      await timedLaunch(h, { pad: true });
-      await forcePlayerRound(h);
-      await h.waitFor(() => ['roundOver', 'matchOver'].includes(window.__app.ui.current.battle?.phase), 30000, 'round over');
-      const done = await h.eval(() => !!window.__app.ui.current.battle.result);
-      await h.padButton(0);
-      if (done) break;
-    }
-    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'ResultsScreen', 15000, 'results');
-    await h.padButton(1);
-    // win lines, Orrery scene, the gift choice (pick the second option), then the Daichi battle card
-    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_daichi' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy, 160, 1))) throw new Error('did not reach the Daichi battle');
+    await playStoryBattle(h, 'Sora');
+    // win lines, Orrery scene (partner: first option), the Spirit meter training
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_orrery_test' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy, 160))) throw new Error('Orrery training not reached');
+    await playTraining(h, 'Orrery training');
+    // the gift choice (pick the second option), the rumour board, the Dock Runner
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_dockfight' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy, 160, 1))) throw new Error('Dock Runner battle not reached');
+    await playStoryBattle(h, 'Dock Runner');
+    if (!(await advanceStory(h, () => window.__app.profile.story.node === 'ch1_daichi' && window.__app.ui.current?.constructor.screenName === 'StoryScreen' && !window.__app.ui.current.busy, 160))) throw new Error('did not reach the Daichi battle');
     const st = await h.eval(() => ({ flags: window.__app.profile.story.flags, choice: window.__app.profile.story.choices.ch1_gift, rival: window.__app.profile.rivals.sora }));
     if (!st.flags.ch1_orrery) throw new Error('Orrery flag missing');
     if (st.choice !== 'weight') throw new Error('choice not recorded: ' + st.choice);
