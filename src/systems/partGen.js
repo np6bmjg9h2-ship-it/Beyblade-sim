@@ -85,8 +85,8 @@ function ring(rng, id) {
 // ------------------------------------------------------------ discs
 
 function disc(rng, id) {
-  const rOut = rng.range(18, 23), thickness = rng.range(3, 5.5), massDist = rng.range(0, 0.85);
-  const mass = Math.min(28, Math.max(11, 10 + (rOut - 18) * 1.4 + (thickness - 3) * 4.2 + rng.range(-1.5, 1.5)));
+  const rOut = rng.range(18, 23), thickness = rng.range(2.2, 4), massDist = rng.range(0, 0.85);
+  const mass = Math.min(28, Math.max(11, 10 + (rOut - 18) * 1.4 + (thickness - 2.2) * 5.8 + rng.range(-1.5, 1.5)));
   const def = { ...common(rng, 'disc', id, nameOf(rng, DISC_NOUN)), mass: r1(mass), rIn: 6, rOut: r1(rOut), thickness: r1(thickness), massDist: r2(massDist), contact: rOut >= 22, auxPort: rng.chance(0.12) };
   if (def.contact) { def.contactRestitution = r2(rng.range(0.4, 0.46)); def.contactFriction = r2(rng.range(0.2, 0.25)); }
   if (rng.chance(0.15)) def.ecc = r2(rng.range(0.08, 0.16));

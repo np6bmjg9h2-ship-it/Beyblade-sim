@@ -64,9 +64,11 @@ thinner parts". Pipeline 214d68c (`render/meshAsset.js`, `tools/blender/parts-du
 f585bd1 (17 rings): `tools/blender/{discs,tips,rings}.py` -> `render/assets/*.js`,
 `render/parts/{disc,tip,ring}Model.js`, procedural fallback when a part's
 numbers differ from the bake (rolled items, prototypes). Tris at or below
-before (rings ~103k -> ~57k total). Physics untouched. Open: disc physics
-thinning (~25-30% per disc, proposal in `art-discs-report.md`) needs the
-user's OK and the balance gate; tip draw calls 5-8 meshes (merge per
+before (rings ~103k -> ~57k total). Physics untouched. Discs (~25-30%) and
+cores (~30%) made thinner in the physics too (user OK 2026-10-21, RULES_REV 8;
+Apex max disc 2.6 mm; Slingshot firm stick from 15 cm to keep its dive at
+0.22 m/s); balance 8/pair all stadiums 59/26/45/52/66 (was 59/22/34/53/81).
+Open: tip draw calls 5-8 meshes (merge per
 material); no low-quality meshes; +2.3 MB of mesh modules; rings lost the
 procedural decals; `disc.js` 671 lines.
 

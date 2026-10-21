@@ -114,9 +114,9 @@ export function patternSteer(st, ctx) {
       S.dive = true;
       st.phase = 'dive';
       // the slope gives the speed; a light stick bends the fall onto the foe
-      // (firmer for the last 10 cm)
+      // (firmer for the last 15 cm)
       const [ax, az] = unit(o.p.x + o.v.x * 0.12 - t.p.x, o.p.z + o.v.z * 0.12 - t.p.z);
-      const k = dm.hypot(o.p.x - t.p.x, o.p.z - t.p.z) > 0.1 ? 0.3 : 0.6;
+      const k = dm.hypot(o.p.x - t.p.x, o.p.z - t.p.z) > 0.15 ? 0.3 : 0.6;
       return [ax * k, az * k];
     }
     case 'feint': {

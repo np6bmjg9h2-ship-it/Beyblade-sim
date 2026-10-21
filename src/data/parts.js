@@ -32,7 +32,7 @@ export const SLOT_NAMES = {
 export const ARCHITECTURES = {
   helix: { name: 'Helix-3', desc: 'Three-tab standard frame. Balanced height and mass allowance.', maxMass: 64, heightMul: 1 },
   quad: { name: 'Quad-4', desc: 'Four-tab reinforced frame. Accepts heavier builds and stronger locks.', maxMass: 72, heightMul: 1.04 },
-  apex: { name: 'Apex-Low', desc: 'Low-profile frame. Lower centre of mass but only slim discs and a lighter mass budget.', maxMass: 56, heightMul: 0.88, maxDiscThickness: 3.6 },
+  apex: { name: 'Apex-Low', desc: 'Low-profile frame. Lower centre of mass but only slim discs and a lighter mass budget.', maxMass: 56, heightMul: 0.88, maxDiscThickness: 2.6 },
 };
 
 const ring = (o) => ({ slot: 'ring', aero: 0.015, catch: 0.5, bladeWidth: 0.55, slope: 0, massDist: 0.2, ...o });
@@ -63,28 +63,28 @@ export const PARTS = [
   ring({ id: 'ring_starlance', name: 'Star Lance', arch: ['helix', 'quad', 'apex'], spin: 'R', mass: 14, rIn: 11, rOut: 26.5, rBase: 21, blades: 5, bladeWidth: 0.35, faceAngle: 18, thickness: 2.6, hitBand: 5.5, restitution: 0.57, friction: 0.24, catch: 0.5, aero: 0.028, role: 'attack', tier: 4, color: '#e8f0ff', desc: 'Five lance points at the widest legal radius. Devastating reach, fragile spin economy.' }),
 
   // ------------------------------------------------------------------ cores
-  core({ id: 'core_helix', name: 'Helix Core', arch: 'helix', mass: 5, radius: 9, height: 5, affinity: 'neutral', tier: 1, color: '#d9e2ec', desc: 'Standard three-tab core. Perfectly centred.' }),
-  core({ id: 'core_quad', name: 'Quad Core', arch: 'quad', mass: 7, radius: 9.5, height: 5.5, affinity: 'neutral', tier: 1, color: '#bfc8d4', desc: 'Four-tab reinforced core for heavy builds.' }),
-  core({ id: 'core_apex', name: 'Apex Core', arch: 'apex', mass: 4, radius: 8.5, height: 3.5, affinity: 'neutral', tier: 2, color: '#e9eef5', desc: 'Low-profile core. Lowers the whole stack.' }),
-  core({ id: 'core_lunar', name: 'Lunar Offset Core', arch: 'helix', mass: 6, radius: 9, height: 5, ecc: 0.28, affinity: 'abyss', tier: 2, color: '#a0b4ff', desc: 'Deliberately off-centre mass. Produces a walking, unpredictable path and vibration.' }),
-  core({ id: 'core_resonant', name: 'Resonant Core', arch: 'helix', mass: 5, radius: 9, height: 5.5, affinity: 'spirit', tier: 2, color: '#ffe08a', desc: 'Tuned crystal core that channels Spirit Chip energy more efficiently.' }),
-  core({ id: 'core_gravity', name: 'Gravity Core', arch: 'quad', mass: 9, radius: 10, height: 4.5, affinity: 'iron', tier: 3, color: '#6d7480', desc: 'Dense tungsten-weighted core sitting low in the stack.' }),
-  core({ id: 'core_storm', name: 'Storm Core', arch: 'helix', mass: 5, radius: 9, height: 5, affinity: 'storm', tier: 3, color: '#68c8ff', desc: 'Vented core with a storm-aligned resonance channel.' }),
-  core({ id: 'core_solar', name: 'Solar Core', arch: 'quad', mass: 6, radius: 9.5, height: 5, affinity: 'solar', tier: 3, color: '#ffbe55', desc: 'Sun-glass core that stores ability charge.' }),
+  core({ id: 'core_helix', name: 'Helix Core', arch: 'helix', mass: 5, radius: 9, height: 3.5, affinity: 'neutral', tier: 1, color: '#d9e2ec', desc: 'Standard three-tab core. Perfectly centred.' }),
+  core({ id: 'core_quad', name: 'Quad Core', arch: 'quad', mass: 7, radius: 9.5, height: 3.8, affinity: 'neutral', tier: 1, color: '#bfc8d4', desc: 'Four-tab reinforced core for heavy builds.' }),
+  core({ id: 'core_apex', name: 'Apex Core', arch: 'apex', mass: 4, radius: 8.5, height: 2.5, affinity: 'neutral', tier: 2, color: '#e9eef5', desc: 'Low-profile core. Lowers the whole stack.' }),
+  core({ id: 'core_lunar', name: 'Lunar Offset Core', arch: 'helix', mass: 6, radius: 9, height: 3.5, ecc: 0.28, affinity: 'abyss', tier: 2, color: '#a0b4ff', desc: 'Deliberately off-centre mass. Produces a walking, unpredictable path and vibration.' }),
+  core({ id: 'core_resonant', name: 'Resonant Core', arch: 'helix', mass: 5, radius: 9, height: 3.8, affinity: 'spirit', tier: 2, color: '#ffe08a', desc: 'Tuned crystal core that channels Spirit Chip energy more efficiently.' }),
+  core({ id: 'core_gravity', name: 'Gravity Core', arch: 'quad', mass: 9, radius: 10, height: 3.2, affinity: 'iron', tier: 3, color: '#6d7480', desc: 'Dense tungsten-weighted core sitting low in the stack.' }),
+  core({ id: 'core_storm', name: 'Storm Core', arch: 'helix', mass: 5, radius: 9, height: 3.5, affinity: 'storm', tier: 3, color: '#68c8ff', desc: 'Vented core with a storm-aligned resonance channel.' }),
+  core({ id: 'core_solar', name: 'Solar Core', arch: 'quad', mass: 6, radius: 9.5, height: 3.5, affinity: 'solar', tier: 3, color: '#ffbe55', desc: 'Sun-glass core that stores ability charge.' }),
 
   // ------------------------------------------------------------------ discs
-  disc({ id: 'disc_ten', name: 'Ten Disc', mass: 18, rIn: 6, rOut: 19.5, thickness: 4.5, massDist: 0.1, tier: 1, color: '#b8bec8', desc: 'A balanced general-purpose disc.' }),
-  disc({ id: 'disc_heavyring', name: 'Heavy Ring Disc', mass: 25, rIn: 6, rOut: 20.5, thickness: 5, massDist: 0.75, tier: 2, color: '#8d939c', desc: 'Mass concentrated at the rim: high spin inertia and gyroscopic stability, slower to accelerate.' }),
-  disc({ id: 'disc_feather', name: 'Feather Disc', mass: 11, rIn: 6, rOut: 18, thickness: 3, massDist: 0, tier: 1, color: '#e3e7ec', desc: 'Light and slim. Fast and nimble, easily pushed around.' }),
-  disc({ id: 'disc_wide', name: 'Wide Disc', mass: 21, rIn: 6, rOut: 23, thickness: 4, massDist: 0.4, contact: true, contactRestitution: 0.4, contactFriction: 0.24, tier: 2, color: '#a1a8b3', desc: 'Extends past the ring\'s base radius and takes low hits as a secondary contact surface.' }),
-  disc({ id: 'disc_counter', name: 'Counterweight Disc', mass: 20, rIn: 6, rOut: 19.5, thickness: 5, massDist: 0.3, ecc: 0.18, tier: 2, color: '#9c8f7a', desc: 'Asymmetric weighting that makes the top walk and vibrate.' }),
-  disc({ id: 'disc_orbit', name: 'Orbit Disc', mass: 19, rIn: 6, rOut: 20, thickness: 4.5, massDist: 0.6, auxPort: true, tier: 2, color: '#a8b8c8', desc: 'Rim-weighted disc with a skirt mount for auxiliary modules.' }),
-  disc({ id: 'disc_compact', name: 'Compact Disc', mass: 15, rIn: 6, rOut: 19, thickness: 3.2, massDist: 0.35, tier: 2, color: '#c9ced6', desc: 'Dense and slim. Fits the Apex frame.' }),
-  disc({ id: 'disc_hexheavy', name: 'Hex Heavy', series: 'classic', mass: 24, rIn: 6, rOut: 18.5, thickness: 4.5, massDist: 0.15, tier: 1, color: '#9aa1aa', desc: 'A compact six-sided slab of die-cast metal: the most mass for its size. Keeps the top low, heavy and hard to shift.' }),
-  disc({ id: 'disc_octawide', name: 'Octa Wide', series: 'classic', mass: 17, rIn: 6, rOut: 22.5, thickness: 3.6, massDist: 0.85, contact: true, contactRestitution: 0.42, contactFriction: 0.2, tier: 2, color: '#aab2bd', desc: 'A thin eight-sided rim on four spokes. Almost all its mass sits at the edge: big spin inertia for its weight, and the rim takes low hits.' }),
-  disc({ id: 'disc_starlobe', name: 'Star Lobe', series: 'classic', mass: 20, rIn: 6, rOut: 21, thickness: 4, massDist: 0.6, tier: 2, color: '#a3a9b3', desc: 'Five lobes with a bolt hole at each point. The mass out in the lobes puts more swing behind every hit.' }),
-  disc({ id: 'disc_magna', name: 'Magna Disc', series: 'classic', mass: 19, rIn: 6, rOut: 19.5, thickness: 4.5, massDist: 0.3, magnet: { strength: 1 }, tier: 3, color: '#24262c', desc: "A magnet sealed in black resin, N on one face and S on the other (flip it in the Workshop). It pulls on the other top's metal; opposite poles snap together and matching poles push apart." }),
-  disc({ id: 'disc_titan', name: 'Titan Disc', mass: 29, rIn: 6, rOut: 21, thickness: 5.5, massDist: 0.6, tier: 4, color: '#6f7682', desc: 'The heaviest legal disc. Enormous inertia, punishing to launch.' }),
+  disc({ id: 'disc_ten', name: 'Ten Disc', mass: 18, rIn: 6, rOut: 19.5, thickness: 3, massDist: 0.1, tier: 1, color: '#b8bec8', desc: 'A balanced general-purpose disc.' }),
+  disc({ id: 'disc_heavyring', name: 'Heavy Ring Disc', mass: 25, rIn: 6, rOut: 20.5, thickness: 3.6, massDist: 0.75, tier: 2, color: '#8d939c', desc: 'Mass concentrated at the rim: high spin inertia and gyroscopic stability, slower to accelerate.' }),
+  disc({ id: 'disc_feather', name: 'Feather Disc', mass: 11, rIn: 6, rOut: 18, thickness: 2.2, massDist: 0, tier: 1, color: '#e3e7ec', desc: 'Light and slim. Fast and nimble, easily pushed around.' }),
+  disc({ id: 'disc_wide', name: 'Wide Disc', mass: 21, rIn: 6, rOut: 23, thickness: 3, massDist: 0.4, contact: true, contactRestitution: 0.4, contactFriction: 0.24, tier: 2, color: '#a1a8b3', desc: 'Extends past the ring\'s base radius and takes low hits as a secondary contact surface.' }),
+  disc({ id: 'disc_counter', name: 'Counterweight Disc', mass: 20, rIn: 6, rOut: 19.5, thickness: 3.8, massDist: 0.3, ecc: 0.18, tier: 2, color: '#9c8f7a', desc: 'Asymmetric weighting that makes the top walk and vibrate.' }),
+  disc({ id: 'disc_orbit', name: 'Orbit Disc', mass: 19, rIn: 6, rOut: 20, thickness: 3.2, massDist: 0.6, auxPort: true, tier: 2, color: '#a8b8c8', desc: 'Rim-weighted disc with a skirt mount for auxiliary modules.' }),
+  disc({ id: 'disc_compact', name: 'Compact Disc', mass: 15, rIn: 6, rOut: 19, thickness: 2.4, massDist: 0.35, tier: 2, color: '#c9ced6', desc: 'Dense and slim. Fits the Apex frame.' }),
+  disc({ id: 'disc_hexheavy', name: 'Hex Heavy', series: 'classic', mass: 24, rIn: 6, rOut: 18.5, thickness: 3, massDist: 0.15, tier: 1, color: '#9aa1aa', desc: 'A compact six-sided slab of die-cast metal: the most mass for its size. Keeps the top low, heavy and hard to shift.' }),
+  disc({ id: 'disc_octawide', name: 'Octa Wide', series: 'classic', mass: 17, rIn: 6, rOut: 22.5, thickness: 2.6, massDist: 0.85, contact: true, contactRestitution: 0.42, contactFriction: 0.2, tier: 2, color: '#aab2bd', desc: 'A thin eight-sided rim on four spokes. Almost all its mass sits at the edge: big spin inertia for its weight, and the rim takes low hits.' }),
+  disc({ id: 'disc_starlobe', name: 'Star Lobe', series: 'classic', mass: 20, rIn: 6, rOut: 21, thickness: 2.8, massDist: 0.6, tier: 2, color: '#a3a9b3', desc: 'Five lobes with a bolt hole at each point. The mass out in the lobes puts more swing behind every hit.' }),
+  disc({ id: 'disc_magna', name: 'Magna Disc', series: 'classic', mass: 19, rIn: 6, rOut: 19.5, thickness: 3.2, massDist: 0.3, magnet: { strength: 1 }, tier: 3, color: '#24262c', desc: "A magnet sealed in black resin, N on one face and S on the other (flip it in the Workshop). It pulls on the other top's metal; opposite poles snap together and matching poles push apart." }),
+  disc({ id: 'disc_titan', name: 'Titan Disc', mass: 29, rIn: 6, rOut: 21, thickness: 4, massDist: 0.6, tier: 4, color: '#6f7682', desc: 'The heaviest legal disc. Enormous inertia, punishing to launch.' }),
 
   // ------------------------------------------------------------------ locks
   lock({ id: 'lock_click3', name: 'Click Lock III', arch: ['helix', 'quad', 'apex'], mass: 4, radius: 10, height: 6, notches: 3, threshold: 1.92, tier: 1, color: '#d0d5dd', desc: 'Three-notch lock. Reliable middle ground.' }),

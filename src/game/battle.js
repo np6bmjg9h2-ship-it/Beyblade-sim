@@ -102,7 +102,7 @@ export const CLASH_BAND = 0.15;
 // AI plans named as the pattern they resemble (HUD telegraph only)
 const AI_PLAN_PATTERN = { center: 'anchor', circle: 'orbit', evade: 'sidestep', koPush: 'herd' };
 
-export const RULES_REV = 7; // 6: judges' cards on time, spirit for initiative, rubber ring edges; 7: playbook patterns
+export const RULES_REV = 8; // 8: thinner discs and cores; 6: judges' cards on time, spirit for initiative, rubber ring edges; 7: playbook patterns
 
 // Spirit is earned by play more than by waiting (see abilities.js passive).
 // (struck 0.5 -> 0.4 on 2026-10-19: initiative earns more of the spirit)
