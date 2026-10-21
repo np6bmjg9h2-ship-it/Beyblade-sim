@@ -34,7 +34,7 @@ export function emptyControls() {
 }
 
 export class AIController {
-  constructor({ profile = 'balanced', difficulty = 1, seed = 1, knownTechniques, tweaks = null, adaptRounds = false } = {}) {
+  constructor({ profile = 'balanced', difficulty = 1, seed = 1, knownTechniques, tweaks = null, adaptRounds = false, spinRead = 0 } = {}) {
     this.profile = typeof profile === 'string' ? scaledProfile(profile, difficulty) : { ...profile };
     // rival adaptation: bounded behavioural nudges only (never physics)
     if (tweaks) applyTweaks(this.profile, tweaks);
@@ -52,6 +52,10 @@ export class AIController {
     this.sensible = false;
     this.aimDash = false;
     this.knownTechniques = knownTechniques || null;
+    // spin read (Rift Mirelle): after a lost round, the chance of launching
+    // against the spin the opponent just used. Own stream.
+    this.spinRead = spinRead;
+    this.rngSpin = new Rng(mixSeeds(seed, 'spin'));
     this.history = []; // { t, opp:{p,v,spinFrac,spirit}, me }
     this.plan = 'center';
     this.planT = 0;
@@ -89,7 +93,7 @@ export class AIController {
   chooseLaunch(ctx) {
     const P = this.profile;
     const rng = this.rng;
-    const { arena, side, gear, spinOptions, oppSpin, spawnAngle = 0 } = ctx;
+    const { arena, side, gear, spinOptions, oppSpin, spawnAngle = 0, lastRound = null, preferred = null } = ctx;
     const techs = (P.technique || ['normal']).filter((t) => !TECHNIQUE_INDEX[t]?.adv || (this.knownTechniques ? this.knownTechniques.includes(t) : true));
     const danger = arena.danger || 0;
     // dangerous stadiums: cautious AIs prefer controlled launches
@@ -109,10 +113,23 @@ export class AIController {
     const leanMul = clamp(1 - danger * (0.35 + 0.6 * P.edgeCaution), 0.15, 1);
     const lean = fullPower ? 0 : clamp(P.lean * leanMul + rng.range(-0.03, 0.03), 0, MAX_LEAN);
     const dir = dm.atan2(-z, -x) + rng.range(-0.4, 0.4);
-    // spin: technical AIs may pick opposite spin if their launcher allows
-    let spin = spinOptions[0];
-    if (spinOptions.length > 1 && oppSpin && P.steerSkill > 0.8 && rng.chance(0.5)) {
+    // spin: the build's own spin; technical AIs may pick opposite spin if their launcher allows
+    let spin = spinOptions.includes(preferred) ? preferred : spinOptions[0];
+    // attackers match the opponent's spin (the one it last launched, else its
+    // build's): opposite-spin contacts tighten the struck top's lock and carry
+    // little recoil, so only same-spin hits KO
+    const target = lastRound?.oppSpin || oppSpin;
+    if (P.aggression > 0.7 && spinOptions.length > 1 && target && spinOptions.includes(target)) {
+      spin = target;
+    } else if (spinOptions.length > 1 && oppSpin && P.steerSkill > 0.8 && rng.chance(0.5)) {
       spin = spinOptions.find((s) => s !== oppSpin) || spin;
+    }
+    // a spin reader opens in her own spin, keeps a spin that won, and after a
+    // lost round launches against the spin that beat her (chance spinRead)
+    if (this.spinRead > 0 && spinOptions.length > 1) {
+      spin = spinOptions.includes(preferred) ? preferred : spinOptions[0];
+      if (lastRound?.won && spinOptions.includes(lastRound.mySpin)) spin = lastRound.mySpin;
+      else if (lastRound && !lastRound.won && lastRound.oppSpin && this.rngSpin.chance(this.spinRead)) spin = spinOptions.find((s) => s !== lastRound.oppSpin) || spin;
     }
     let risk = P.risk > 0.8 ? 0.6 : 0;
     let aim = { x, z, lean, dir };

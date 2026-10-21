@@ -86,3 +86,7 @@ export const TECHNIQUES = [
 export const LAUNCHER_INDEX = Object.fromEntries(LAUNCHERS.map((x) => [x.id, x]));
 export const CABLE_INDEX = Object.fromEntries(CABLES.map((x) => [x.id, x]));
 export const TECHNIQUE_INDEX = Object.fromEntries(TECHNIQUES.map((x) => [x.id, x]));
+
+// The launcher a Rift run fights with: a run-only one bought from a trader
+// (run.launcherBase, a base def) replaces the loadout's own for that run.
+export const runLauncherOf = (inventory, run) => (run.launcherBase && LAUNCHER_INDEX[run.launcherBase]) || inventory[run.launcher] || null;

@@ -106,3 +106,23 @@ test('every rival build is legal and every rival can battle at every tier', () =
   assert.equal(r.simulated, true);
   assert.equal(buildRole(rivalParticipant(null, 'juno', 1, {}).build), 'stamina');
 });
+
+test('launch spin: own spin by default, attackers match the spin they face, a spin reader answers a lost round', () => {
+  const arena = { danger: 0.2, radius: 0.2 };
+  const ctx = { arena, side: 0, gear: { spinMech: 'dual' }, spinOptions: ['R', 'L'], spawnAngle: 0 };
+  const gearFor = () => ({ energyMax: 3, sigma: 0.05, launcher: { drive: { force: 1 } }, cable: { length: 0.3 }, mods: {} });
+  const pick = (ai, extra) => ai.chooseLaunch({ ...ctx, gear: gearFor(), ...extra }).spin;
+  // a defender with a two-way launcher keeps its build's spin
+  assert.equal(pick(new AIController({ profile: 'defensive', seed: 3 }), { preferred: 'L', oppSpin: 'R' }), 'L');
+  // an attacker matches the opponent: its build spin, then what it last launched
+  const atk = new AIController({ profile: 'aggressive', seed: 3 });
+  assert.equal(pick(atk, { preferred: 'R', oppSpin: 'L' }), 'L');
+  assert.equal(pick(atk, { preferred: 'R', oppSpin: 'L', lastRound: { won: false, oppSpin: 'R', mySpin: 'L' } }), 'R');
+  // a one-way launcher cannot follow
+  assert.equal(atk.chooseLaunch({ ...ctx, gear: gearFor(), spinOptions: ['R'], preferred: 'R', oppSpin: 'L' }).spin, 'R');
+  // spin reader: opens in her spin, keeps a winning spin, answers a loss (always, at spinRead 1)
+  const rd = new AIController({ profile: 'technical', seed: 3, spinRead: 1 });
+  assert.equal(pick(rd, { preferred: 'L', oppSpin: 'R' }), 'L');
+  assert.equal(pick(rd, { preferred: 'L', oppSpin: 'L', lastRound: { won: true, oppSpin: 'R', mySpin: 'L' } }), 'L');
+  assert.equal(pick(rd, { preferred: 'L', oppSpin: 'L', lastRound: { won: false, oppSpin: 'L', mySpin: 'L' } }), 'R');
+});

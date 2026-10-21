@@ -14,6 +14,7 @@ import { compareBuildSwap, ROLES } from './compare.js';
 import { synergyContext, evaluateSynergies } from './synergy.js';
 import { familyCounts } from './riftBattle.js';
 import { fitsBuild } from './riftLoot.js';
+import { runLauncherOf } from '../data/launchers.js';
 
 const RING_ROLES = { attack: ['atk'], burst: ['atk'], upper: ['atk'], defense: ['def'], stamina: ['sta'], balance: ['atk', 'sta'] };
 export const FAMILY_ROLES = { ember: 'atk', storm: 'atk', iron: 'def', tide: 'sta', gale: 'mob', void: null };
@@ -34,7 +35,7 @@ export function buildRoles(run) {
 export const roleFamilies = (run) => Object.keys(FAMILY_ROLES).filter((f) => buildRoles(run).includes(FAMILY_ROLES[f]));
 
 function activeSynergies(profile, run, parts) {
-  const ctx = synergyContext({ parts, launcher: profile.inventory[run.launcher], cable: profile.inventory[run.cable], beast: run.beast, spin: run.spin, run });
+  const ctx = synergyContext({ parts, launcher: runLauncherOf(profile.inventory, run), cable: profile.inventory[run.cable], beast: run.beast, spin: run.spin, run });
   return evaluateSynergies(ctx).active.map((a) => a.rule);
 }
 
@@ -45,7 +46,7 @@ export function partFit(profile, run, item) {
   if (cur?.uid === item.uid) return null;
   let cmp;
   try {
-    cmp = compareBuildSwap({ parts: run.equipped, launcher: profile.inventory[run.launcher], cable: profile.inventory[run.cable], spin: run.spin }, item.slot, item);
+    cmp = compareBuildSwap({ parts: run.equipped, launcher: runLauncherOf(profile.inventory, run), cable: profile.inventory[run.cable], spin: run.spin }, item.slot, item);
   } catch { return null; }
   if (!cmp.valid?.ok) return null;
   if (!cur) return `Fills the empty ${SLOT_NAMES[item.slot]} slot`;

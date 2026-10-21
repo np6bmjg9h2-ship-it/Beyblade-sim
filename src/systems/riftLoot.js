@@ -15,6 +15,8 @@ import { rollRarity } from './loot.js';
 import { validateBuild } from './assembly.js';
 import { runEffects } from './riftBattle.js';
 import { resolveLaunchGear } from '../game/launch.js';
+import { runLauncherOf } from '../data/launchers.js';
+import { bossKit } from '../data/riftBosses.js';
 import { optionFit, offerViable, roleFamilies } from './riftFit.js';
 
 const PART_SLOT_WEIGHTS = { ring: 28, tip: 22, disc: 18, lock: 12, core: 10, aux: 10 };
@@ -31,9 +33,12 @@ const talents = (profile) => profile?.rift?.talents || {};
 // Would this base fit the current build if swapped in?
 export function fitsBuild(profile, run, base) {
   const build = { ...run.equipped, [base.slot]: base };
-  const gear = resolveLaunchGear(profile.inventory[run.launcher], profile.inventory[run.cable]);
+  const gear = resolveLaunchGear(runLauncherOf(profile.inventory, run), profile.inventory[run.cable]);
   return validateBuild(build, { spin: run.spin, launcher: { spinMech: gear.spinMech } }).ok;
 }
+
+// A launcher that turns both ways: rings of either hand are worth offering.
+const twoWay = (profile, run) => resolveLaunchGear(runLauncherOf(profile.inventory, run), null).spinMech === 'dual';
 
 export function rollRunPart(profile, run, rng, { minRarity = null, rarityBoost = 0, slot = null } = {}) {
   const act = RIFT_ACTS[Math.min(run.act, RIFT_ACTS.length - 1)];
@@ -42,7 +47,7 @@ export function rollRunPart(profile, run, rng, { minRarity = null, rarityBoost =
   for (let tries = 0; tries < 8; tries++) {
     const s = rng.weighted(slots.map(([id, weight]) => ({ id, weight }))).id;
     const cur = run.equipped[s];
-    const cands = PARTS.filter((p) => p.slot === s && (p.tier || 1) <= act.tier + 1 && (s !== 'ring' || p.spin === 'dual' || p.spin === run.spin) && fitsBuild(profile, run, p));
+    const cands = PARTS.filter((p) => p.slot === s && (p.tier || 1) <= act.tier + 1 && (s !== 'ring' || p.spin === 'dual' || p.spin === run.spin || twoWay(profile, run)) && fitsBuild(profile, run, p));
     if (!cands.length) continue;
     const base = rng.weighted(cands.map((b) => ({ b, weight: cur && cur.base === b.id ? 0.4 : 1 }))).b;
     const rarity = rollRarity(rng, run.act + rarityBoost, D.luck + 0.4 * (talents(profile).treasure || 0), minRarity);
@@ -164,10 +169,13 @@ export function priceOf(profile, run, offer) {
   if (offer.type === 'part') return Math.round(PART_PRICE[offer.item.rarity] * m);
   if (offer.type === 'charm') return Math.round(CHARM_PRICE[CHARM_INDEX[offer.charm.id].rarity] * m);
   if (offer.type === 'heart') return Math.round(HEART_PRICE * m);
+  if (offer.type === 'launcher') return Math.round(PART_PRICE.rare * m);
   return 0;
 }
 
 // ---------------------------------------------------------------- trader
+
+export const TRADER_LAUNCHER = 'launcher_twin';
 
 export function rollTraderStock(profile, run, node) {
   const rng = runRng(run, 'trader', node.id, node.restocks || 0);
@@ -175,6 +183,8 @@ export function rollTraderStock(profile, run, node) {
   for (let i = 0; i < 2; i++) { const item = rollRunPart(profile, run, rng, { rarityBoost: 1 }); if (item) stock.push({ type: 'part', item }); }
   for (const c of rollCharms(run, rng, 2, { rarities: ['common', 'rare', 'cursed'], cursedMul: depthRules(run.depth).cursedMul })) stock.push({ type: 'charm', charm: c });
   stock.push({ type: 'heart' });
+  // a boss of this act reads spin: one-way launchers get a two-way one offered
+  if (RIFT_ACTS[run.act]?.bosses.some((id) => bossKit(id)?.spinRead) && !twoWay(profile, run)) stock.push({ type: 'launcher', base: TRADER_LAUNCHER });
   for (const o of stock) o.price = priceOf(profile, run, o);
   return stock;
 }

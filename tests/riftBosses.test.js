@@ -1,7 +1,7 @@
 // Rift bosses (rift-m6-spec.md section 4, tests 16-17): a kit boss in every act, a
 // weakness text generated from its numbers, exactly one weakness source on
 // the boss, a plan that ignores the player's habits, the condition wiring
-// and the slick-ground arena rule for Mirelle.
+// and Mirelle's spin kit (same-spin weakness, two-way launcher, spin read).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,9 @@ import { RIFT_ACTS } from '../src/data/rift.js';
 import { ARENA_INDEX } from '../src/data/arenas.js';
 import { BOSS_KITS, bossKit, weaknessText, nodeArena } from '../src/data/riftBosses.js';
 import { startRun, generateAct } from '../src/systems/rift.js';
-import { nodeOpponent } from '../src/systems/riftBattle.js';
+import { nodeOpponent, riftParticipant, runGear } from '../src/systems/riftBattle.js';
+import { traderStock, buy } from '../src/systems/riftNodes.js';
+import { resolveLaunchGear } from '../src/game/launch.js';
 import { rivalPlan } from '../src/systems/rivals.js';
 import { ModifierStack } from '../src/systems/modifiers.js';
 import { CHANNEL_LIMITS } from '../src/data/channels.js';
@@ -96,21 +98,39 @@ test('weakness conditions open exactly when the spec says', () => {
   assert.ok(!active(K.sora, { sinceCollision: 1.2 }));
   assert.ok(active(K.daichi, { time: 41 }));
   assert.ok(!active(K.daichi, { time: 39 }));
-  assert.ok(active(K.mirelle, { surfaceTag: 'slick' }));
-  assert.ok(active(K.mirelle, { surfaceTag: 'ice' }));
-  assert.ok(!active(K.mirelle, { surfaceTag: 'rough' }));
+  assert.ok(active(K.mirelle, { sameSpin: true, oppositeSpin: false }));
+  assert.ok(!active(K.mirelle, { sameSpin: false, oppositeSpin: true }));
   assert.ok(active(K.nyx, { spinFrac: 0.39 }));
   assert.ok(!active(K.nyx, { spinFrac: 0.41 }));
 });
 
-test('Mirelle is always fought on slick or ice ground; other nodes keep their arena', () => {
-  const tags = (id) => [ARENA_INDEX[id].surface.tag, ...ARENA_INDEX[id].bands.map((b) => b.tag)];
-  for (const arena of RIFT_ACTS[2].arenas) {
-    const id = nodeArena({ type: 'boss', rival: 'mirelle', arena });
-    assert.ok(tags(id).some((t) => t === 'slick' || t === 'ice'), `${arena} -> ${id}`);
-    if (tags(arena).some((t) => t === 'slick' || t === 'ice')) assert.equal(id, arena);
-  }
-  assert.equal(nodeArena({ type: 'boss', rival: 'sora', arena: 'vortex' }), 'vortex');
+test('bosses keep the drawn arena; Mirelle brings a two-way launcher and reads spin', () => {
+  for (const arena of RIFT_ACTS[2].arenas) assert.equal(nodeArena({ type: 'boss', rival: 'mirelle', arena }), arena);
   assert.equal(nodeArena({ type: 'battle', arena: 'magma' }), 'magma');
   assert.equal(nodeArena({ type: 'boss', rival: 'juno', arena: 'standard' }), 'standard', 'an old save with a kit-less boss');
+  const { p, run } = freshRun();
+  const opp = nodeOpponent(p, run, { id: 'b', type: 'boss', rival: 'mirelle', act: 2, arena: 'crystal', seed: 5, affixes: [] });
+  assert.equal(opp.launcher.spinMech, 'dual');
+  assert.equal(opp.spin, 'L');
+  assert.ok(opp.spinRead > 0);
+  const sora = nodeOpponent(p, run, { id: 'b', type: 'boss', rival: 'sora', act: 0, arena: 'standard', seed: 5, affixes: [] });
+  assert.ok(!sora.spinRead);
+});
+
+
+test('traders in a spin-reading boss act offer a two-way launcher for the run', () => {
+  const { p, run } = freshRun();
+  const gear = () => resolveLaunchGear(runGear(p, run).launcher, runGear(p, run).cable);
+  assert.notEqual(gear().spinMech, 'dual', 'the starter launcher turns one way');
+  const offers = (act) => { run.act = act; return traderStock(p, run, { id: 't' + act, type: 'trader' }); };
+  assert.ok(!offers(0).some((o) => o.type === 'launcher'), 'act 1 has no spin reader');
+  const stock = offers(1);
+  const i = stock.findIndex((o) => o.type === 'launcher');
+  assert.ok(i >= 0 && stock[i].price > 0);
+  run.shards = 999;
+  assert.ok(buy(p, run, { id: 't1', type: 'trader', stock }, i).ok);
+  assert.equal(gear().spinMech, 'dual');
+  const me = riftParticipant(p, run);
+  assert.equal(resolveLaunchGear(me.launcher, me.cable).spinMech, 'dual');
+  assert.ok(!traderStock(p, run, { id: 't9', type: 'trader' }).some((o) => o.type === 'launcher'), 'not offered once carried');
 });

@@ -15,6 +15,7 @@ import { bondLevel } from '../data/beasts.js';
 import { opponentFrom } from './modes.js';
 import { rivalParticipant, rivalPlan } from './rivals.js';
 import { bossKit, weaknessSource } from '../data/riftBosses.js';
+import { LAUNCHER_INDEX, runLauncherOf } from '../data/launchers.js';
 import { buildBattleFx } from './synergy.js';
 import { flagSources, addFlagAffixes } from './riftFlags.js';
 
@@ -81,7 +82,7 @@ export function forgeSources(run) {
 }
 
 export function runGear(profile, run) {
-  return { launcher: profile.inventory[run.launcher] || null, cable: profile.inventory[run.cable] || null };
+  return { launcher: runLauncherOf(profile.inventory, run), cable: profile.inventory[run.cable] || null };
 }
 
 // The player's battle participant for the current run.
@@ -142,7 +143,11 @@ export function nodeOpponent(profile, run, node) {
   }
   p.modSources = [...(p.modSources || [])];
   const kit = node.type === 'boss' ? bossKit(node.rival) : null;
-  if (kit) { p.modSources.push(weaknessSource(kit)); p.weakness = kit.weakness.id; }
+  if (kit) {
+    p.modSources.push(weaknessSource(kit)); p.weakness = kit.weakness.id;
+    if (kit.launcher) p.launcher = LAUNCHER_INDEX[kit.launcher];
+    if (kit.spinRead) p.spinRead = kit.spinRead;
+  }
   const names = [];
   for (const id of node.affixes || []) {
     const a = AFFIX_INDEX[id];

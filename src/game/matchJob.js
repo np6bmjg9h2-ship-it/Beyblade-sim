@@ -68,7 +68,7 @@ export function runSpinTest(job) {
   let next = 0;
   while (top.active && sim.time < maxT) {
     if (sim.time >= next) {
-      const ctx = { spinFrac: top.spinFraction(), oppSpinFrac: 0, speed: dm.hypot(top.v.x, top.v.z), rFrac: dm.hypot(top.p.x, top.p.z) / arena.radius, oppRFrac: 1, approaching: false, time: sim.time, sinceCollision: 99, surfaceTag: arena.surfaceTag, oppositeSpin: false, abilityActive: false };
+      const ctx = { spinFrac: top.spinFraction(), oppSpinFrac: 0, speed: dm.hypot(top.v.x, top.v.z), rFrac: dm.hypot(top.p.x, top.p.z) / arena.radius, oppRFrac: 1, approaching: false, time: sim.time, sinceCollision: 99, surfaceTag: arena.surfaceTag, oppositeSpin: false, sameSpin: false, abilityActive: false };
       mods.evaluate(ctx, top.mods);
       samples.push([+sim.time.toFixed(2), Math.round((top.spinAbs * 60) / (2 * Math.PI)), +(top.tilt * 57.2958).toFixed(1)]);
       next += job.sampleDt || 0.5;

@@ -16,6 +16,7 @@ import { STATUSES, RIFT_ACTS, RING_ELEMENT_CHANCE, FORGE_BONUS, BAG_SIZE } from 
 import { baseOf } from '../../systems/items.js';
 import { validateBuild } from '../../systems/assembly.js';
 import { resolveLaunchGear } from '../../game/launch.js';
+import { LAUNCHER_INDEX, runLauncherOf } from '../../data/launchers.js';
 import { riftState, pickReward, equipFromBag, dropFromBag, unequipAux, keepableParts, lockerSize, finishRun, maxHearts, sendHome, homeBound, lockerChoices } from '../../systems/rift.js';
 import { familyCounts } from '../../systems/riftBattle.js';
 import { skipShards, fitsBuild } from '../../systems/riftLoot.js';
@@ -38,7 +39,7 @@ export function runStatus(profile, run) {
 }
 
 export function validator(profile, run) {
-  const gear = resolveLaunchGear(profile.inventory[run.launcher], profile.inventory[run.cable]);
+  const gear = resolveLaunchGear(runLauncherOf(profile.inventory, run), profile.inventory[run.cable]);
   return (build) => validateBuild(build, { spin: run.spin, launcher: { spinMech: gear.spinMech } });
 }
 
@@ -47,7 +48,7 @@ function compareRows(profile, run, item) {
   const cur = run.equipped[item.slot];
   if (cur?.uid === item.uid) return h('div', { class: 'lc-equipped' }, 'Equipped');
   let cmp;
-  try { cmp = compareBuildSwap({ parts: run.equipped, launcher: profile.inventory[run.launcher], cable: profile.inventory[run.cable], spin: run.spin }, item.slot, item); } catch { return null; }
+  try { cmp = compareBuildSwap({ parts: run.equipped, launcher: runLauncherOf(profile.inventory, run), cable: profile.inventory[run.cable], spin: run.spin }, item.slot, item); } catch { return null; }
   return h('div', { class: 'lc-compare' }, h('div', { class: 'lc-cmp-title' }, cur ? `vs your ${baseOf(cur)?.name}` : 'vs empty slot'), compareMini(cmp));
 }
 
@@ -101,6 +102,10 @@ export function offerCard(profile, run, o, opts = {}) {
   if (o.type === 'part') return partCard(profile, run, o.item, opts);
   if (o.type === 'charm') return charmCard(run, o.charm, opts);
   if (o.type === 'boon') return boonCard(run, o.id);
+  if (o.type === 'launcher') {
+    const L = LAUNCHER_INDEX[o.base];
+    return h('div', { class: 'loot-card', style: { '--rc': L.color } }, h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Launcher'), h('span', { class: 'chip' }, 'This run')), h('div', { class: 'lc-name' }, L.name), h('div', { class: 'lc-desc' }, 'Launches right or left spin: pick the spin in each battle setup. Replaces your launcher until the run ends.'), priceTag(opts.price, opts.short));
+  }
   if (o.type === 'heart') return h('div', { class: 'loot-card heart-card', style: { '--rc': '#ff5a7a' } }, h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Heart')), h('div', { class: 'lc-name' }, '+1 heart'), h('div', { class: 'lc-desc' }, 'Recover one heart (up to your maximum).'), priceTag(opts.price, opts.short));
   return h('div', { class: 'loot-card shards', style: { '--rc': '#ffd84d' } }, h('div', { class: 'lc-top' }, h('span', { class: 'lc-slot' }, 'Shards')), h('div', { class: 'lc-name' }, `+${o.amount} shards`), h('div', { class: 'lc-desc' }, 'Spend them at traders, forges and shrines.'));
 }

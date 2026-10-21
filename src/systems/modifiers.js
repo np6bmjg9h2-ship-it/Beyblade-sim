@@ -53,6 +53,7 @@ export function evaluateCondition(cond, ctx, src) {
     case 'earlyBattle': return ctx.time < 8;
     case 'critical': return src?.item ? conditionOf(src.item) < 0.2 : false;
     case 'oppositeSpin': return ctx.oppositeSpin;
+    case 'sameSpin': return !!ctx.sameSpin;
     case 'abilityActive': return ctx.abilityActive;
     case 'opponentFaster': return ctx.oppSpinFrac > ctx.spinFrac;
     default: return false;

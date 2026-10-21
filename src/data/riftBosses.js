@@ -13,8 +13,12 @@ export const BOSS_KITS = {
     cond: { type: 'afterCollision' }, deltas: [['restitutionWhenHit', 0.25], ['burstThreshold', -0.15]] } },
   daichi: { id: 'daichi', act: 1, weakness: { id: 'longfight', name: 'Weak to long fights', hint: 'Outlast him: his ball tip tires late.',
     cond: { type: 'lateBattle' }, deltas: [['tipSpinDrag', 0.35]] } },
-  mirelle: { id: 'mirelle', act: 2, weakness: { id: 'slick', name: 'Loses spin on slick floors', hint: 'Drive her onto the slick ground.',
-    cond: { type: 'surface', value: ['slick', 'ice'] }, deltas: [['tipSpinDrag', 0.4]] }, arena: 'edgebreaker' },
+  // The Undertow: left spin, which a right-spin attacker cannot KO (opposite-
+  // spin hits tighten her lock and carry little recoil). Same-spin hits crack
+  // it. Her Rift launcher turns both ways, and after a lost round she reads
+  // the spin that beat her (spinRead) and launches against it next round.
+  mirelle: { id: 'mirelle', act: 2, weakness: { id: 'samespin', name: 'Cracks against her own spin', hint: 'Match her spin. She switches after a lost round, so be ready to switch back.',
+    cond: { type: 'sameSpin' }, deltas: [['burstThreshold', -0.2]] }, launcher: 'launcher_twin', spinRead: 0.4 },
   nyx: { id: 'nyx', act: 3, weakness: { id: 'tired', name: 'Brittle when tired', hint: 'Wear her down, then go for the shatter.',
     cond: { type: 'spinBelow', value: 0.4 }, deltas: [['burstThreshold', -0.25]] } },
 };

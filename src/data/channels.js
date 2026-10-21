@@ -42,6 +42,7 @@ export const CONDITIONS = {
   earlyBattle: { label: () => 'During the first 8 s' },
   critical: { label: () => 'While this part is in Critical condition' },
   oppositeSpin: { label: () => 'Against opposite-spin opponents' },
+  sameSpin: { label: () => 'Against same-spin opponents' },
   abilityActive: { label: () => 'While a Spirit Chip ability is active' },
   opponentFaster: { label: () => 'While the opponent has more spin than you' },
 };

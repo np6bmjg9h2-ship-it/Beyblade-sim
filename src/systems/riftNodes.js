@@ -28,12 +28,14 @@ export function buy(profile, run, node, i, { dropUid = null } = {}) {
   if (o.type === 'part' && bagFull(run) && !dropUid) return fail('bag-full');
   if (o.type === 'heart' && run.hearts >= maxHearts(profile, run)) return fail('Your hearts are already full.');
   if (o.type === 'charm' && run.charms.some((h) => h.id === o.charm.id)) return fail('You already hold this charm.');
+  if (o.type === 'launcher' && run.launcherBase === o.base) return fail('You already carry it.');
   spend(run, o.price);
   if (o.type === 'part') {
     if (bagFull(run)) run.bag = run.bag.filter((x) => x.uid !== dropUid);
     takePart(run, o.item);
   } else if (o.type === 'charm') addCharm(profile, run, o.charm);
   else if (o.type === 'heart') heal(profile, run, 1);
+  else if (o.type === 'launcher') run.launcherBase = o.base;
   o.sold = true;
   return { ok: true, offer: o };
 }

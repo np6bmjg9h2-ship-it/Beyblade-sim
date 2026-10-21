@@ -74,7 +74,7 @@ class Fighter {
       losses: { spin: 0, out: 0, burst: 0, decision: 0 }, maxSpin: 0, heavyHitsTaken: 0, comebacks: 0,
       energy: {}, wear: {}, wearCauses: {}, roundsFought: 0, minSpinFracInWin: 1,
     };
-    this.controller = this.human ? null : new AIController({ profile: p.ai || 'balanced', difficulty: p.difficulty ?? 1, seed: mixSeeds(battle.seed, index, 'ai'), knownTechniques: p.knownTechniques, tweaks: p.aiTweaks, adaptRounds: p.adaptRounds });
+    this.controller = this.human ? null : new AIController({ profile: p.ai || 'balanced', difficulty: p.difficulty ?? 1, seed: mixSeeds(battle.seed, index, 'ai'), knownTechniques: p.knownTechniques, tweaks: p.aiTweaks, adaptRounds: p.adaptRounds, spinRead: p.spinRead || 0 });
     this.controls = emptyControls();
     this.top = null;
     this.mods = null;
@@ -193,6 +193,7 @@ export class Battle extends Emitter {
       f.pattern = null;
       f.hadLowSpin = false;
       f.outAngle = null;
+      f.prevSpin = f.launch?.launched ? f.launch.spin : null; // spin actually used last round
       const spinOpts = f.gear.spinMech === 'dual' ? ['R', 'L'] : [f.gear.spinMech];
       const base = this.spawnAngle + (f.index === 0 ? Math.PI : 0);
       const spin0 = spinOpts.includes(p.spin) ? p.spin : spinOpts[0];
@@ -214,7 +215,9 @@ export class Battle extends Emitter {
     for (const f of this.fighters) {
       if (f.human) continue;
       const opp = this.fighters[1 - f.index];
-      const plan = f.controller.chooseLaunch({ arena: this.arena, side: f.index, spawnAngle: this.spawnAngle, gear: f.gear, spinOptions: f.launch.spinOptions, oppSpin: opp.p.spin });
+      const last = this.roundResults[this.roundResults.length - 1];
+      const lastRound = last && opp.prevSpin ? { won: last.winner === f.index, oppSpin: opp.prevSpin, mySpin: f.prevSpin } : null;
+      const plan = f.controller.chooseLaunch({ arena: this.arena, side: f.index, spawnAngle: this.spawnAngle, gear: f.gear, spinOptions: f.launch.spinOptions, oppSpin: opp.p.spin, lastRound, preferred: f.launch.spin });
       f.launch.aim = plan.aim;
       f.launch.technique = plan.technique;
       f.launch.spin = plan.spin;
@@ -632,7 +635,7 @@ export class Battle extends Emitter {
       speed: dm.hypot(t.v.x, t.v.z), rFrac: dm.hypot(t.p.x, t.p.z) / R, oppRFrac: dm.hypot(o.p.x, o.p.z) / R,
       approaching: o.active && closing > 0.25 && d < 0.09, time: this.battleTime, sinceCollision: this.battleTime - f.lastCollision,
       surfaceTag: this.arena.bandTagAt(t.lastTipPoint.x, t.lastTipPoint.z) || this.arena.surfaceTag,
-      oppositeSpin: o.spinDir !== t.spinDir, abilityActive: !!f.ability.lastActivation && f.mods.timed.some((x) => x.origin === 'ability'),
+      oppositeSpin: o.spinDir !== t.spinDir, sameSpin: o.active && o.spinDir === t.spinDir, abilityActive: !!f.ability.lastActivation && f.mods.timed.some((x) => x.origin === 'ability'),
     };
   }
 

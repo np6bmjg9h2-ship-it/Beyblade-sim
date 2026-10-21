@@ -16,7 +16,7 @@ import { RIFT_ACTS, NODE_TYPES, FLOORS_PER_ACT, RIFT_DEPTHS, RIFT_TALENTS, AFFIX
 import { baseOf } from '../../systems/items.js';
 import { validateLoadout } from '../../systems/loadout.js';
 import { updateStats } from '../../systems/progression.js';
-import { markSeen } from '../../systems/rivals.js';
+import { markSeen, rivalPlan } from '../../systems/rivals.js';
 import { mixSeeds } from '../../core/rng.js';
 import {
   riftState, startRun, canStart, currentChoices, nodeById, enterNode, completeNode, recordBattle, maxHearts, buyTalent, talentCost, BATTLE_NODES, homeBound,
@@ -140,7 +140,12 @@ export class RiftScreen {
     const lines = [];
     const kit = n.type === 'boss' ? bossKit(n.rival) : null;
     if (n.arena) lines.push(ARENA_INDEX[nodeArena(n)]?.name + (n.twist ? ` · ${TWIST_INDEX[n.twist].name}` : ''));
-    if (n.type === 'boss') lines.push(CHARACTER_INDEX[n.rival]?.name || 'A rival');
+    if (n.type === 'boss') {
+      // the build the boss will bring (same neutral plan as nodeOpponent)
+      const ch = CHARACTER_INDEX[n.rival];
+      const spin = ch && rivalPlan({ habits: null, rivals: {} }, n.rival, RIFT_ACTS[n.act]?.tier ?? 1, { seed: n.seed }).spin;
+      lines.push(ch ? `${ch.name} · ${spin === 'L' ? 'left' : 'right'} spin` : 'A rival');
+    }
     if (kit) lines.push(`Weakness: ${kit.weakness.name}`);
     if (n.affixes?.length && n.type !== 'vault') lines.push(n.affixes.map((a) => AFFIX_INDEX[a]?.name).join(', '));
     if (n.vault) lines.push(VAULT_INDEX[n.vault]?.name);
