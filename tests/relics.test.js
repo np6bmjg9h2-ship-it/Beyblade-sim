@@ -209,3 +209,29 @@ test('journal: counts leave relic signatures out, milestones pay once, every par
   assert.equal(claimMilestone(newProfile(1), 'relic1').ok, false, 'not reached');
   for (const b of [...Object.values(PART_INDEX), ...Object.values(LAUNCHER_INDEX), ...Object.values(CABLE_INDEX)]) assert.ok(partSources(b.id).length >= 1, b.id);
 });
+
+test('relic forge: a relic resolves past its base part and keeps its model geometry', async () => {
+  const { resolvePart } = await import('../src/systems/assembly.js');
+  const { resolveLaunchGear } = await import('../src/game/launch.js');
+  const { RELIC_FORGE } = await import('../src/data/relics.js');
+  const p = newProfile(3);
+  const GEO = ['rIn', 'rOut', 'rBase', 'blades', 'bladeWidth', 'thickness', 'slope', 'radius', 'height', 'length', 'bodyRadius', 'ballRadius', 'mount', 'layer', 'ringRadius'];
+  for (const def of RELICS) {
+    const forge = RELIC_FORGE[def.id];
+    if (!forge) continue;
+    if (def.slot !== 'launcher' && def.slot !== 'cable') for (const k of GEO) assert.ok(!(k in forge), `${def.id} forge must not change geometry (${k})`);
+    const it = createRelicItem(p, def.id);
+    if (def.slot === 'launcher' || def.slot === 'cable') {
+      const g = resolveLaunchGear(def.slot === 'launcher' ? it : null, def.slot === 'cable' ? it : null);
+      const got = def.slot === 'launcher' ? g.launcher : g.cable;
+      for (const [k, v] of Object.entries(forge)) assert.deepEqual(got[k], v, `${def.id}.${k}`);
+    } else {
+      const r = resolvePart(it);
+      assert.equal(r.id, def.base);
+      for (const k of Object.keys(forge)) if (typeof forge[k] === 'number') assert.notEqual(r[k], baseDef(def.base)[k], `${def.id}.${k} forged`);
+    }
+  }
+  // the Ember Crown is forged past every rare-grade attack ring's base stats where it matters
+  const ember = resolvePart(createRelicItem(p, 'emberCrown'));
+  assert.ok(ember.mass >= 18 && ember.catch >= 0.75);
+});

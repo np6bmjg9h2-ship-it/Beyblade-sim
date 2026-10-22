@@ -12,6 +12,7 @@ import { LAUNCHER_INDEX, CABLE_INDEX, TECHNIQUE_INDEX } from '../data/launchers.
 import { TRAIT_INDEX } from '../data/traits.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
+import { RELIC_FORGE } from '../data/relics.js';
 import * as dm from '../core/dmath.js';
 
 export const PERFECT_CENTER = 0.92;
@@ -29,6 +30,8 @@ export function resolveLaunchGear(launcher, cable, extra = {}) {
   const C = structuredClone(cBase);
   if (launcher?.stats) Object.assign(L, structuredClone(launcher.stats));
   if (cable?.stats) Object.assign(C, structuredClone(cable.stats));
+  if (launcher?.relic && RELIC_FORGE[launcher.relic]) Object.assign(L, structuredClone(RELIC_FORGE[launcher.relic]));
+  if (cable?.relic && RELIC_FORGE[cable.relic]) Object.assign(C, structuredClone(RELIC_FORGE[cable.relic]));
   const mods = { power: 0, window: 0, consistency: 0, chargeRate: 0, perfectBonus: 0, missPenalty: 0, techniqueVar: 0, controlledConsistency: 0, overcharge: 0, wear: 0, overchargeWear: 0 };
   const addLaunch = (o) => { if (o) for (const k in o) mods[k] = (mods[k] || 0) + o[k]; };
   addLaunch(L.mods); // built into the launcher itself (classic series)

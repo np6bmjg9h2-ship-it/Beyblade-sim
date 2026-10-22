@@ -12,6 +12,7 @@ import { TRAIT_INDEX } from '../data/traits.js';
 import { effMag } from './effectSpec.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
+import { RELIC_FORGE } from '../data/relics.js';
 import { DEG } from '../core/math.js';
 import { GRAVITY } from '../physics/topBody.js';
 import * as dm from '../core/dmath.js';
@@ -42,6 +43,8 @@ export function resolvePart(entry) {
   const notes = [];
   if (isItem) {
     if (entry.stats) for (const [k, v] of Object.entries(entry.stats)) def[k] = v;
+    // a relic is forged past the best part of its role (data/relics.js)
+    if (entry.relic && RELIC_FORGE[entry.relic]) Object.assign(def, structuredClone(RELIC_FORGE[entry.relic]));
     // physical traits change the part itself
     for (const t of entry.traits || []) applyPhysicalTrait(def, t, notes, entry);
     if (entry.special) applyPhysicalTrait(def, entry.special, notes, entry);
