@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-20 (real physics + anime rules, Playbook, story ch1-6 doubled). For the next steps read `docs/HANDOFF.md` first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-22 (Rift M1 leftovers: Mirelle tuned, Steep/Dome/Thin Rim twists). For the next steps read `docs/HANDOFF.md` first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -38,12 +38,12 @@ item gives its second action (favourite, slot options).
 | Skill over RPM S1-S5 | c2a3311..16147b3 | Launch judging, strike attribution and counters, earned spirit, dash windup, openings and punishes, AI judgment, seeded spawn angle (details in `docs/HANDOFF.md`) |
 | Real physics, anime rules | 40f8428..faf2895 | User decision 2026-10-19: physics stays realistic, the rules reward active play. Judges' cards on time-outs (HUD), spirit for initiative, rubber ring edges with real spin steal (Grip Fang); AI clean launch and even-matchup conserving; fairness gate 1 retargeted (still failing) |
 | Story ch1-6 doubled | 9bf61f1 | 40 -> 93 nodes, harder bosses (bo5, tiers 4-6), setback fights with recovery scenes, between-round lines, chapters in `src/data/story/chN.js`, story engine branches (`when`, won/lost flags), tiers to 8 |
-| Rift Depth M1 | 7c5312f..be65b68 | Plan `rift-depth-plan.md` §3 done: early-run fix (viable first offer, dry-streak pity, consolation on loss; `systems/riftFit.js`), arena twists Slick Ring and Glass Floor (`data/arenaTwists.js`, `resolveArena("base+twist")`), 4 keystone legendaries, boss weaknesses for Sora, Daichi, Mirelle, Nyx (`data/riftBosses.js`), 5-event pack with lasting `run.flags` (`systems/riftFlags.js`). Mirelle reworked 2026-10-21 (spin mind game, run-only Twin-Gear at traders). Her Rift top got a bearing spike 2026-10-22 (defense 56%, stamina 69%, prepared builds 56-63%). Open: Glass Floor drops defense 25% -> 16% on Standard (n=8), twists steep/dome/thinrim/lowg not built |
+| Rift Depth M1 | 7c5312f..be65b68 | Plan `rift-depth-plan.md` §3 done: early-run fix (viable first offer, dry-streak pity, consolation on loss; `systems/riftFit.js`), arena twists Slick Ring and Glass Floor (`data/arenaTwists.js`, `resolveArena("base+twist")`), 4 keystone legendaries, boss weaknesses for Sora, Daichi, Mirelle, Nyx (`data/riftBosses.js`), 5-event pack with lasting `run.flags` (`systems/riftFlags.js`). Mirelle reworked 2026-10-21 (spin mind game, run-only Twin-Gear at traders). Her Rift top got a bearing spike 2026-10-22 (defense 56%, stamina 69%, prepared builds 56-63%). Twists Steep Bowl, Dome, Thin Rim added 2026-10-22; Glass Floor checked at n=24 (defense unaffected). Open: Low-Gravity Pocket needs the user's OK (adds lift energy) |
 | Playbook | de3b450..1325d80 | D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, recorded as triggers; Playbook screen in the Workshop; AI telegraphs its plans and reads the player's patterns |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 246/246 (2026-10-20). Browser tests: last full run 17/17 (2026-10-14); scenarios `playbook` and `rift` pass (2026-10-20).
+outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 249/249 (2026-10-22). Browser tests: last full run 19/19 (2026-10-21); `rift` passes (2026-10-22).
 
 ## Phase 5: DONE
 
@@ -94,6 +94,6 @@ hosting outside the shared artifact).
 ## Deferred / known
 
 - Optional bloom: not started (now measurable on the GPU).
-- The published artifact (claude.ai) is build 2026.10.21 (republished 2026-10-21).
+- The published artifact (claude.ai) is build 2026.10.22 (republished 2026-10-22).
 - "Bit-Beast" is a franchise term (IP risk for a commercial release).
 - Several ruflo MCP server processes stay resident on this machine (not part of the game).

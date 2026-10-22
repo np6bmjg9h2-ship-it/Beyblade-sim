@@ -184,8 +184,10 @@ challenges (12), skills (5 paths), upgrades and tuning; Rift Run content
 (`rift.js` acts, nodes, depths, statuses, affixes, vaults, events, economy,
 talents; `riftCharms.js` 38 charms in 6 families; `riftBoons.js` 16 boons; `riftBosses.js` boss kits for Sora, Daichi, Mirelle
 and Nyx, each ONE visible weakness as a conditional modifier source on existing
-channels, its text generated from the numbers; `arenaTwists.js` Slick Ring and
-Glass Floor, pure `+ - * /` functions on a stadium def, resolved by
+channels, its text generated from the numbers (a kit may also set `launcher`,
+`spinRead` and `parts` swaps, applied in `riftBattle.js` `nodeOpponent` only
+where the build still validates); `arenaTwists.js` Slick Ring, Glass Floor
+(depth 1+), Steep Bowl, Dome (2+) and Thin Rim (3+), pure `+ - * /` functions on a stadium def, resolved by
 `resolveArena("<base>+<twist>")` in `arenas.js`, which is also the id replays
 and saves store). Part numbers are
 physical (mm, g) and consumed by `assembly.js`.

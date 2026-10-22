@@ -11,7 +11,7 @@ import { INK_LAYER, setInkResolution, setRenderStyle, toonMaterial } from '../..
 import { createLights, TONE, TONE_REAL, styleLights } from '../../src/render/lighting.js';
 import { arenaEnvironment } from '../../src/render/environment.js';
 import { BEASTS } from '../../src/data/beasts.js';
-import { ARENA_INDEX } from '../../src/data/arenas.js';
+import { resolveArena } from '../../src/data/arenas.js';
 import { buildArena } from '../../src/render/arenaMesh.js';
 import { Effects } from '../../src/render/effects.js';
 import { sampleProfile } from '../../src/physics/profile.js';
@@ -195,7 +195,7 @@ if (C.mode === 'slot') {
 }
 
 function renderArenaScene() {
-  const def = ARENA_INDEX[C.arena || 'standard'];
+  const def = resolveArena(C.arena || 'standard');
   const W = C.width || 1280, H = C.height || 720;
   renderer.setPixelRatio(1);
   renderer.setSize(W, H);

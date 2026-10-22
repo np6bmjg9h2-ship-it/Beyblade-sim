@@ -1,4 +1,41 @@
-# Handoff — 2026-10-21 (session 4)
+# Handoff — 2026-10-22 (session 5)
+
+## Session 5 (2026-10-22): Rift M1 leftovers closed (except lowg)
+
+Branch `claude/chaos-spin-arena-zero-ynh785`, all committed and pushed.
+Unit 249/249, determinism OK (4 engines), balance:check passes (defense 26,
+stamina 45, balance 52, burst 64), browser `rift` passes. Build 2026.10.22,
+playtest artifact republished.
+
+- **Online multiplayer deferred by the user** ("we can add multiplayer
+  later"). Plan when it resumes: ghost challenge codes through the artifact
+  db first (reuses replays, no server), then lockstep netplay (needs a
+  relay/Worker outside the artifact).
+- **Mirelle no longer a free win for defense/stamina/balance** (659f4c3): kit
+  `parts: { tip: 'tip_bearing' }`. Act 3, n=16, equal gear: wall 56%,
+  drifter 69%, balance that matches her spin 63%, prepared attack 56%;
+  unprepared balance 6% and right-spin attack 0% (the boss card hint and the
+  trader Twin-Gear are the way out). Act 2: wall 81%, drifter 88%, prepared
+  balance 75%. Probe: scratchpad `rift/gate.mjs` (`BOSSPARTS` env swaps
+  parts; plain catalogue parts, so absolute numbers shift a little).
+- **Glass Floor vs defense: not a problem.** At 24/pair on Standard defense is
+  23% with and without glass (the old 25% -> 16% was n=8 noise). Glass drops
+  stamina 43% -> 33% (attack 24-0 vs stamina): accepted as the twist's flavour.
+- **Three new twists** (`data/arenaTwists.js`): Steep Bowl (heights x1.5, capped
+  at slope 0.45 by knot secants; not on vortex, magma), Dome (6 mm centre
+  hump to r 10 cm; not on magma, zero, vortex: too steep to show), Thin Rim
+  (wall x0.55, min 14 mm, exits +8 deg; not on vortex, crystal, skyfall).
+  Depth rule texts updated. Balance at 16/pair: standard+steep
+  63/22/41/48/77, standard+dome 66/31/48/47/58, standard+thinrim 53/36/38/52/72
+  (more ring-outs), zero+thinrim 67/25/48/48/61, skyfall+dome 41/56/45/52/55;
+  energy books close on every twisted stadium (test). Preview tool resolves
+  twisted ids (`shoot.js arena standard+thinrim`).
+- **Low-Gravity Pocket (lowg) NOT built on purpose**: it adds lift energy
+  (`liftForce`), an arcade-style physics change that needs the user's OK.
+- `tests/core/events.test.js` is an untracked file that is not ours; `git add
+  -A tests` keeps picking it up (happened twice, untracked again in c2b26a8).
+  Add files by name.
+
 
 ## Session 4 (2026-10-21): draw calls, story test, playtest build
 
@@ -123,10 +160,11 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 
 ## Start here: the next steps, in order
 
-1. **Art follow-ups / Rift M1 leftovers**: the open art items in session 3
-   above (LOD, decals, Blender cores); Rift: Glass Floor vs defense, twists
-   steep/dome/thinrim/lowg. Online multiplayer is deferred (see session 4). Republish the claude.ai
-   artifact so the user can playtest (still the 2026-10-12 build).
+1. **Art follow-ups**: the open art items in session 3 below (LOD, ring
+   decals, Blender cores, `disc.js` over 500 lines). Rift: ask the user
+   about `lowg` (needs approval), then second boss kits per act (Juno, Rook,
+   Kaela, Valen) and boss phases (rift-depth-plan §3). Online multiplayer is
+   deferred (session 5). Republish the playtest artifact after each batch.
 2. **Chapters 7-20** (user approved): `.claude/research/reviews/story-expansion-plan.md`
    section 4 (three acts, tiers 6-8, Stillwater Order arc, ~250 nodes). Add
    the data first (10 rivals in characters.js, 6 arenas, story brackets, cast),

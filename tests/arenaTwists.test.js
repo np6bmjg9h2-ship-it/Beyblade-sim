@@ -96,3 +96,25 @@ test('twist ids are unique and their exclusions name real stadiums', () => {
   assert.equal(Object.keys(TWIST_INDEX).length, TWISTS.length);
   for (const t of TWISTS) for (const id of t.not) assert.ok(ARENA_INDEX[id], id);
 });
+
+test('steep keeps the slope cap, dome raises the centre, thin rim lowers the wall and widens exits', () => {
+  const slopeMax = (def) => { const A = new Arena(def); let m = 0; for (let r = 0; r <= def.radius; r += 0.001) m = Math.max(m, A.slopeAtR(r)); return m; };
+  for (const a of ARENAS) {
+    if (legalTwists(a.id, 8).some((t) => t.id === 'steep')) {
+      const d = resolveArena(`${a.id}+steep`);
+      assert.ok(slopeMax(d) <= 0.45 + 0.05, `${a.id}+steep slope ${slopeMax(d).toFixed(3)}`);
+      assert.ok(new Arena(d).edgeHeight > new Arena(a).edgeHeight, `${a.id}+steep is steeper`);
+    }
+    if (legalTwists(a.id, 8).some((t) => t.id === 'dome')) {
+      const A = new Arena(resolveArena(`${a.id}+dome`));
+      assert.ok(A.heightAtR(0) > A.heightAtR(0.06), `${a.id}+dome sheds from the centre`);
+    }
+    if (legalTwists(a.id, 8).some((t) => t.id === 'thinrim')) {
+      const d = resolveArena(`${a.id}+thinrim`);
+      assert.ok(d.wall.height < a.wall.height && d.wall.height >= 0.014);
+      d.wall.openings.forEach((o, i) => assert.equal(o.width, a.wall.openings[i].width + 8));
+    }
+  }
+  assert.ok(!legalTwists('vortex', 8).some((t) => t.id === 'steep'));
+  assert.ok(!legalTwists('standard', 1).some((t) => t.minDepth > 1));
+});

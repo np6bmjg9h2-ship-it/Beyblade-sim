@@ -43,8 +43,8 @@ export const FLOOR_GUARANTEE = ['battle', 'trader', ['forge', 'camp']];
 export const RIFT_DEPTHS = [
   { n: 0, rule: 'The Rift as it is.' },
   { n: 1, rule: 'Elite battles turn up more often, and some floors are twisted (slick rings, glass floors).' },
-  { n: 2, rule: 'Opponents launch and steer more precisely.' },
-  { n: 3, rule: 'Trader and forge prices +25%.' },
+  { n: 2, rule: 'Opponents launch and steer more precisely, and floors can be steep or domed.' },
+  { n: 3, rule: 'Trader and forge prices +25%, and some stadiums have thin rims.' },
   { n: 4, rule: 'Bosses carry an elite trait.' },
   { n: 5, rule: 'You start with one heart fewer.' },
   { n: 6, rule: 'Cursed charms turn up more often.' },
