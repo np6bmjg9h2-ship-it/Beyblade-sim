@@ -1,4 +1,75 @@
-# Handoff — 2026-10-24 (session 6)
+# Handoff — 2026-10-24 (end of session 6)
+
+## Start here (session 7)
+
+**State.** Branch `claude/chaos-spin-arena-zero-ynh785` at 5c439c3, pushed;
+`main` not fast-forwarded (waits for fairness gate 1). Unit 255/255, browser
+19/19 + `archive`, `balance:check` passes (attack 62 / defense 26 / stamina
+45 / balance 52 / burst 64). Playtest artifact `24WkGVSTtfLpnzkhjHV1XJ`
+version 19 = build at 5c439c3.
+
+**Check first.** `npm test`, then `npm run balance:check`. Before touching
+anything the user plays, read "Standing rules" below.
+
+**Next steps, in order.** Each is one batch: build, test, commit, push,
+republish the artifact, update this file and `docs/STATUS.md`.
+
+1. **Defense types.** Defense is the weakest type (balance 26%, near the 25%
+   floor) and the Black Bulwark legend sits at 38% vs the attack relic build
+   (target ~65%, the other legends 58-74%). Find why defense loses to attack
+   on ring-outs and spin (relic probe: Black loses `out` and `spin` evenly);
+   fix with parts, AI or rules, not new physics. Done when defense >= 40% in
+   `balance:check` and Black >= 55% vs the attack relic build, other types
+   still in band. Ask the user before any physics change.
+2. **Legend polish.** Inspect and item cards say "Relic" on legend parts:
+   show "Legend". Skywake Spindle and Survivor's Ward only tie rares of their
+   role (their fixed traits cost spin); a trait swap needs a save migration
+   (traits live on the item). Ask the user whether the four legend rings
+   should also get sculpted Blender models (today: procedural,
+   `render/parts/ringLegend.js`).
+3. **Art follow-ups.** No low-quality meshes; ring decals lost on Blender
+   rings; Blender cores; `disc.js` and `workshop.js` (UI) over 500 lines.
+4. **Rift.** Low-Gravity Pocket twist needs the user's OK (adds lift energy).
+   Then second boss kits per act (Juno, Rook, Kaela, Valen) and boss phases
+   (`.claude/research/reviews/rift-depth-plan.md` §3).
+5. **Story chapters 7-20** (approved). Plan:
+   `.claude/research/reviews/story-expansion-plan.md` §4. Data first (10
+   rivals, 6 arenas, brackets, cast), then one or two chapters per writer in
+   `src/data/story/chN.js`, registered in `src/data/story.js`. Also open:
+   `noBeast` opponents, setback hint card (E13), act headers (E5), side
+   rematches (E10). The Archive's legend gates use chapters 1-5 only.
+6. **Fairness gate 1** (fails: no-input bot 77% at Elite, 59% at Legend;
+   targets < 70 / < 50). Ideas: matchup-aware AI launch, AI playbook use.
+   Use n >= 150 for gate 3.
+7. **Playbook M2.** Hound, Pendulum, Homecoming, Rail Ride; path ribbon;
+   mastery stars; AI using patterns. Design:
+   `.claude/research/reviews/playbook-design.md`.
+8. **Older queue.** Battle feel (AMV study, 17 items), branch
+   `wip/ring-art2`, skill-loop S6-S9, catalogue expansion + visual
+   customisation, inventory filters, store pack odds.
+
+Deferred by the user: online multiplayer (resume with challenge codes
+through the artifact db, then lockstep netplay); Daily Seed (branch
+`wip/daily-seed`). Spirit Chip buffs for Kerauno, Ferrowulf and Zephyrax
+were offered and not chosen; Vexscor is not to be touched.
+
+**Standing rules.**
+- Real physics, anime rules: arcade-style physics needs the user's OK.
+- Legends use original names only (Four Symbols myth); their builds follow
+  the original tops part for part.
+- Relic > rare of the same role, legend ~65% vs a full relic build. Measure
+  with equal builds, AI vs AI, n >= 96, sides alternated.
+- Commit as `git -c user.name=Claude -c user.email=noreply@anthropic.com`.
+  Add files by name: `tests/core/` is untracked and not ours.
+- Republish the playtest after each batch: page
+  `.claude/playtest/index.html`, files `dist/chaos-spin.js` (plus
+  `styles.css`, `fonts.css` if changed), `url` above. Read changed
+  published files first (the tool refuses otherwise).
+- Probes from session 6 (`chips.mjs`, `relic.mjs`, `legprobe.mjs`) lived in
+  the session scratchpad and are gone. To rebuild one: workers over
+  `opponentFrom(archetype)` participants, swap one slot (or `legendKit` vs
+  `createRelicItem` builds), `new Battle(...).runHeadless()`, alternate sides.
+
 
 ## Session 6 (2026-10-22/24): research sink, relic forge, catch-up bonding, the Four Founders
 
@@ -195,7 +266,7 @@ Read this first in a new session; `docs/STATUS.md` has the long-term picture,
 `claude/chaos-spin-arena-zero-ynh785`, everything committed and pushed;
 `main` is NOT fast-forwarded (it waits for fairness gate 1 to pass).
 
-## Start here: the next steps, in order
+## Older queue (session 2; superseded by "Start here" at the top)
 
 1. **Art follow-ups**: the open art items in session 3 below (LOD, ring
    decals, Blender cores, `disc.js` over 500 lines). Rift: ask the user

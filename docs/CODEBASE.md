@@ -161,6 +161,7 @@ Inspect screen switches the renderer to its own turntable scene.
 | `modifiers.js` | 115 | Folds traits, sets, skills, synergies and beast passives into bounded modifier channels that the physics reads; per-source uptime for the results breakdown. |
 | `loot.js`, `progression.js` | ~310 | Seeded loot through `itemGen` with bad-luck protection (`PITY`); post-match XP, rewards, durability wear, stats, synergy discovery. |
 | `workshop.js` | 470 | Equip, repair, upgrade, reroll and transfer traits, craft, dismantle (all validated); imprints kept on dismantle and engraved onto other parts; spare copies train mastery; relics protected; undo. |
+| `legends.js` | 115 | The Archive and the Legend slot: project status and purchase (research, in order, level/chapter gates), awakening (recruits the legend's chip, creates or switches the one loadout flagged `legend`), `legendKit(id)`: the fixed kit as item-shaped objects built from `data/legends.js`, never stored in the inventory (`loadoutItems` returns it, so the slot gets no wear, XP or equipping). |
 | `relics.js`, `journal.js` | ~200 | Handcrafted relics (`data/relics.js`): earned from the save's own records (checked on every save and load), the relic item, recasting. The Journal: counts, where each part is found, bad-luck protection counters, milestone rewards. |
 | `save.js` | 239 | IndexedDB with localStorage fallback, 3 slots, export and import, **schema migration** (SCHEMA_VERSION = 4: v4 adds discovered synergies, pity counters, the item quarantine), replay storage (newest 12 plus pinned). A save from a newer version is flagged (`newer` on load, `importedFromNewer` on import) so the title screen can warn. |
 | `profile.js` | 137 | New profile, normalisation, default settings. |
@@ -175,7 +176,7 @@ Inspect screen switches the renderer to its own turntable scene.
 
 ### data/ (content)
 Parts (63 across 6 slots, 14 of them the classic series), traits (99, declarative specs in `traits.js`, channels and conditions in `channels.js`), synergies (19, `synergies.js`), sets (6), rarity (7), launchers (12) and
-cables (5), techniques, arenas (7), beasts (11) plus lore, AI profiles,
+cables (5), techniques, arenas (7), beasts (15: 11 plus the four legend chips in `legendBeasts.js`) plus lore, legends (`legends.js`: the Four Founders' builds, traits, founders and Archive projects; legend part defs carry `model`, the catalogue part whose 3D model they reuse), relics (`relics.js`, with `forge`: numbers over the base part, geometry untouched), AI profiles,
 opponents (8 archetypes), characters (10), story (6 chapters, 93 nodes, one
 file per chapter in `data/story/chN.js`, registered in `data/story.js`;
 nodes may carry `when` conditions, battles set `<node>:won/lost` flags and
@@ -220,6 +221,7 @@ modules are procedural only.
 | `parts/common.js` | 170 | **Part-builder contract** (read this first) and geometry helpers. |
 | `parts/index.js` | 72 | Builder registry, build context (`ctx`), stack placement, aux mount kinds. |
 | `parts/discClassic.js` · `ringClassic.js` · `tipClassic.js` · `lockClassic.js` | 120–330 each | Classic-series models: die-cast disc plates (dog-bone hole, spokes, lobes, N/S magnet print), stickered rings built from the physics outline (hoop, rollers as spinners, gem spikes, raked wings), tips (steel ball, coil spring, engine-gear clutches, auto shift) via the tip.js kit, and the roller lock (wheels on radial axles). Routed from the slot builders by part id. |
+| `parts/ringLegend.js` | 180 | The four legend rings (Reverse Dragon, Double Wing, Tiger Defenser and Cross Spike style) on the classic-ring kit, each with a fixed palette. Other legend parts render their catalogue model through `part.model`. |
 | `parts/ring.js` · `core.js` · `disc.js` · `lock.js` · `tip.js` · `auxModule.js` | 620–1100 each | One individually designed model per part id plus a parametric fallback for unknown ids (ring, disc and tip try the Blender model first). Must stay inside the physics envelope (see §5). `auxModule.js` is named so because `aux` is a reserved file name on Windows. |
 | `arenaMesh.js` | 1168 | Cel-shaded stadiums built from the same arena definition as the physics (floor lathe of the height profile, walls, exits, crowd, backdrop). |
 | `effects.js` | 483 | Pooled effects: sparkle particles, speed-line streaks, star hit flashes, shockwave rings, cel dust, trails, Shatter debris (detached part groups), ring-out bursts, wobble warnings, head-on vs graze impact sprays (`glance` from the impact event). Pools are rebuilt when quality changes their size. Hosts the `SpiritSystem`. |
@@ -337,6 +339,7 @@ context; the simulation worker entry.
 | `tests/progression.test.js` | Items, loot, traits, sets, durability, XP, workshop, saves and migration. |
 | `tests/beasts.test.js` | Every ability has a measurable effect in the real simulation. |
 | `tests/ai.test.js` | Personalities are distinguishable, fairness (same controls), rival adaptation. |
+| `tests/legends.test.js`, `relics.test.js` | Legends validate with their chip and three projects; projects run in order and awaken; the Legend slot refuses equipping and the Rift; save repair keeps one slot. Relic forge applies and never touches geometry. |
 | `tests/tournament.test.js`, `story.test.js`, `modes.test.js` | Formats and standings; story integrity and once-only rewards; challenge, survival and league rules. |
 | `tests/replay.test.js` | Recorded match replays identically under different frame timing; a live AI match ends identically at 30/60/144 fps; replay storage. |
 | `tests/render.test.js` | Spirit forms for every beast (finite, stadium-sized, animate safely); camera wall framing. |
@@ -350,14 +353,16 @@ context; the simulation worker entry.
 | `tests/browser/run.js` | 18 end-to-end scenarios (incl. `touch`, `relics`, `playbook`) driving the built game with keyboard and a virtual gamepad: keyboard, gamepad, workshop (incl. crafting, the Forge and a left-spin launcher's spin switch), beasts, tournament, story, screens, lab, modes, replay, inspect, rift (lobby → battle → spoils → trader → reload → camp/forge → boss → Locker → bank), classic (every classic part in Inspect, a clutch battle with the digital launcher readout), store (buy a pack, reveal, buy a daily deal, Daily Store, right-stick scrolling), career (new game → build → Inspect → Rookie Cup title → prizes → Store crate → upgrade → equip a prize → skill point → save → reload → battle). It uses the GPU when there is one (about 4 min on an Intel UHD 620) and SwiftShader otherwise (about 45 min; force it with `BROWSER_SOFTWARE=1`); run scenarios one at a time with `node tests/browser/run.js <name>`. |
 | `tools/balance-par.js` | Win rates with 95% intervals per reference build per stadium. `npm run balance:check` gates the 25-70% band. |
 | `tools/fairness.js` | Fairness gates (`npm run fairness`): no-input bots on equal parts (gate 1, realistic targets: average launch < 70% at Elite, < 50% at Legend), gear curve, difficulty steps (>= +10 points; use n >= 150), luck. |
-| `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
+| `tools/preview/shoot.js` | Headless renders of part grids, assembled or exploded tops, the four legend tops (`legends`), stadiums with effects, the spirit gallery (`spirits`); `--audit` prints envelope numbers per part. |
 
 ---
 
 ## 7. Known issues, risks and technical debt
 
-- **Balance:** `npm run balance:check` 2026-10-20: attack 58%, defense 29%,
-  stamina 47%, balance 52%, burst 63% (band 25-70%).
+- **Balance:** `npm run balance:check` 2026-10-24: attack 62%, defense 26%,
+  stamina 45%, balance 52%, burst 64% (band 25-70%). Defense is near the
+  floor; the Black Bulwark legend (defense) wins only 38% vs a full relic
+  build.
 - **Fairness gate 1 fails** (2026-10-20): a no-input bot with an average
   launch beats the AI on equal parts 77% at Elite and 59% at Legend (targets
   < 70% / < 50%). On equal parts the better launch wins the spin race; see

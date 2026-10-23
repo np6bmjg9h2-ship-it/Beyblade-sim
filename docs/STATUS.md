@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-22 (Rift M1 leftovers: Mirelle tuned, Steep/Dome/Thin Rim twists). For the next steps read `docs/HANDOFF.md` first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-24 (session 6: Archive and the Four Founders' legends, relic forge, catch-up bonding). For the next steps read `docs/HANDOFF.md` ("Start here") first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -40,10 +40,12 @@ item gives its second action (favourite, slot options).
 | Story ch1-6 doubled | 9bf61f1 | 40 -> 93 nodes, harder bosses (bo5, tiers 4-6), setback fights with recovery scenes, between-round lines, chapters in `src/data/story/chN.js`, story engine branches (`when`, won/lost flags), tiers to 8 |
 | Rift Depth M1 | 7c5312f..be65b68 | Plan `rift-depth-plan.md` §3 done: early-run fix (viable first offer, dry-streak pity, consolation on loss; `systems/riftFit.js`), arena twists Slick Ring and Glass Floor (`data/arenaTwists.js`, `resolveArena("base+twist")`), 4 keystone legendaries, boss weaknesses for Sora, Daichi, Mirelle, Nyx (`data/riftBosses.js`), 5-event pack with lasting `run.flags` (`systems/riftFlags.js`). Mirelle reworked 2026-10-21 (spin mind game, run-only Twin-Gear at traders). Her Rift top got a bearing spike 2026-10-22 (defense 56%, stamina 69%, prepared builds 56-63%). Twists Steep Bowl, Dome, Thin Rim added 2026-10-22; Glass Floor checked at n=24 (defense unaffected). Open: Low-Gravity Pocket needs the user's OK (adds lift energy) |
 | Playbook | de3b450..1325d80 | D-pad patterns (Anchor, Orbit, Sidestep, Slingshot, Feint, Herd) run in the battle step, recorded as triggers; Playbook screen in the Workshop; AI telegraphs its plans and reads the player's patterns |
+| Relic forge | 3b03070 | Relics carry forged numbers over their base part (`RELIC_FORGE`, geometry untouched): a relic beats the rare parts of its role in equal builds (Ember Crown vs rare Cyclone Saw 73-77%, Masterwork Pivot vs Bearing 91%); Skywake Spindle and Survivor's Ward only tie |
+| Archive + legends | 5c10a4f, 5c439c3 | Research sink: the Archive (12 projects, 40/80/150 research, level and chapter gates, story pages) awakens the Four Founders' legendary tops, built part for part on Dragoon S, Dranzer S, Driger S and Draciel S under original names, each with its own Spirit Chip (Seiryuga, Suzakuen, Byakkorai, Genbukai); one Legend loadout slot (fixed kit, no wear, not in the Rift); own ring models (`render/parts/ringLegend.js`). Vs a full relic build: Azure 60%, Vermilion 58%, White 74%, Black 38% (defense weakness, next step). Catch-up bonding: recruited chips start at bond 3 and earn x2 bond XP until level with your best chip |
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 249/249 (2026-10-22). Browser tests: last full run 19/19 (2026-10-21); `rift` passes (2026-10-22).
+outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 255/255 (2026-10-24). Browser tests: 19/19 + `archive` (2026-10-24). Balance check 2026-10-24: 62/26/45/52/64.
 
 ## Phase 5: DONE
 
@@ -74,10 +76,10 @@ procedural decals; `disc.js` 671 lines.
 
 ## Next steps
 
-The ordered list is in `docs/HANDOFF.md` ("Start here"): art follow-ups and
-Rift M1 leftovers, story chapters 7-20, fairness gate 1, Playbook M2, then the
-older queue (battle feel, ring art branch, catalogue expansion, inventory
-filters, store pack odds). Daily Seed stays paused on branch
+The ordered list is in `docs/HANDOFF.md` ("Start here"): defense types
+(Black Bulwark legend), legend polish, art follow-ups, Rift (lowg needs OK,
+boss kits), story chapters 7-20, fairness gate 1, Playbook M2, then the older
+queue. Daily Seed stays paused on branch
 `wip/daily-seed`. Online multiplayer is deferred by the user (2026-10-22); when it resumes,
 challenge codes through the artifact db first, then lockstep netplay (needs
 hosting outside the shared artifact).
@@ -94,6 +96,6 @@ hosting outside the shared artifact).
 ## Deferred / known
 
 - Optional bloom: not started (now measurable on the GPU).
-- The published artifact (claude.ai) is build 2026.10.22 (republished 2026-10-22).
+- The published artifact (claude.ai, version 19) is the build at 5c439c3 (republished 2026-10-24).
 - "Bit-Beast" is a franchise term (IP risk for a commercial release).
 - Several ruflo MCP server processes stay resident on this machine (not part of the game).

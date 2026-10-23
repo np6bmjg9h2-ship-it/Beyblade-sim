@@ -106,6 +106,11 @@ stable top score points.
   Lab) sells six one-of-a-kind prototype parts and a launcher designed by the
   game each day (`src/systems/partGen.js`): new names, numbers and models
   drawn inside the catalogue's ranges, each sold once.
+- **Archive** — spend research on twelve projects that recover the Four
+  Founders' legendary tops (left-spin storm attacker, flame balance top,
+  tiger balance top, tortoise defender), their story and their Spirit Chips.
+  An awakened legend goes in the Legend loadout slot: a fixed top that never
+  wears.
 - **Spirit Chips**, **Skills** (five paths, respec), **Statistics** (records,
   charts, history and **replays**).
 
