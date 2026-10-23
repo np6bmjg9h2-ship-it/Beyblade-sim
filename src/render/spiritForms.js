@@ -79,7 +79,7 @@ function eyes(K, mats, pts, r = 0.018) {
 }
 
 // Long coiled body rising around the top: dragon and serpent.
-function coil(mats, q, { turns, thick, head }) {
+function coil(mats, q, { turns, thick, head, mane = false }) {
   const K = new Kit(q), g = new THREE.Group();
   const pts = [];
   for (let i = 0; i <= 10; i++) {
@@ -97,6 +97,14 @@ function coil(mats, q, { turns, thick, head }) {
       body.curve.getPointAt(t, P); body.curve.getTangentAt(t, T);
       const rr = 0.012 + thick * Math.pow(t, 0.55);
       K.cone(0.014 + 0.012 * t, 0.05 + 0.05 * t, { p: [P.x, P.y + rr * 0.8, P.z], dir: V(0, 1, 0).addScaledVector(T, -0.7), u: t });
+    }
+    if (mane) {
+      // the Azure Dragon: a flowing mane down the neck and long whiskers
+      for (let t = 0.7; t < 0.98; t += 0.035) {
+        body.curve.getPointAt(t, P); body.curve.getTangentAt(t, T);
+        for (const sx of [-1, 1]) K.cone(0.012, 0.09, { p: [P.x, P.y, P.z], dir: V(sx, 0.4, 0).addScaledVector(T, -1.1), u: t });
+      }
+      for (const sx of [-1, 1]) K.tube([V(sx * 0.03, H.y - 0.03, H.z + 0.2), V(sx * 0.12, H.y - 0.1, H.z + 0.26), V(sx * 0.22, H.y - 0.2, H.z + 0.2), V(sx * 0.26, H.y - 0.32, H.z + 0.1)], (t) => 0.006 * (1 - t) + 0.002, { radial: 5, segs: 16 });
     }
     K.blob(0.085, 0.07, 0.1, { p: [H.x, H.y, H.z] });
     K.blob(0.055, 0.04, 0.11, { p: [H.x, H.y - 0.015, H.z + 0.11] });
@@ -132,7 +140,12 @@ function bird(mats, q, kind) {
   K.blob(0.085, 0.15, 0.08, { p: [0, 0.55, 0], r: [0.25, 0, 0] });
   K.blob(0.06, 0.06, 0.065, { p: [0, 0.74, 0.07] });
   K.cone(raven ? 0.018 : 0.022, raven ? 0.11 : 0.07, { p: [0, 0.73, 0.12], r: [Math.PI / 2, 0, 0] });
-  if (raven) {
+  if (kind === 'suzaku') {
+    for (const [sx, len] of [[-1, 0.5], [-0.5, 0.62], [0, 0.7], [0.5, 0.62], [1, 0.5]]) {
+      K.tube([V(0, 0.45, -0.06), V(sx * 0.06, 0.32, -0.2), V(sx * 0.14, 0.18, -0.2 - len * 0.4), V(sx * 0.2, 0.06, -0.12 - len * 0.6)], (t) => 0.022 * (1 - t) + 0.006, { radial: 8, segs: 24, u: 0 });
+    }
+    for (const a of [-0.45, -0.15, 0.15, 0.45]) K.cone(0.016, 0.14, { p: [0, 0.78, 0.03], r: [-0.8, 0, a] });
+  } else if (raven) {
     K.shape([[0, 0], [0.16, -0.26], [0.05, -0.22], [0, -0.3], [-0.05, -0.22], [-0.16, -0.26]], 0.012, { p: [0, 0.44, -0.06], r: [0.5, 0, 0] });
   } else {
     for (const a of [-0.35, 0, 0.35]) K.cone(0.015, 0.1, { p: [0, 0.78, 0.04], r: [-0.9, 0, a] });
@@ -216,6 +229,17 @@ function bust(mats, q, kind) {
       head.cone(0.045, len, { p: [Math.cos(a) * 0.08, Math.sin(a) * 0.08, -0.05], dir: V(Math.cos(a), Math.sin(a), -0.35) });
     }
     for (const sx of [-1, 1]) head.blob(0.025, 0.03, 0.015, { p: [sx * 0.08, 0.09, 0.0] });
+  } else if (kind === 'tiger') {
+    // broad round head, short muzzle, cheek ruffs, round ears and two fangs
+    head.blob(0.11, 0.095, 0.1, { p: [0, 0, 0] });
+    head.blob(0.06, 0.045, 0.06, { p: [0, -0.03, 0.08] });
+    head.blob(0.016, 0.013, 0.012, { p: [0, -0.005, 0.135] });
+    for (const sx of [-1, 1]) {
+      head.blob(0.035, 0.035, 0.015, { p: [sx * 0.08, 0.085, -0.01] });
+      head.cone(0.03, 0.08, { p: [sx * 0.1, -0.03, 0.01], r: [0, 0, -sx * 1.9] });
+      head.cone(0.008, 0.045, { p: [sx * 0.022, -0.05, 0.11], r: [Math.PI, 0, 0] });
+      for (let i = 0; i < 3; i++) head.blob(0.006, 0.026, 0.006, { p: [sx * (0.03 + i * 0.022), 0.07 - i * 0.012, 0.06 - i * 0.02], r: [0, 0, sx * 0.4] });
+    }
   } else {
     head.blob(0.07, 0.07, 0.13, { p: [0, 0, 0] });
     head.blob(0.045, 0.04, 0.06, { p: [0, -0.02, 0.12] });
@@ -249,13 +273,24 @@ function bust(mats, q, kind) {
   };
 }
 
-function tortoise(mats, q) {
+function tortoise(mats, q, serpent = false) {
   const K = new Kit(q), g = new THREE.Group();
   K.add(new THREE.SphereGeometry(1, 6, 3, 0, TAU, 0, Math.PI / 2), { p: [0, 0.16, 0], s: [0.4, 0.26, 0.4] });
   K.cyl(0.42, 0.4, 0.04, { p: [0, 0.12, 0], s: [1, 1, 1] });
   K.tube([V(0, 0.18, 0.3), V(0, 0.24, 0.42), V(0, 0.26, 0.5)], 0.045, { radial: 8, segs: 8 });
   K.blob(0.075, 0.065, 0.09, { p: [0, 0.27, 0.54] });
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) K.cyl(0.06, 0.05, 0.14, { p: [sx * 0.26, 0.0, sz * 0.22] });
+  if (serpent) {
+    const pts = [];
+    for (let i = 0; i <= 14; i++) { const u = i / 14, a = Math.PI + u * 1.6 * TAU; pts.push(V(Math.cos(a) * (0.46 - 0.12 * u), 0.14 + 0.5 * u * u, Math.sin(a) * (0.46 - 0.12 * u) - 0.05)); }
+    K.tube(pts, (t) => 0.018 + 0.022 * Math.sin(Math.PI * Math.min(1, t * 1.15)), { radial: 8, segs: 48 });
+    const end = pts[pts.length - 1];
+    K.blob(0.05, 0.035, 0.07, { p: [end.x, end.y + 0.02, end.z + 0.04] });
+    for (const sx of [-1, 1]) K.cone(0.006, 0.03, { p: [end.x + sx * 0.015, end.y - 0.01, end.z + 0.09], r: [Math.PI, 0, 0] });
+    const main = K.mesh(mats.body);
+    g.add(main, eyes(new Kit(q), mats, [[0.04, 0.29, 0.6], [-0.04, 0.29, 0.6], [end.x + 0.02, end.y + 0.035, end.z + 0.08], [end.x - 0.02, end.y + 0.035, end.z + 0.08]], 0.012));
+    return { group: g, wave: 0, fade: 0.04, animate(t) { g.rotation.y = 0.15 * Math.sin(t * 0.8); } };
+  }
   const main = K.mesh(mats.body);
   const C = new Kit(q);
   for (let i = 0; i < 6; i++) {
@@ -321,8 +356,13 @@ export const SPIRIT_FORMS = {
   manta: (m, q) => manta(m, q),
   wolf: (m, q) => bust(m, q, 'wolf'),
   lion: (m, q) => bust(m, q, 'lion'),
+  tiger: (m, q) => bust(m, q, 'tiger'),
   stag: (m, q) => bust(m, q, 'stag'),
   tortoise: (m, q) => tortoise(m, q),
+  // the Four Founders' legendary spirits (data/legendBeasts.js)
+  seiryu: (m, q) => coil(m, q, { turns: 1.35, thick: 0.08, head: 'dragon', mane: true }),
+  suzaku: (m, q) => bird(m, q, 'suzaku'),
+  genbu: (m, q) => tortoise(m, q, true),
   scorpion: (m, q) => scorpion(m, q),
   zero: (m, q) => orrery(m, q),
 };

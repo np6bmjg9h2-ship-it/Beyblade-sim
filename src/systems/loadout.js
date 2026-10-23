@@ -10,8 +10,14 @@ import { computeSkillEffects } from '../data/skills.js';
 import { bondLevel, BEAST_INDEX } from '../data/beasts.js';
 import { SLOTS } from '../data/parts.js';
 import { buildBattleFx } from './synergy.js';
+import { legendKit } from './legends.js';
 
 export function loadoutItems(profile, L) {
+  // the Legend slot fields a fixed kit, not inventory items (systems/legends.js)
+  if (L?.legend) {
+    const kit = legendKit(L.legend);
+    if (kit) return { parts: Object.fromEntries(SLOTS.map((s) => [s, kit.parts[s] || null])), launcher: kit.launcher, cable: kit.cable };
+  }
   const parts = {};
   for (const s of SLOTS) parts[s] = L.parts[s] ? profile.inventory[L.parts[s]] || null : null;
   return { parts, launcher: L.launcher ? profile.inventory[L.launcher] : null, cable: L.cable ? profile.inventory[L.cable] : null };

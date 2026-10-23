@@ -24,6 +24,8 @@ import { compareBlock } from '../compare.js';
 import { synergySummary, buildBreakdown, synergyJournal } from '../synergyPanel.js';
 import { renderJournal } from '../journal.js';
 import { PlaybookScreen } from './playbook.js';
+import { unlockedLegends, setLegend } from '../../systems/legends.js';
+import { LEGEND_INDEX } from '../../data/legends.js';
 
 const TABS = [
   { id: 'loadouts', label: 'Loadouts' },
@@ -87,12 +89,13 @@ export class WorkshopScreen {
     const list = h('div', { class: 'col gap loadout-list', 'data-wrap': '' });
     P.loadouts.forEach((x, i) => {
       const v = validateLoadout(P, x);
-      const b = btn(h('div', {}, h('b', {}, x.name), h('div', { class: 'small muted' }, `${x.role || ''}${i === P.activeLoadout ? ' · ACTIVE' : ''}${v.ok ? '' : ' · ⚠ invalid'}`)), () => { this.loadoutIndex = i; this.ui.refresh(this); }, { class: 'loadout-btn' + (i === this.loadoutIndex ? ' sel' : '') });
+      const b = btn(h('div', {}, h('b', { style: x.legend ? { color: LEGEND_INDEX[x.legend]?.color } : null }, x.legend ? `✦ ${x.name}` : x.name), h('div', { class: 'small muted' }, `${x.legend ? 'Legend slot · ' : ''}${x.role || ''}${i === P.activeLoadout ? ' · ACTIVE' : ''}${v.ok ? '' : ' · ⚠ invalid'}`)), () => { this.loadoutIndex = i; this.ui.refresh(this); }, { class: 'loadout-btn' + (i === this.loadoutIndex ? ' sel' : '') });
       b.dataset.id = 'lo-' + i;
       list.append(b);
     });
-    if (P.loadouts.length < 8) list.append(btn('+ New loadout (copy)', () => this.newLoadout(), { desc: 'Duplicate the selected loadout into a new slot (up to 8).' }));
+    if (P.loadouts.filter((x) => !x.legend).length < 8) list.append(btn('+ New loadout (copy)', () => this.newLoadout(), { disabled: !!P.loadouts[this.loadoutIndex]?.legend, desc: P.loadouts[this.loadoutIndex]?.legend ? 'The Legend slot cannot be copied.' : 'Duplicate the selected loadout into a new slot (up to 8).' }));
     if (!L) return h('div', { class: 'ws-cols' }, h('div', { class: 'panel' }, list));
+    if (L.legend) return this.renderLegendSlot(L, list);
     const { parts, launcher, cable } = loadoutItems(P, L);
     const slotRow = (slot, item, label) => {
       const b = btn(h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, label || SLOT_NAMES[slot]),
@@ -120,6 +123,29 @@ export class WorkshopScreen {
     return h('div', { class: 'ws-cols three' },
       h('div', { class: 'panel' }, h('h3', {}, 'Loadouts'), list),
       h('div', { class: 'panel' }, h('h3', {}, L.name), rows),
+      h('div', { class: 'panel scroll', 'data-scroll': 'summary' }, this.summaryPanel(L)));
+  }
+
+  // The Legend slot: a fixed top from the Archive. Pick which legend to field.
+  renderLegendSlot(L, list) {
+    const P = this.p;
+    const D = LEGEND_INDEX[L.legend];
+    const B = BEAST_INDEX[L.beast];
+    const { parts, launcher, cable } = loadoutItems(P, L);
+    const fixed = (label, item) => h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, label), item ? h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: item.visual?.color || baseOf(item)?.color } }), itemName(item)) : h('span', { class: 'muted' }, '— none —'));
+    const rows = h('div', { class: 'col gap', 'data-wrap': '', 'data-scroll': 'slots' },
+      selector('Legend', unlockedLegends(P).map((x) => ({ value: x.id, label: x.name, desc: x.blurb })), L.legend, (v) => { setLegend(P, L, v); this.ui.refresh(this); }, { id: 'legend' }),
+      h('div', { class: 'small muted' }, `${D.blurb} Founder: ${D.founder.name}. A fixed top: it never wears and its parts stay in this slot.`),
+      ...SLOTS.map((s) => fixed(SLOT_NAMES[s], parts[s])), fixed(SLOT_NAMES.launcher, launcher), fixed(SLOT_NAMES.cable, cable),
+      h('div', { class: 'row gap' }, beastImg(L.beast, 40), h('div', { class: 'small' }, h('b', {}, `${B.name}, ${B.title}`), ` · Bond ${bondLevel(P.beasts[L.beast]?.bondXp || 0)} · ${L.spin === 'L' ? 'Left ⟲' : 'Right ⟳'}`)),
+      selector('Default technique', P.techniques.map((t) => ({ value: t, label: TECHNIQUE_INDEX[t].name, desc: TECHNIQUE_INDEX[t].desc })), L.technique, (v) => { L.technique = v; }, { id: 'tech' }),
+      h('div', { class: 'row gap' },
+        btn('Inspect 3D', () => this.inspectLoadout(L), { id: 'inspect3d', disabled: !loadoutSummary(P, L).assembly, desc: 'Turn the legend around in 3D and explode it into its parts.' }),
+        btn('Playbook', () => this.ui.push(new PlaybookScreen()), { id: 'playbook' }),
+        btn(this.loadoutIndex === P.activeLoadout ? 'Active ✓' : 'Set active', () => { P.activeLoadout = this.loadoutIndex; this.ui.refresh(this); this.ui.toast(`${L.name} is now your active loadout.`, 'good'); }, { class: 'primary', desc: 'The active loadout is used in Quick Battle, tournaments and story battles. Legends stay out of the Rift.' })));
+    return h('div', { class: 'ws-cols three' },
+      h('div', { class: 'panel' }, h('h3', {}, 'Loadouts'), list),
+      h('div', { class: 'panel', style: { '--pc': D.color } }, h('h3', { style: { color: D.color } }, `✦ ${L.name}`), rows),
       h('div', { class: 'panel scroll', 'data-scroll': 'summary' }, this.summaryPanel(L)));
   }
 
@@ -341,6 +367,7 @@ export class WorkshopScreen {
       it.relic ? { label: 'Dismantle', value: 'dismantle', disabled: true, desc: 'Relics cannot be dismantled.' }
         : { label: 'Dismantle', value: 'dismantle', disabled: it.locked || equipped, desc: Object.entries(WS.dismantleYield(it)).map(([k, v]) => `${k} +${v}`).join(', ') + (it.traits.length ? '. You can keep one trait as an imprint.' : '') },
     ]);
+    if (choice === 'equip' && L.legend) { this.ui.toast('Your active loadout is the Legend slot: pick one of your own loadouts to equip parts.', 'warn', 4000); return; }
     if (choice === 'equip') {
       const mech = it.slot === 'launcher' ? resolveLaunchGear(it, null).spinMech : 'dual';
       if (mech !== 'dual' && mech !== L.spin) {

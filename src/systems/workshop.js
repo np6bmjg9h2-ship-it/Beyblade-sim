@@ -445,6 +445,7 @@ export function flipMagnet(profile, uid) {
 export function equip(profile, loadoutIndex, slot, uid) {
   const L = profile.loadouts[loadoutIndex];
   if (!L) return fail('No loadout');
+  if (L.legend) return fail('The Legend slot fields its legend as it is: choose another loadout.');
   if (uid && !profile.inventory[uid]) return fail('Item not found');
   const lk = activeLocks(profile);
   if (lk.lockedLoadout === L.id) return fail(`${lk.name}: this loadout is locked for the tournament.`);

@@ -9,7 +9,7 @@ import { masteryOf, MASTERY_CAP, itemWearMultiplier, itemName } from './items.js
 import { addPlayerXp } from './profile.js';
 import { rollLoot, addItem } from './loot.js';
 import { computeSkillEffects } from '../data/skills.js';
-import { BEAST_INDEX, bondLevel } from '../data/beasts.js';
+import { BEAST_INDEX, bondLevel, bondCatchUp } from '../data/beasts.js';
 import { ARCHETYPE_INDEX } from '../data/opponents.js';
 import { Rng, mixSeeds } from '../core/rng.js';
 import { measureHabits, updateHabits, buildRole, recordRivalResult } from './rivals.js';
@@ -136,7 +136,7 @@ export function processMatch(profile, result, session, battle) {
       comebacks: st.comebacks * 25, distance: st.distance * 0.8, impactsSurvived: st.heavyHitsTaken * 4, evades: (st.dashes || 0) * 2,
       perfectLaunches: st.perfectLaunches * 10,
     }[metric] || 0;
-    const kin = 1 + (sk.economy.bondXp || 0);
+    const kin = (1 + (sk.economy.bondXp || 0)) * bondCatchUp(profile.beasts, bid);
     const xp = Math.round((15 + (won ? 15 : 0) + Math.min(60, styleScore) + st.abilitiesUsed * 2) * kin * rep * base);
     const lv0 = bondLevel(bs.bondXp);
     bs.bondXp += xp;

@@ -133,3 +133,21 @@ test('Spirit Trials gate recruitment; awakening requires bond and an achievement
   awakenBeast(p, 'zephyrax');
   assert.ok(p.beasts.zephyrax.awakened);
 });
+
+test('catch-up bonding: recruits start at bond 3 and earn double bond XP until they reach your best chip', async () => {
+  const { bondLevel, bondCatchUp, RECRUIT_BOND_LEVEL } = await import('../src/data/beasts.js');
+  const { normalizeProfile } = await import('../src/systems/profile.js');
+  const p = newProfile(4);
+  assert.equal(bondLevel(p.beasts.orrery.bondXp), 1, 'the starter chip still grows from bond 1');
+  recruitBeast(p, 'ferrowulf');
+  assert.equal(bondLevel(p.beasts.ferrowulf.bondXp), RECRUIT_BOND_LEVEL);
+  p.beasts.orrery.bondXp = 2600; // bond 8
+  assert.equal(bondCatchUp(p.beasts, 'ferrowulf'), 2);
+  assert.equal(bondCatchUp(p.beasts, 'orrery'), 1);
+  p.beasts.ferrowulf.bondXp = 2600;
+  assert.equal(bondCatchUp(p.beasts, 'ferrowulf'), 1, 'no boost once level with the best chip');
+  // older saves: a chip recruited at bond 1 is lifted to the recruit bond on load
+  p.beasts.kerauno = { id: 'kerauno', bondXp: 0, awakened: false, stats: {} };
+  normalizeProfile(p);
+  assert.equal(bondLevel(p.beasts.kerauno.bondXp), RECRUIT_BOND_LEVEL);
+});

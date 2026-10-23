@@ -12,6 +12,9 @@ import { SkillsScreen } from './skills.js';
 import { StatsScreen } from './stats.js';
 import { RiftScreen } from './rift.js';
 import { StoreScreen } from './store.js';
+import { ArchiveScreen } from './archive.js';
+import { LEGEND_PROJECTS } from '../../data/legends.js';
+import { projectStatus } from '../../systems/legends.js';
 import { dealsUnseen } from '../../systems/store.js';
 import { trialStatus } from '../../systems/beasts.js';
 import { BEASTS } from '../../data/beasts.js';
@@ -25,6 +28,7 @@ export const MENU_ENTRIES = [
   { id: 'workshop', label: 'Workshop', desc: 'Assemble loadouts, manage inventory, repair, upgrade, craft and browse your collection.', screen: () => new WorkshopScreen() },
   { id: 'store', label: 'Store', desc: 'Main Store: packs, capsules, bundles and daily deals for CR. Daily Store: one-of-a-kind prototype parts and launchers, new every day.', screen: () => new StoreScreen(), badge: (p) => dealsUnseen(p) },
   { id: 'beasts', label: 'Spirit Chips', desc: 'Your spirit partners: bond, lore, abilities, resonance, Spirit Trials and Awakening.', screen: () => new BeastsScreen(), badge: (p) => BEASTS.some((b) => trialStatus(p, b.id).available) },
+  { id: 'archive', label: 'Archive', desc: 'Spend research on the Archive: recover the Four Founders’ legendary tops, their story and their Spirit Chips, for the Legend loadout slot.', screen: () => new ArchiveScreen(), badge: (p) => LEGEND_PROJECTS.some((pr) => projectStatus(p, pr.id).available) },
   { id: 'skills', label: 'Skills', desc: 'Spend skill points across five paths: Aggressor, Guardian, Endurance, Technician and Channeler. Respec any time.', screen: () => new SkillsScreen(), badge: (p) => p.player.skillPoints > 0 },
   { id: 'stats', label: 'Statistics', desc: 'Your records, finishes, launches, stadium, build and Spirit Chip usage, and recent battles.', screen: () => new StatsScreen() },
   { id: 'settings', label: 'Settings', desc: 'Graphics, audio, controls, controller calibration and accessibility.', screen: () => new SettingsScreen() },

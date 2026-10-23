@@ -11,7 +11,7 @@ import {
   RIFT_ACTS, FLOORS_PER_ACT, FLOOR_WEIGHTS, FLOOR_GUARANTEE, ELITE_AFFIXES, VAULT_RULES, VAULT_INDEX, RIFT_EVENTS,
   HEARTS_BASE, BAG_SIZE, SHARD_REWARD, START_SHARDS, ESSENCE_REWARD, CAREER_REWARD, MAX_DEPTH, RIFT_TALENTS, TALENT_INDEX, depthRules,
 } from '../data/rift.js';
-import { bondLevel, BEAST_INDEX } from '../data/beasts.js';
+import { bondLevel, bondCatchUp, BEAST_INDEX } from '../data/beasts.js';
 import { legalTwists } from '../data/arenaTwists.js';
 import { consumeFlags } from './riftFlags.js';
 import { validateLoadout } from './loadout.js';
@@ -128,6 +128,7 @@ export function loseHeart(profile, run) {
 export function canStart(profile, loadoutIndex) {
   const L = profile.loadouts[loadoutIndex];
   if (!L) return { ok: false, reason: 'Choose a loadout.' };
+  if (L.legend) return { ok: false, reason: 'Legends stay out of the Rift: choose one of your own loadouts.' };
   const v = validateLoadout(profile, L);
   if (!v.ok) return { ok: false, reason: v.errors[0] };
   return { ok: true };
@@ -398,6 +399,7 @@ export function finishRun(profile, run, { keep = [] } = {}) {
   if (run.beast && profile.beasts[run.beast.id] && career.bond > 0) {
     const bs = profile.beasts[run.beast.id];
     const lv0 = bondLevel(bs.bondXp);
+    career.bond *= bondCatchUp(profile.beasts, run.beast.id);
     bs.bondXp += career.bond;
     career.bondLevelUp = bondLevel(bs.bondXp) > lv0;
     career.beastName = BEAST_INDEX[run.beast.id]?.name;

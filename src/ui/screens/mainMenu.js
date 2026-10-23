@@ -7,7 +7,7 @@ import { PLAYER_LEVEL_XP } from '../../systems/profile.js';
 import { MENU_ENTRIES } from './registry.js';
 import { TitleScreen } from './title.js';
 
-const TILE_ICONS = { story: '★', rift: '◈', quick: '⚡', modes: '◎', tournaments: '♛', workshop: '⚒', store: '✦', beasts: '❂', skills: '✚', stats: '▤', settings: '⚙', save: '⬇' };
+const TILE_ICONS = { story: '★', rift: '◈', quick: '⚡', modes: '◎', tournaments: '♛', workshop: '⚒', store: '✦', beasts: '❂', archive: '❖', skills: '✚', stats: '▤', settings: '⚙', save: '⬇' };
 
 export class MainMenu {
   static screenName = 'MainMenu';

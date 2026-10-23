@@ -1450,6 +1450,41 @@ scenarios.relics = async () => {
   } finally { await h.close(); }
 };
 
+scenarios.archive = async () => {
+  const h = await launch();
+  try {
+    await newGame(h);
+    await h.eval(async () => {
+      const P = window.__app.profile;
+      P.player.level = 30; P.currency.research = 2000; P.story.completed.push('ch1', 'ch2', 'ch3', 'ch4', 'ch5');
+      await window.__app.save('silent');
+    });
+    await openTile(h, 'archive', 'ArchiveScreen');
+    for (const id of ['azure1', 'azure2', 'azure3', 'black1', 'black2', 'black3']) {
+      await h.focusId('proj-' + id); await h.padButton(0);
+      await h.waitFor((x) => window.__app.profile.archive.done[x], 5000, 'project ' + id, id);
+    }
+    const st = await h.eval(() => ({ research: window.__app.profile.currency.research, slot: window.__app.profile.loadouts.find((l) => l.legend)?.legend, chips: Object.keys(window.__app.profile.beasts) }));
+    if (st.slot !== 'black' && st.slot !== 'azure') throw new Error('no legend slot ' + JSON.stringify(st));
+    if (!st.chips.includes('seiryuga') || !st.chips.includes('genbukai')) throw new Error('legend chips missing ' + JSON.stringify(st));
+    await h.page.waitForTimeout(400);
+    await h.shot('a01_archive');
+    await h.padButton(1);
+    await openTile(h, 'workshop', 'WorkshopScreen');
+    const i = await h.eval(() => window.__app.profile.loadouts.findIndex((l) => l.legend));
+    await h.focusId('lo-' + i); await h.padButton(0);
+    await h.waitFor(() => document.querySelector('[data-id="legend"]'), 5000, 'legend slot');
+    await h.page.waitForTimeout(400);
+    await h.shot('a02_legend_slot');
+    await h.focusId('inspect3d'); await h.padButton(0);
+    await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'InspectScreen', 10000, 'inspect');
+    await h.page.waitForTimeout(1500);
+    await h.shot('a03_legend_inspect');
+    await h.padButton(1);
+    return { errors: h.errors, ...st };
+  } finally { await h.close(); }
+};
+
 const only = process.argv[2];
 let failed = 0;
 for (const [name, fn] of Object.entries(scenarios)) {

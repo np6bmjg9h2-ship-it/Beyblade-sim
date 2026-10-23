@@ -10,6 +10,8 @@
 //   lift      : partial weight relief (less tip drag, easier to knock away)
 // Energy injected by spirit-powered ops is booked to the 'ability' ledger.
 
+import { LEGEND_BEASTS } from './legendBeasts.js';
+
 const D2R = Math.PI / 180;
 
 export const ELEMENTS = {
@@ -262,6 +264,7 @@ export const BEASTS = [
     resonance: { affinity: ['abyss', 'spirit'], set: 'rift', desc: 'Rift Stalker parts sharpen its sting.', deltas: [['burstStressDealt', 0.1]] },
     awakening: { name: 'Awakening: Collapse', bond: 8, requirement: { type: 'stat', stat: 'burstsWith', value: 5 }, desc: 'Win 5 rounds by Shatter Finish with Vexscor bonded.' },
   },
+  ...LEGEND_BEASTS,
 ];
 
 export const BEAST_INDEX = Object.fromEntries(BEASTS.map((b) => [b.id, b]));
@@ -278,6 +281,19 @@ export const BOND_UNLOCKS = [
   { level: 8, type: 'awakening', desc: 'Awakening trial available' },
   { level: 10, type: 'lore', desc: 'True name memory (lore)' },
 ];
+
+// A newly recruited chip starts at this bond (secondary ability unlocked) and
+// earns double bond XP while it is below your best-bonded chip, so a new
+// spirit catches up with the one you started with.
+export const RECRUIT_BOND_LEVEL = 3;
+export const RECRUIT_BOND_XP = BOND_LEVELS[RECRUIT_BOND_LEVEL - 1];
+export const CATCH_UP_BOND = 2;
+
+export function bondCatchUp(beasts, id) {
+  const own = bondLevel(beasts?.[id]?.bondXp || 0);
+  const best = Math.max(1, ...Object.values(beasts || {}).map((b) => bondLevel(b?.bondXp || 0)));
+  return own < best ? CATCH_UP_BOND : 1;
+}
 
 export function bondLevel(xp) {
   let lv = 1;

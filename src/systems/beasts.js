@@ -1,7 +1,7 @@
 // Spirit Chip collection logic: recruitment through Spirit Trials, bond-gated
 // unlocks, awakening eligibility and the battle sessions for trials.
 
-import { BEASTS, BEAST_INDEX, bondLevel, BOND_LEVELS } from '../data/beasts.js';
+import { BEASTS, BEAST_INDEX, bondLevel, BOND_LEVELS, RECRUIT_BOND_XP } from '../data/beasts.js';
 import { SPIRIT_TRIALS, BEAST_LORE } from '../data/beastLore.js';
 import { ARCHETYPE_INDEX, participantFromDef } from '../data/opponents.js';
 
@@ -21,7 +21,7 @@ export function unlockedLore(id, state) {
 
 export function trialStatus(profile, id) {
   const t = SPIRIT_TRIALS[id];
-  if (!t) return { available: false, reason: 'Obtained through the story.' };
+  if (!t) return { available: false, reason: BEAST_INDEX[id]?.legend ? 'Awakened through Archive research.' : 'Obtained through the story.' };
   if (profile.beasts[id]) return { available: false, owned: true };
   if (profile.player.level < t.level) return { available: false, reason: `Reach player level ${t.level}. ${t.hint}` };
   if (t.story && !profile.story.flags[t.story]) return { available: false, reason: `Story: progress further. ${t.hint}` };
@@ -30,7 +30,7 @@ export function trialStatus(profile, id) {
 
 export function recruitBeast(profile, id) {
   if (profile.beasts[id]) return false;
-  profile.beasts[id] = { id, bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {} };
+  profile.beasts[id] = { id, bondXp: RECRUIT_BOND_XP, awakened: false, unlockedAt: Date.now(), stats: {} };
   profile.discovery.beasts[id] = true;
   return true;
 }

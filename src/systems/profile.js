@@ -3,6 +3,10 @@
 // older or partially corrupted saves keep working (see save.js migrations).
 
 import { createItem } from './items.js';
+import { RECRUIT_BOND_XP } from '../data/beasts.js';
+import { LEGEND_INDEX } from '../data/legends.js';
+import { ensureLegendLoadout } from './legends.js';
+import { recruitBeast } from './beasts.js';
 import { validateItem } from './itemValidate.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
 import * as dm from '../core/dmath.js';
@@ -52,6 +56,8 @@ export function newProfile(seed = Date.now()) {
     activeLoadout: 0,
     beasts: { orrery: { id: 'orrery', bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {}, nickname: null } },
     techniques: ['normal', 'power', 'controlled', 'bank'],
+    // research projects done and legends awakened (systems/legends.js)
+    archive: { done: {}, legends: {} },
     // D-pad patterns: the ones learned, and the four slots (up, down, left, right)
     playbook: { owned: [...DEFAULT_PLAYBOOK], slots: [...DEFAULT_PLAYBOOK] },
     story: { chapter: 1, node: null, flags: {}, choices: {}, completed: [], seen: [] },
@@ -123,6 +129,8 @@ export function normalizeProfile(p) {
     if (!isRecord(b)) { p.beasts[id] = { id, bondXp: 0, awakened: false, unlockedAt: Date.now(), stats: {}, nickname: null }; continue; }
     if (!isRecord(b.stats)) b.stats = {};
     if (!Number.isFinite(b.bondXp) || b.bondXp < 0) b.bondXp = 0;
+    // recruited chips start at the recruit bond (older saves catch up here)
+    if (id !== 'orrery' && b.bondXp < RECRUIT_BOND_XP) b.bondXp = RECRUIT_BOND_XP;
   }
   for (const [uid, it] of Object.entries(p.inventory)) {
     if (isRecord(it)) {
@@ -155,6 +163,15 @@ export function normalizeProfile(p) {
     if (typeof L.name !== 'string') L.name = `Loadout ${i + 1}`;
     if (typeof L.id !== 'string') { let n = i + 1; while (p.loadouts.some((o) => o.id === `L${n}`)) n++; L.id = `L${n}`; }
   });
+  // the Archive and the Legend slot: one slot, only for awakened legends
+  if (!isRecord(p.archive)) p.archive = { done: {}, legends: {} };
+  if (!isRecord(p.archive.done)) p.archive.done = {};
+  if (!isRecord(p.archive.legends)) p.archive.legends = {};
+  for (const id of Object.keys(p.archive.legends)) if (!LEGEND_INDEX[id]) delete p.archive.legends[id];
+  const legendSlots = p.loadouts.filter((L) => L.legend);
+  for (const L of legendSlots.slice(1)) p.loadouts.splice(p.loadouts.indexOf(L), 1);
+  for (const id of Object.keys(p.archive.legends)) if (!p.beasts[LEGEND_INDEX[id].beast]) recruitBeast(p, LEGEND_INDEX[id].beast);
+  ensureLegendLoadout(p);
   if (!Number.isInteger(p.activeLoadout) || p.activeLoadout < 0 || p.activeLoadout >= p.loadouts.length) p.activeLoadout = 0;
   // playbook: known pattern ids only; every slot holds an owned pattern or none
   const pb = p.playbook;

@@ -12,6 +12,12 @@ function glowStroke(ctx, color, w) {
   ctx.shadowBlur = 0;
 }
 
+// the double ring every legendary (Four Founders) emblem sits in
+function legendRing(ctx, s, c) {
+  ctx.beginPath(); ctx.arc(0, 0, s * 0.46, 0, Math.PI * 2); glowStroke(ctx, c.secondary, s * 0.02);
+  ctx.beginPath(); ctx.arc(0, 0, s * 0.42, 0, Math.PI * 2); glowStroke(ctx, c.primary, s * 0.012);
+}
+
 const SHAPES = {
   zero(ctx, s, c) {
     ctx.beginPath(); ctx.arc(0, 0, s * 0.36, 0, Math.PI * 2); glowStroke(ctx, c.primary, s * 0.05);
@@ -116,6 +122,25 @@ const SHAPES = {
     ctx.beginPath(); ctx.arc(-s * 0.07, -s * 0.03, s * 0.025, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.07, -s * 0.03, s * 0.025, 0, Math.PI * 2); ctx.fill();
   },
+  tiger(ctx, s, c) {
+    // round head with ears, stripes and fangs
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(sx * s * 0.24, -s * 0.26, s * 0.1, 0, Math.PI * 2); ctx.fillStyle = c.primary; ctx.fill(); }
+    ctx.beginPath(); ctx.ellipse(0, 0, s * 0.34, s * 0.3, 0, 0, Math.PI * 2); ctx.fillStyle = c.primary; ctx.fill(); glowStroke(ctx, c.secondary, s * 0.025);
+    ctx.fillStyle = '#1a1a22';
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(sx * s * (0.33 - i * 0.02), -s * (0.1 - i * 0.09)); ctx.lineTo(sx * s * (0.16 - i * 0.02), -s * (0.07 - i * 0.09)); ctx.lineTo(sx * s * (0.32 - i * 0.02), -s * (0.04 - i * 0.09)); ctx.fill();
+      }
+      ctx.beginPath(); ctx.ellipse(sx * s * 0.11, -s * 0.06, s * 0.05, s * 0.03, sx * 0.3, 0, Math.PI * 2); ctx.fillStyle = c.secondary; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(sx * s * 0.05, s * 0.12); ctx.lineTo(sx * s * 0.03, s * 0.24); ctx.lineTo(sx * s * 0.01, s * 0.12); ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.fillStyle = '#1a1a22';
+    }
+    ctx.beginPath(); ctx.moveTo(-s * 0.05, -s * 0.24); ctx.lineTo(0, -s * 0.12); ctx.lineTo(s * 0.05, -s * 0.24); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s * 0.04, s * 0.05); ctx.lineTo(s * 0.04, s * 0.05); ctx.lineTo(0, s * 0.1); ctx.fillStyle = '#ff8fa3'; ctx.fill();
+  },
+  seiryu(ctx, s, c) { legendRing(ctx, s, c); SHAPES.dragon(ctx, s * 0.82, c); },
+  suzaku(ctx, s, c) { legendRing(ctx, s, c); SHAPES.phoenix(ctx, s * 0.82, c); },
+  genbu(ctx, s, c) { legendRing(ctx, s, c); SHAPES.tortoise(ctx, s * 0.82, c); },
   manta(ctx, s, c) {
     ctx.beginPath(); ctx.moveTo(0, -s * 0.25);
     ctx.bezierCurveTo(s * 0.2, -s * 0.25, s * 0.35, -s * 0.05, s * 0.46, s * 0.05);

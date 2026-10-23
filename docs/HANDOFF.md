@@ -1,4 +1,38 @@
-# Handoff — 2026-10-22 (session 5)
+# Handoff — 2026-10-24 (session 6)
+
+## Session 6 (2026-10-22/24): research sink, relic forge, catch-up bonding, the Four Founders
+
+User asked for a research sink tied to lore: four legendary tops inspired by
+the show's main four, built 1:1 on their first plastic-gen tops (Dragoon S,
+Dranzer S, Driger S, Draciel S), original names (Four Symbols myth), a 5th
+"Legend" loadout slot, legends ~65% vs a full relic build.
+
+- **Relic forge** (3b03070): `RELIC_FORGE` in `data/relics.js`, applied in
+  `resolvePart` / `resolveLaunchGear`; geometry untouched so models stay.
+  Ember Crown lost to rare rings (13-48% equal builds); now 73-91% vs rare
+  Cyclone Saw/Star Lance, 54-67% vs Quad Spike. Masterwork Pivot vs Bearing
+  9% -> 91%. Skywake Spindle and Survivor's Ward are only even with rares of
+  their role (their fixed traits cost spin; left as is).
+- **Catch-up bonding**: recruited chips start at bond 3 (older saves lifted on
+  load, Orrery excluded) and earn x2 bond XP while below your best chip
+  (`bondCatchUp`). Chip matrix (equal builds, AI): no chip dominates, Orrery
+  33-47%, no chip ~50%; the user's "Orrery 32-0 vs Iron Wall" was not
+  reproducible as a chip effect (likely build/defense weakness). Vexscor
+  untouched (user).
+- **Archive + legends**: `data/legends.js` (builds, traits, founders, 3
+  projects each: 40/80/150 research, level + chapter gates),
+  `data/legendBeasts.js` (Seiryuga, Suzakuen, Byakkorai, Genbukai; new tiger
+  emblem/form, seiryu/suzaku/genbu form variants), `systems/legends.js` (one
+  Legend loadout flagged `legend`; kit built from defs, not inventory: no
+  wear/XP, no equip, kept out of the Rift), `ui/screens/archive.js`, Workshop
+  Legend slot panel. Browser scenario `archive`.
+- **Legend strength** (n=96, AI, legend chip bond 5 vs relic build + Orrery
+  bond 5): Azure 60%, Vermilion 58%, White 70% vs the attack relic build;
+  58-96% vs the stamina relic build. **Black Bulwark only 39-41%**: defense
+  vs attack is structurally weak (balance check defense ~26%); not forced
+  further. Fixing defense types is the open follow-up.
+- Legend rings use parametric/classic models (Black's shell renders round);
+  dedicated art for the four legends is a follow-up.
 
 ## Session 5 (2026-10-22): Rift M1 leftovers closed (except lowg)
 
