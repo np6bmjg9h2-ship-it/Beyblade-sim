@@ -316,3 +316,6 @@ function wing(part, ctx) {
 
 export const CLASSIC_RINGS = { ring_hoophalo: hoop, ring_rollerguard: roller, ring_quadspike: spike, ring_twinwing: wing };
 export function buildClassicRing(part, ctx) { return CLASSIC_RINGS[part.id](part, ctx); }
+
+// shared with the legends' rings (ringLegend.js)
+export { kit, finishKit, solid, shapeOf, outline, keyedHole, gemSpike, bar, decalPlate, sheet, P2, rarityLine, clamp };

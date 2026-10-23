@@ -737,7 +737,7 @@ function codeFor(name = '') {
 }
 
 export function buildTip(part, ctx) {
-  const known = LOOKS[part.id];
+  const known = LOOKS[part.model || part.id];
   let look;
   if (known) look = { ...known };
   else {

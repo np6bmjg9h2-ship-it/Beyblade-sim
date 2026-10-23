@@ -18,7 +18,7 @@ export const hasTipModel = (id) => !!TIP_MESHES[id];
 // Model result ({ group, height, spinners?, glows? }) for the kit's part, or
 // null when no mesh is built for it.
 export function buildTipModel(k) {
-  const m = TIP_MESHES[k.part.id];
+  const m = TIP_MESHES[k.part.model || k.part.id];
   const parts = decodeMesh(m, CREASE_DEG);
   if (!parts) return null;
   const cap = k.look.cap;

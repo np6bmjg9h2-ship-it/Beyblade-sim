@@ -578,7 +578,7 @@ function layout(part, ctx, d) {
 // ------------------------------------------------------------ builder
 
 export function buildCore(part, ctx) {
-  const d = DESIGNS[part.id] || fallbackDesign(part);
+  const d = DESIGNS[part.model || part.id] || fallbackDesign(part);
   const L = layout(part, ctx, d);
   const mainN = L.n;
   const q = L.q, lowQ = q === 'low';

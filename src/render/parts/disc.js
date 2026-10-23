@@ -617,8 +617,8 @@ function decalMesh(deco, C, L, key) {
 // ------------------------------------------------------------ builder
 
 export function buildDisc(part, ctx = {}) {
-  if (CLASSIC_DISCS[part.id]) return buildClassicDisc(part, ctx);
-  const d = DESIGNS[part.id] || autoDesign(part);
+  if (CLASSIC_DISCS[part.model || part.id]) return buildClassicDisc(part, ctx);
+  const d = DESIGNS[part.model || part.id] || autoDesign(part);
   const q = ctx.quality || 'high';
   const r0 = part.rIn ?? 6, T = part.thickness ?? 4;
   const R = Math.max(part.rOut ?? 19, r0 + 6);

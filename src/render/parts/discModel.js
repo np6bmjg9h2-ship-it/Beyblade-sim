@@ -18,7 +18,7 @@ const near = (a, b) => Math.abs((a ?? 0) - (b ?? 0)) < 1e-3;
 
 // The mesh record for a part, or null when none matches its numbers.
 export function discMesh(part) {
-  const m = DISC_MESHES[part.id];
+  const m = DISC_MESHES[part.model || part.id];
   if (!m || !near(m.rIn, part.rIn ?? 6) || !near(m.rOut, part.rOut) || !near(m.T, part.thickness)) return null;
   return m;
 }

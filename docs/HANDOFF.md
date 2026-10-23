@@ -31,8 +31,11 @@ Dranzer S, Driger S, Draciel S), original names (Four Symbols myth), a 5th
   58-96% vs the stamina relic build. **Black Bulwark only 39-41%**: defense
   vs attack is structurally weak (balance check defense ~26%); not forced
   further. Fixing defense types is the open follow-up.
-- Legend rings use parametric/classic models (Black's shell renders round);
-  dedicated art for the four legends is a follow-up.
+- **Legend art**: `render/parts/ringLegend.js` (Reverse Dragon, Double Wing,
+  Tiger Defenser and Cross Spike style rings, own palettes, envelope audit
+  passes); other legend parts reuse their catalogue model via `part.model`.
+  White and Black rings got their real shapes (small claws; square shell),
+  re-probed: White 74% / 89%, Black 38% / 48%. Preview: `shoot.js legends`.
 
 ## Session 5 (2026-10-22): Rift M1 leftovers closed (except lowg)
 

@@ -16,7 +16,8 @@
 
 import { PART_INDEX } from './parts.js';
 
-const P = (id, over) => ({ ...structuredClone(PART_INDEX[id]), series: 'legend', tier: 5, ...over });
+// `model`: the catalogue part whose model the renderer reuses (rings have their own)
+const P = (id, over) => ({ ...structuredClone(PART_INDEX[id]), series: 'legend', tier: 5, model: id, ...over });
 
 export const LEGENDS = [
   {
@@ -69,11 +70,11 @@ export const LEGENDS = [
     blurb: 'A round, clawed ring on a heavy disc and a metal base that is sharp in the middle and flat around it.',
     build: {
       // Tiger Defenser style ring: round, small claws and upper slopes
-      ring: P('ring_cometarc', { id: 'leg_ring_white', name: 'Tiger Guard Ring', spin: 'R', mass: 17, faceAngle: 7, slope: 0, restitution: 0.46, friction: 0.16, catch: 0.32, aero: 0.01, massDist: 0.56, role: 'balance', color: '#f4f1e6' }),
+      ring: P('ring_cometarc', { id: 'leg_ring_white', name: 'Tiger Guard Ring', spin: 'R', blades: 3, bladeWidth: 0.3, rBase: 22.5, rOut: 24.5, mass: 17, faceAngle: 7, slope: 0, restitution: 0.46, friction: 0.16, catch: 0.32, aero: 0.01, massDist: 0.56, role: 'balance', color: '#f4f1e6' }),
       core: P('core_storm', { id: 'leg_core_white', name: 'Thunder Spin Gear', mass: 6, color: '#3ad86b' }),
       // Eight Heavy style disc: weight packed close in
       disc: P('disc_hexheavy', { id: 'leg_disc_white', name: 'Octa Heavy Disc', mass: 26, color: '#9aa1aa' }),
-      lock: P('lock_click3', { id: 'leg_lock_white', name: 'Claw Lock', notches: 4, threshold: 2.2, recovery: 0.2, color: '#3ad86b' }),
+      lock: P('lock_click3', { id: 'leg_lock_white', name: 'Claw Lock', notches: 4, threshold: 2.1, recovery: 0.2, color: '#3ad86b' }),
       // Metal Change style base: sharp at the centre, flat around it
       tip: P('tip_hybrid', { id: 'leg_tip_white', name: 'Metal Change Base', mu: 0.13, ballRadius: 0.45, flatRadius: 1.8, patchRadius: 0.3, mass: 4.5, color: '#c9d1dc' }),
     },
@@ -91,7 +92,7 @@ export const LEGENDS = [
     blurb: 'A heavy square-shelled defender on a steel ball base, packed with extra weights.',
     build: {
       // Cross Spike style ring: a square shell with four heads
-      ring: P('ring_bastion', { id: 'leg_ring_black', name: 'Turtle Shell Ring', mass: 22, restitution: 0.3, friction: 0.1, catch: 0.14, aero: 0.009, massDist: 0.5, role: 'defense', color: '#1f4f7a' }),
+      ring: P('ring_bastion', { id: 'leg_ring_black', name: 'Turtle Shell Ring', blades: 4, bladeWidth: 0.85, rBase: 20, rOut: 24, mass: 22, restitution: 0.3, friction: 0.1, catch: 0.14, aero: 0.009, massDist: 0.5, role: 'defense', color: '#1f4f7a' }),
       core: P('core_gravity', { id: 'leg_core_black', name: 'Tide Spin Gear', mass: 9, color: '#8fe0ff' }),
       // Eight Balance style disc
       disc: P('disc_starlobe', { id: 'leg_disc_black', name: 'Octa Balance Disc', mass: 21, massDist: 0.62, color: '#b9c4d2' }),

@@ -160,7 +160,7 @@ function poleDecal(rIn, rOut, y, pole, q, flip = false) {
 const BUILD = { plate: platePiece, spokes: spokesPiece, lobes: lobesPiece, magnet: magnetPiece };
 
 export function buildClassicDisc(part, ctx = {}) {
-  const d = CLASSIC_DISCS[part.id];
+  const d = CLASSIC_DISCS[part.model || part.id];
   const q = ctx.quality || 'high';
   const g = partGroup('disc');
   const glows = [];

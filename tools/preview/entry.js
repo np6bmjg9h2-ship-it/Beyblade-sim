@@ -4,7 +4,11 @@
 
 import * as THREE from 'three';
 import { assembleTop } from '../../src/systems/assembly.js';
-import { PART_INDEX, partsForSlot } from '../../src/data/parts.js';
+import { PART_INDEX as BASE_INDEX, partsForSlot } from '../../src/data/parts.js';
+import { LEGENDS } from '../../src/data/legends.js';
+
+// catalogue parts plus the legends' own part definitions (leg_*)
+const PART_INDEX = { ...BASE_INDEX, ...Object.fromEntries(LEGENDS.flatMap((L) => Object.values(L.build)).map((p) => [p.id, p])) };
 import { PART_BUILDERS, partContext } from '../../src/render/parts/index.js';
 import { TopVisual } from '../../src/render/topMesh.js';
 import { INK_LAYER, setInkResolution, setRenderStyle, toonMaterial } from '../../src/render/toon.js';
@@ -180,17 +184,18 @@ if (C.mode === 'slot') {
   }
   scene.background = new THREE.Color(C.bg || '#101830');
 } else {
-  const builds = C.builds || REF;
+  // mode 'legends': the four Founders' tops, each with its own Spirit Chip
+  const builds = C.mode === 'legends' ? LEGENDS.map((L) => ({ ...Object.fromEntries(Object.entries(L.build).map(([s, p]) => [s, p.id])), color: L.color, beast: L.beast })) : C.builds || REF;
   builds.forEach((ids, i) => {
     const asm = assembleTop(resolve(ids), { force: true });
-    const beast = C.beasts !== false ? BEASTS[i % BEASTS.length] : null;
+    const beast = ids.beast ? BEASTS.find((b) => b.id === ids.beast) : C.beasts !== false ? BEASTS[i % BEASTS.length] : null;
     const v = new TopVisual(asm, { color: ids.color || PART_INDEX[ids.ring].color, beast: beast?.id, quality: C.quality });
     if (C.explode) v.setExplode(C.explode);
     const obj = new THREE.Group();
     obj.add(v.root);
     const box = new THREE.Box3().setFromObject(v.root);
     v.root.position.y = -box.min.y + 0.0005;
-    items.push({ obj, label: Object.values(ids).filter((x) => x.startsWith?.('ring_') || x.startsWith?.('tip_')).join(' + '), radius: Math.max(0.028, (box.max.y - box.min.y) * 0.6), cy: (box.max.y - box.min.y) * 0.45 });
+    items.push({ obj, label: Object.values(ids).filter((x) => /^(leg_)?(ring|tip)_/.test(x)).join(' + '), radius: Math.max(0.028, (box.max.y - box.min.y) * 0.6), cy: (box.max.y - box.min.y) * 0.45 });
   });
 }
 

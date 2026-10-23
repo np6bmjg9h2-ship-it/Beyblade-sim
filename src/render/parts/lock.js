@@ -313,7 +313,7 @@ const trisOf = (geos) => geos.reduce((s, g) => s + (g.index ? g.index.count : g.
 
 export function buildLock(part, ctx) {
   if (ROLLER_LOCKS[part.id] && !part._rollerBody) return addRollers(buildLock({ ...part, _rollerBody: true, radius: rollerBodyRadius(part) }, ctx), part, ctx);
-  const d = DESIGNS[part.id] || autoDesign(part);
+  const d = DESIGNS[part.model || part.id] || autoDesign(part);
   const C = palette(part, ctx, d);
   const R = part.radius || 10, H = ctx.geo?.lockH ?? part.height ?? 6, n = Math.max(1, Math.round(part.notches || 3));
   const top = 0.75 * H; // disc underside
