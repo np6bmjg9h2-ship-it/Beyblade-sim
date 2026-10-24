@@ -5,7 +5,7 @@ import { h, btn } from './ui.js';
 import { emblemDataURL } from '../render/emblems.js';
 import { BEAST_INDEX } from '../data/beasts.js';
 import { RARITY_INDEX } from '../data/rarity.js';
-import { baseOf, masteryOf, itemName } from '../systems/items.js';
+import { baseOf, masteryOf, itemName, itemColor } from '../systems/items.js';
 import { conditionOf, conditionBand } from '../systems/assembly.js';
 import { SET_INDEX } from '../data/sets.js';
 import { TRAIT_INDEX } from '../data/traits.js';
@@ -73,7 +73,7 @@ export function itemCard(item, opts = {}) {
   const set = item.set ? SET_INDEX[item.set] : null;
   const el = h('div', { class: `item-card r-${item.rarity} ` + (opts.class || ''), style: { '--rarity': R.color } },
     h('div', { class: 'item-head' },
-      h('span', { class: 'swatch', style: { background: item.visual?.color || base?.color || '#888' } }),
+      h('span', { class: 'swatch', style: { background: itemColor(item) } }),
       h('div', { class: 'item-title' }, h('div', { class: 'item-name' }, itemName(item), item.favourite ? ' ★' : '', item.locked ? ' 🔒' : ''),
         h('div', { class: 'item-sub' }, `${SLOT_NAMES[item.slot] || item.slot}${item.title || item.nickname ? ` · ${base?.name || ''}` : ''} · Lv ${item.level}`)),
       rarityChip(item.rarity)),

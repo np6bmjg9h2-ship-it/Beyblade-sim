@@ -323,3 +323,44 @@ and stay on the main branch.
   `progression` +1: training undo; low-spin trigger tests in `itemEffects`
   and `rift` try several seeds instead of relying on one). Cross-engine
   determinism OK. Balance check and perf gate pass.
+
+### Rarer drops, setup sliders, paint, 18 new parts (2026-10-24/25, session 8)
+
+By request: rarer items much harder to get, 10 million+ builds, deep
+customisation.
+
+- Rarity (`data/rarity.js` weights 55/22/8 -> 20/8/2.5 for Epic/Legendary/
+  Mythic, `loot.js` `perTier` 0.11 -> 0.08, protection Epic 20 -> 45 and
+  Legendary 60 -> 150, soft ramps from 25 / 90). `loot-sim` per 100 drops,
+  tier 0 -> 4: Legendary+ 1.4-3.2 (was 3.5-10.1), Mythic 0.1-1.0 (was
+  0.2-3.4), Epic+ 4.4-7.6 (was 10.8-21.4); mean gap between Legendaries 70
+  drops at tier 0 (was 29). Store odds and Rift rolls follow (same curve);
+  guaranteed minimum rarities are unchanged.
+- Setup sliders (`data/setup.js`, new): free, per item, -5..+5 whole steps,
+  applied in `resolvePart` after traits/tuning/upgrades: ring blade angle
+  and weight placement, disc weight placement, tip grip and height, lock
+  tension, core seat height. Workshop > Upgrade > Setup; refused while the
+  item is registered for a locked tournament; AI uses 0. A pure drag dial
+  on tips was a straight win (slick Pivot Ball 96% of mirrors), so tip grip
+  moves friction and contact radius inversely (spin drag level) and contact
+  size became tip height. `tools/probes/setupprobe.mjs` (mirror, n = 96,
+  ±5): every axis 35-65% after that change.
+- Paint (`data/paint.js`, new): 16 colours, finishes unlocked by rarity
+  (metallic Epic, pearl Legendary, prism Mythic); cosmetic only (test); list
+  swatches use `itemColor()`.
+- 18 parts (4 rings, 3 cores, 3 discs, 3 locks, 3 tips, 2 aux), data only
+  with procedural models; Apex now has a defense ring, a strong lock and a
+  stamina disc. `tools/probes/partprobe.mjs` (mirror vs the part it
+  replaces, n = 96; `OPP=attack` for counter parts): 11 in 35-56% first
+  time; Hook Crown 80 -> 46, Wide Spike 88 -> 52, Quickset 14 -> 54, Wide
+  Stabiliser 28 -> 44 after tuning; Rubber Ball loses spin races but beats
+  attack 42% vs Pivot Ball 32%; Bulwark Dome 73% vs Tidal Halo on Apex.
+  Legal tops 310,763 -> 1,142,536; with spin and launch gear 26.4 M -> 97.1 M
+  (`tests/catalogue.test.js` keeps it above 10 M).
+- Fixed: `render/parts/lock.js` called a missing `auxBand` for any
+  band-mount lock that is not a flange (first hit by Wide Stabiliser).
+- Also: `createItem` requires a seed; `tests/rngGuard.test.js` fails on
+  `Math.random()` in gameplay code.
+- Tests: unit 264/264, browser 19/19 (workshop drives setup + paint with
+  the pad, classic renders every new part), determinism OK, `balance:check`
+  unchanged (62 / 26 / 45 / 52 / 64: reference builds use no new parts).

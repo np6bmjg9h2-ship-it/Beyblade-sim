@@ -20,8 +20,9 @@ const ALL_BASES = [...PARTS, ...LAUNCHERS, ...CABLES];
 // random drops, packs, the Forge and daily deals never roll it.
 // Each rarity's weight grows as k^rank, so the slope per tier must stay small:
 // 0.55 per tier gave 26% Legendary-or-better at tier 2 and 53% at tier 4
-// (tools/loot-sim.js, 2026-10-13). Now: about 3% at tier 0, 10% at tier 4.
-export const RARITY_CURVE = { perTier: 0.11, perLuck: 0.2 };
+// (tools/loot-sim.js, 2026-10-13). 2026-10-24, rarer by request (about a
+// third of the old odds): about 1% at tier 0, 3% at tier 4.
+export const RARITY_CURVE = { perTier: 0.08, perLuck: 0.2 };
 export function rarityWeights(tier = 0, luck = 0) {
   const k = 1 + tier * RARITY_CURVE.perTier + luck * RARITY_CURVE.perLuck;
   return RARITIES.map((r, i) => ({ id: r.id, weight: r.id === 'relic' ? 0 : r.weight * dm.pow(k, i) * (i >= 5 && tier < 2 ? 0.2 : 1) }));
@@ -48,8 +49,8 @@ export function rollBase(rng, { tier = 0, favour = [], favourSets = [], slots = 
 // (Legendary-or-better) item, the next random drop is at least that rarity.
 // Before that, a soft ramp raises the odds a little with every dry drop, so
 // most droughts end before the hard guarantee.
-export const PITY = { epic: 20, legendary: 60 };
-export const SOFT_PITY = { epic: { from: 10, step: 0.15 }, legendary: { from: 30, step: 0.08 } };
+export const PITY = { epic: 45, legendary: 150 };
+export const SOFT_PITY = { epic: { from: 25, step: 0.15 }, legendary: { from: 90, step: 0.05 } };
 
 export function pityBoost(profile) {
   const P = profile.seeds.pity || { epic: 0, legendary: 0 };

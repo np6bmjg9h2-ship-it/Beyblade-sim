@@ -8,6 +8,8 @@ import { LEGEND_INDEX } from '../data/legends.js';
 import { ensureLegendLoadout } from './legends.js';
 import { recruitBeast } from './beasts.js';
 import { validateItem } from './itemValidate.js';
+import { cleanSetup } from '../data/setup.js';
+import { cleanPaint } from '../data/paint.js';
 import { DEFAULT_INPUT_SETTINGS } from '../input/inputManager.js';
 import * as dm from '../core/dmath.js';
 import { PATTERNS, DEFAULT_PLAYBOOK } from '../game/playbook.js';
@@ -139,6 +141,8 @@ export function normalizeProfile(p) {
       for (const [k, v] of Object.entries(ITEM_HISTORY)) if (typeof v === 'number' && !Number.isFinite(it.history[k])) it.history[k] = v;
       if (!Array.isArray(it.history.moments)) it.history.moments = [];
       if (!Array.isArray(it.tuning)) it.tuning = [];
+      if (it.setup != null) it.setup = cleanSetup(it.slot, it.setup);
+      if (it.paint != null) it.paint = cleanPaint(it.paint, it.rarity);
       if (!Array.isArray(it.upgrades)) it.upgrades = [];
       if (it.traits == null) it.traits = [];
       if (it.slot === 'launcher' && !isRecord(it.parts)) it.parts = { drive: 100, trigger: 100, grip: 100 };

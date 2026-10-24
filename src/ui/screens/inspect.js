@@ -6,7 +6,7 @@
 import { h, btn } from '../ui.js';
 import { rarityChip, statRow } from '../widgets.js';
 import { SLOT_NAMES } from '../../data/parts.js';
-import { baseOf, itemName } from '../../systems/items.js';
+import { baseOf, itemName, itemColor } from '../../systems/items.js';
 
 // top-to-bottom, as the stack is read
 const ORDER = ['core', 'ring', 'aux', 'disc', 'lock', 'tip'];
@@ -49,7 +49,7 @@ export class InspectScreen {
       const it = items[slot];
       const part = P[slot];
       const b = btn(h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, SLOT_NAMES[slot]),
-        h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: it?.visual?.color || part.color } }), it ? itemName(it) : part.name, it ? [' ', rarityChip(it.rarity)] : null)),
+        h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: (it ? itemColor(it) : part.color) } }), it ? itemName(it) : part.name, it ? [' ', rarityChip(it.rarity)] : null)),
       () => {}, { class: 'slot-btn', id: 'ins-' + slot, desc: (it ? baseOf(it) : part).desc });
       b.dataset.slot = slot;
       return b;

@@ -2,7 +2,7 @@
 // collection log. Fully controller-navigable: LB/RB switch tabs, X marks
 // favourites, Y compares/locks, A selects, B backs out.
 
-import { h, btn, selector, toggle } from '../ui.js';
+import { h, btn, selector, slider, toggle } from '../ui.js';
 import { itemCard, rarityChip, condChip, beastImg, statRow, textEntry, resourceBar, costChips, RESOURCE_NAMES } from '../widgets.js';
 import { SLOTS, SLOT_NAMES, PARTS } from '../../data/parts.js';
 import { LAUNCHERS, CABLES, TECHNIQUE_INDEX } from '../../data/launchers.js';
@@ -12,7 +12,9 @@ import { TRAIT_INDEX, TRAITS } from '../../data/traits.js';
 import { BEASTS, BEAST_INDEX, bondLevel } from '../../data/beasts.js';
 import { upgradesForSlot, UPGRADE_INDEX } from '../../data/upgrades.js';
 import { tuningsForSlot, TUNING_INDEX } from '../../data/tuning.js';
-import { baseOf, itemName, masteryOf, tuningSlots, createItem } from '../../systems/items.js';
+import { setupAxes, SETUP_STEPS } from '../../data/setup.js';
+import { PAINT_COLORS, finishesFor } from '../../data/paint.js';
+import { baseOf, itemName, itemColor, masteryOf, tuningSlots, createItem } from '../../systems/items.js';
 import { assembleTop, validateBuild, conditionOf } from '../../systems/assembly.js';
 import { validateLoadout, loadoutSummary, loadoutItems } from '../../systems/loadout.js';
 import { resolveLaunchGear } from '../../game/launch.js';
@@ -99,7 +101,7 @@ export class WorkshopScreen {
     const { parts, launcher, cable } = loadoutItems(P, L);
     const slotRow = (slot, item, label) => {
       const b = btn(h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, label || SLOT_NAMES[slot]),
-        item ? h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: item.visual?.color || baseOf(item)?.color } }), itemName(item), ' ', rarityChip(item.rarity), ' ', condChip(item)) : h('span', { class: 'muted' }, slot === 'aux' ? '— none (optional) —' : '— empty —')),
+        item ? h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: itemColor(item) } }), itemName(item), ' ', rarityChip(item.rarity), ' ', condChip(item)) : h('span', { class: 'muted' }, slot === 'aux' ? '— none (optional) —' : '— empty —')),
       () => this.ui.push(new ItemPicker(this, slot)), { class: 'slot-btn' });
       b.dataset.id = 'slot-' + slot;
       b.dataset.desc = item ? baseOf(item).desc : `Choose a ${SLOT_NAMES[slot]}.`;
@@ -132,7 +134,7 @@ export class WorkshopScreen {
     const D = LEGEND_INDEX[L.legend];
     const B = BEAST_INDEX[L.beast];
     const { parts, launcher, cable } = loadoutItems(P, L);
-    const fixed = (label, item) => h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, label), item ? h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: item.visual?.color || baseOf(item)?.color } }), itemName(item)) : h('span', { class: 'muted' }, '— none —'));
+    const fixed = (label, item) => h('div', { class: 'slot-row' }, h('span', { class: 'slot-name' }, label), item ? h('span', { class: 'slot-item' }, h('span', { class: 'swatch', style: { background: itemColor(item) } }), itemName(item)) : h('span', { class: 'muted' }, '— none —'));
     const rows = h('div', { class: 'col gap', 'data-wrap': '', 'data-scroll': 'slots' },
       selector('Legend', unlockedLegends(P).map((x) => ({ value: x.id, label: x.name, desc: x.blurb })), L.legend, (v) => { setLegend(P, L, v); this.ui.refresh(this); }, { id: 'legend' }),
       h('div', { class: 'small muted' }, `${D.blurb} Founder: ${D.founder.name}. A fixed top: it never wears and its parts stay in this slot.`),
@@ -265,7 +267,7 @@ export class WorkshopScreen {
     const list = h('div', { class: 'item-list', 'data-wrap': '', 'data-scroll': 'inv' });
     for (const it of items) {
       const row = h('div', { class: 'item-row', 'data-focus': '', 'data-id': it.uid, style: { '--rarity': RARITY_INDEX[it.rarity].color } },
-        h('span', { class: 'swatch', style: { background: it.visual?.color || baseOf(it)?.color } }),
+        h('span', { class: 'swatch', style: { background: itemColor(it) } }),
         h('span', { class: 'ir-name' }, itemName(it), it.favourite ? ' ★' : '', it.locked ? ' 🔒' : '', WS.isEquipped(P, it.uid) ? ' ⚙' : ''),
         h('span', { class: 'ir-slot' }, SLOT_NAMES[it.slot]), rarityChip(it.rarity), h('span', { class: 'ir-lv' }, 'Lv ' + it.level), condChip(it));
       row.addEventListener('click', () => this.itemActions(it));
@@ -495,6 +497,7 @@ export class WorkshopScreen {
     const panel = h('div', { class: 'col gap', 'data-wrap': '' });
     if (it) {
       panel.append(itemCard(it));
+      this.renderSetupPaint(panel, it);
       // upgrades
       panel.append(h('h3', {}, `Material upgrades (${it.upgrades.length}/${WS.maxUpgrades(it)})`));
       const full = it.upgrades.length >= WS.maxUpgrades(it);
@@ -529,6 +532,30 @@ export class WorkshopScreen {
       if (!slots) panel.append(h('div', { class: 'small muted' }, 'Reach Skilled mastery to unlock tuning slots.'));
     }
     return h('div', { class: 'ws-cols two-wide' }, h('div', { class: 'panel' }, h('h3', {}, 'Choose item'), list), h('div', { class: 'panel scroll', 'data-scroll': 'uppanel' }, panel));
+  }
+
+  // Free setup sliders (data/setup.js) and paint (data/paint.js) for one item.
+  renderSetupPaint(panel, it) {
+    const P = this.p;
+    const axes = setupAxes(it.slot);
+    if (axes.length) {
+      panel.append(h('h3', {}, 'Setup'), h('div', { class: 'small muted' }, 'Free fine-tuning, change it any time. Every setting is a trade-off; 0 is the part as designed.'));
+      for (const ax of axes) {
+        const v = it.setup?.[ax.id] || 0;
+        panel.append(slider(ax.name, -SETUP_STEPS, SETUP_STEPS, 1, v, (nv) => {
+          const r = WS.setSetup(P, it.uid, ax.id, nv);
+          if (!r.ok) this.ui.toast(r.reason, 'bad');
+          this.ui.refresh(this);
+        }, { id: `setup-${ax.id}`, format: (x) => (x === 0 ? '0' : `${x < 0 ? ax.low : ax.high} ${Math.abs(x)}`), desc: `${ax.low} ◀ ▶ ${ax.high}` }));
+        if (v) panel.append(h('div', { class: 'small muted' }, ax.desc(v)));
+      }
+      if (Object.keys(it.setup || {}).length) panel.append(btn('Reset setup', () => this.act(() => WS.resetSetup(P, it.uid)), { id: 'setup-reset' }));
+    }
+    panel.append(h('h3', {}, 'Paint'), h('div', { class: 'small muted' }, 'Looks only, never changes a battle. Rarer items unlock more finishes.'));
+    const colours = [{ value: null, label: 'Original' }, ...PAINT_COLORS.map((c) => ({ value: c.id, label: c.name }))];
+    panel.append(selector('Colour', colours, it.paint?.color ?? null, (c) => { WS.setPaint(P, it.uid, { color: c }); this.ui.refresh(this); }, { id: 'paint-colour' }));
+    const finishes = [{ value: null, label: 'Original' }, ...finishesFor(it.rarity).map((f) => ({ value: f.id, label: f.name }))];
+    panel.append(selector('Finish', finishes, it.paint?.finish ?? null, (f) => { WS.setPaint(P, it.uid, { finish: f }); this.ui.refresh(this); }, { id: 'paint-finish' }));
   }
 
   act(fn) {
@@ -669,7 +696,7 @@ class ItemPicker {
       if (mech !== 'dual' && mech !== L.spin) { status = 'bad'; msg = `Launches ${mech === 'R' ? 'right' : 'left'} spin only; loadout uses ${L.spin === 'R' ? 'right' : 'left'}.`; }
     }
     const el = h('div', { class: 'item-row pick-' + status + (current?.uid === it?.uid ? ' sel' : ''), 'data-focus': '', 'data-id': it ? it.uid : 'none', style: { '--rarity': it ? RARITY_INDEX[it.rarity].color : '#666' } },
-      it ? h('span', { class: 'swatch', style: { background: it.visual?.color || baseOf(it)?.color } }) : null,
+      it ? h('span', { class: 'swatch', style: { background: itemColor(it) } }) : null,
       h('span', { class: 'ir-name' }, it ? itemName(it) : '— None —', it && WS.isEquipped(P, it.uid) ? ' ⚙' : '', this.verdict(it, L)),
       it ? rarityChip(it.rarity) : null, it ? condChip(it) : null,
       h('span', { class: 'pick-status' }, status === 'ok' ? '✓' : status === 'warn' ? '⚠' : '✖'));

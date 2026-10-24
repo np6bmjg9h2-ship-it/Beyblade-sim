@@ -11,6 +11,12 @@ import { TRAITS, TRAIT_INDEX } from '../data/traits.js';
 import { RARITIES, RARITY_INDEX, rarityRank } from '../data/rarity.js';
 import { SETS } from '../data/sets.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
+import { PAINT_COLOR_INDEX } from '../data/paint.js';
+
+// The colour an item shows in lists: its paint, else its rolled look, else the base's.
+export function itemColor(it) {
+  return PAINT_COLOR_INDEX[it?.paint?.color]?.hex || it?.visual?.color || (it?.def || PART_INDEX[it?.base] || LAUNCHER_INDEX[it?.base] || CABLE_INDEX[it?.base])?.color || '#888';
+}
 
 export const MASTERY = [
   { id: 'unfamiliar', name: 'Unfamiliar', xp: 0 },
@@ -117,7 +123,9 @@ export function makeUid(seed) {
 export function createItem(opts) {
   const base = opts.def || PART_INDEX[opts.base] || LAUNCHER_INDEX[opts.base] || CABLE_INDEX[opts.base];
   if (!base) throw new Error('Unknown base ' + opts.base);
-  const seed = (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0;
+  // A seed is required: an unseeded item could never be rebuilt or replayed.
+  if (opts.seed == null) throw new Error('createItem needs a seed (' + base.id + ')');
+  const seed = opts.seed >>> 0;
   const rng = new Rng(mixSeeds(seed, base.id));
   const rarity = opts.rarity || 'common';
   const level = Math.max(1, Math.min(60, Math.round(opts.level ?? 1)));

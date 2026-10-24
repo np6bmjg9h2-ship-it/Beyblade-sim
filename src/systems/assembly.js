@@ -12,6 +12,8 @@ import { TRAIT_INDEX } from '../data/traits.js';
 import { effMag } from './effectSpec.js';
 import { TUNING_INDEX } from '../data/tuning.js';
 import { UPGRADE_INDEX } from '../data/upgrades.js';
+import { applySetup } from '../data/setup.js';
+import { PAINT_COLOR_INDEX, finishAllowed } from '../data/paint.js';
 import { RELIC_FORGE } from '../data/relics.js';
 import { DEG } from '../core/math.js';
 import { GRAVITY } from '../physics/topBody.js';
@@ -56,10 +58,18 @@ export function resolvePart(entry) {
       const ud = UPGRADE_INDEX[u];
       if (ud && ud.apply) { ud.apply(def); notes.push(ud.name); }
     }
+    // the player's setup sliders (data/setup.js)
+    if (entry.setup) applySetup(def, base.slot, entry.setup, notes);
   }
   // the item's visual variant tints and finishes its model (cosmetic only, never physics)
   if (isItem && entry.visual?.color) def.color = entry.visual.color;
   if (isItem && entry.visual?.finish) def.itemFinish = entry.visual.finish;
+  // the player's paint (data/paint.js) wins over the rolled look; cosmetic only
+  if (isItem && entry.paint) {
+    const pc = PAINT_COLOR_INDEX[entry.paint.color];
+    if (pc) def.color = pc.hex;
+    if (finishAllowed(entry.paint.finish, entry.rarity)) def.itemFinish = entry.paint.finish;
+  }
   const c = isItem ? conditionOf(entry) : 1;
   applyWear(def, c);
   def._condition = c;

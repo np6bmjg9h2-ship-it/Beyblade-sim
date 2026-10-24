@@ -10,6 +10,8 @@ import { RARITY_INDEX, rarityRank } from '../data/rarity.js';
 import { TRAIT_INDEX } from '../data/traits.js';
 import { UPGRADE_INDEX, MAX_UPGRADES } from '../data/upgrades.js';
 import { TUNING_INDEX } from '../data/tuning.js';
+import { setupAxes, cleanSetup, SETUP_STEPS } from '../data/setup.js';
+import { PAINT_COLOR_INDEX, finishAllowed, cleanPaint } from '../data/paint.js';
 import { computeSkillEffects } from '../data/skills.js';
 import { eligibleTraits, masteryOf, tuningSlots, baseOf, createItem, itemName, MASTERY_CAP } from './items.js';
 import { Rng, mixSeeds } from '../core/rng.js';
@@ -440,6 +442,42 @@ export function flipMagnet(profile, uid) {
   it.pole = it.pole === 'S' ? 'N' : 'S';
   pushUndo(profile, { type: 'field', uid, field: 'pole', prev, label: 'Flip magnet' });
   return { ok: true, pole: it.pole };
+}
+
+// ------------------------------------------------------------------ setup and paint
+
+// Move one setup slider (data/setup.js). Free; refused only while the part is
+// registered for a tournament that locks its loadout.
+export function setSetup(profile, uid, axisId, value) {
+  const it = profile.inventory[uid];
+  if (!it) return fail('Item not found');
+  if (!setupAxes(it.slot).some((a) => a.id === axisId)) return fail('This part has no such setting');
+  if (!Number.isInteger(value) || Math.abs(value) > SETUP_STEPS) return fail('Out of range');
+  if (activeLocks(profile).registered.has(uid)) return fail('Item is registered for your current tournament');
+  it.setup = cleanSetup(it.slot, { ...it.setup, [axisId]: value });
+  return { ok: true, setup: it.setup };
+}
+
+export function resetSetup(profile, uid) {
+  const it = profile.inventory[uid];
+  if (!it) return fail('Item not found');
+  if (activeLocks(profile).registered.has(uid)) return fail('Item is registered for your current tournament');
+  it.setup = {};
+  return { ok: true };
+}
+
+// Paint a part (data/paint.js): colour and/or finish; null clears that half
+// back to the rolled look. Cosmetic, free, always allowed.
+export function setPaint(profile, uid, { color, finish } = {}) {
+  const it = profile.inventory[uid];
+  if (!it) return fail('Item not found');
+  if (color != null && !PAINT_COLOR_INDEX[color]) return fail('Unknown colour');
+  if (finish != null && !finishAllowed(finish, it.rarity)) return fail('That finish needs a rarer item');
+  const next = { ...it.paint };
+  if (color !== undefined) next.color = color;
+  if (finish !== undefined) next.finish = finish;
+  it.paint = cleanPaint(next, it.rarity);
+  return { ok: true, paint: it.paint };
 }
 
 export function equip(profile, loadoutIndex, slot, uid) {

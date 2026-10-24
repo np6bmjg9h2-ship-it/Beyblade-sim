@@ -446,6 +446,26 @@ function bayonetKeys(K, L, rs, y0, y1) {
 
 // Metal boss through the disc hole: faceted key with a centre recess, on a
 // chrome hub washer that sits just under the disc.
+// Band-mount seat for a lock with an aux port whose construction is not the
+// Stabilizer's flange (e.g. a wide-socket bell): a dark groove collar proud of
+// the shell at the band's mount height (assembly: zLock0 + lockH / 2) with a
+// chrome O-ring and, at high detail, steel keys between the teeth.
+function auxBand(K, L, deco) {
+  const { R, H } = L;
+  const fy = 0.5 * H, gh = 0.3, r0 = R - 0.4, r1 = R + 0.35;
+  K.trim.push(lathe([[r0, fy - gh - 0.18], [r1, fy - gh - 0.18], [r1 + 0.12, fy - gh], [r1 + 0.12, fy + gh], [r1, fy + gh + 0.18], [r0, fy + gh + 0.18], [r0, fy - gh - 0.18]], { n: L.seg }));
+  const ring = new THREE.TorusGeometry((r1 + 0.1) * MM, 0.18 * MM, L.q === 'low' ? 4 : 6, segs(L.q, 48, 36, 24));
+  ring.rotateX(Math.PI / 2);
+  ring.translate(0, fy * MM, 0);
+  K.metal.push(ring);
+  if (L.micro) {
+    const key = [[r0, -0.36], [r1 + 0.2, -0.3], [r1 + 0.2, 0.3], [r0, 0.36]];
+    for (const t of L.teeth) K.steel.push(at(prism(key, fy - gh - 0.2, fy + gh + 0.2, 0.06), t + (TAU / L.n) * 0.5));
+  }
+  // keep side decals off the collar
+  for (const b of deco.bands) if (b.y0 < fy + gh + 0.2 && b.y1 > fy - gh - 0.2) b.y1 = Math.max(b.y0 + 0.2, fy - gh - 0.3);
+}
+
 function boss(K, L, d) {
   const b = L.bossR, H = L.H, f = d.bossFacets || Math.max(6, L.n * 2);
   const y0 = L.yT - 0.35;

@@ -91,6 +91,17 @@ were offered and not chosen; Vexscor is not to be touched.
   them the same way (workers, `new Battle(...).runHeadless()`, sides
   alternated).
 
+## Session 8 (2026-10-24/25): rarer loot, setup sliders, paint, 18 parts
+
+User requests: rarer items "much harder" (chose ~1/3 of the old odds), 10 M+
+builds, customisation (chose setup sliders, paint, more parts; not presets).
+Full log with numbers: `docs/loot-engine.md`, last entry. New probes:
+`tools/probes/setupprobe.mjs`, `tools/probes/partprobe.mjs` (`OPP=` mode).
+Defense types (next step 1) are untouched: the reference builds use no new
+parts, `balance:check` unchanged. Playtest not yet republished with this
+batch. Idea offered, not built: cache probe battle results by (builds, seed)
+so re-checks skip repeated battles.
+
 ## Session 7 (2026-10-24): graphify, defense diagnosis (no game change)
 
 - **graphify** (user request): installed with

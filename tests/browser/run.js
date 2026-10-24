@@ -302,9 +302,17 @@ scenarios.workshop = async () => {
     const syn = await h.eval(() => ({ active: [...document.querySelectorAll('.syn-row.active .syn-name')].map((e) => e.textContent), journal: document.querySelectorAll('.syn-row').length }));
     if (!syn.active.some((t) => t.includes('Long Horizon')) || syn.journal < 10) throw new Error('synergy panel: ' + JSON.stringify(syn));
     await h.shot('ws_synergies');
+    // setup sliders and paint on the equipped ring, with the d-pad
+    const ringUid = await h.eval(() => { const P = window.__app.profile, ws = window.__app.ui.current; ws.upgradeUid = P.loadouts[P.activeLoadout].parts.ring; ws.setTab('upgrade'); return ws.upgradeUid; });
+    await h.waitFor(() => document.querySelector('[data-id="setup-weight"]') && document.querySelector('[data-id="paint-colour"]'), 5000, 'setup panel');
+    await h.focusId('setup-weight'); await h.padButton(15); await h.padButton(15);
+    await h.focusId('paint-colour'); await h.padButton(15);
+    const sp = await h.eval((uid) => { const it = window.__app.profile.inventory[uid]; return { setup: it.setup, paint: it.paint, focus: window.__app.ui.focused?.dataset.id }; }, ringUid);
+    if (sp.setup?.weight !== 2 || !sp.paint?.color || sp.focus !== 'paint-colour') throw new Error('setup/paint: ' + JSON.stringify(sp));
+    await h.shot('ws_setup_paint');
     await h.padButton(1);
     await h.waitFor(() => window.__app.ui.current?.constructor.screenName === 'MainMenu', 10000, 'back to menu');
-    return { errors: h.errors, synergies: syn.active };
+    return { errors: h.errors, synergies: syn.active, setup: sp.setup };
   } finally { await h.close(); }
 };
 
@@ -1068,6 +1076,21 @@ scenarios.classic = async () => {
       if (looks[label].parts.length < 5) throw new Error(`${label}: missing part models ${JSON.stringify(looks[label])}`);
     }
     if (!(looks.roller.spinners >= 4)) throw new Error('roller guard and twin roller should add spinning rollers: ' + looks.roller.spinners);
+    // the 2026-10-24 expansion parts all render (procedural models), then the classic core comes back
+    const keep = await h.eval(() => { const L = window.__app.profile.loadouts[window.__app.profile.activeLoadout]; return { core: L.parts.core, lock: L.parts.lock, aux: L.parts.aux || null }; });
+    for (const [label, parts] of Object.entries({
+      xHelix: { core: 'core_featherlite', ring: 'ring_razorcrescent', disc: 'disc_sawrim', lock: 'lock_quickset', tip: 'tip_stormflat' },
+      xApex: { core: 'core_keel', ring: 'ring_bulwarkdome', disc: 'disc_slimrim', lock: 'lock_apexclamp', tip: 'tip_rubberball' },
+      xQuad: { core: 'core_anchor', ring: 'ring_hookcrown', disc: 'disc_spoke', lock: 'lock_widestab', tip: 'tip_widespike', aux: 'aux_spikeband' },
+      xSkirt: { core: 'core_helix', ring: 'ring_zephyrsail', disc: 'disc_orbit', lock: 'lock_click3', tip: 'tip_needle', aux: 'aux_guardskirt' },
+    })) {
+      await equip(parts);
+      looks[label] = await inspect(label);
+      const want = parts.aux ? 6 : 5;
+      if (looks[label].parts.length < want) throw new Error(`${label}: missing part models ${JSON.stringify(looks[label])}`);
+      if (parts.aux) await h.eval(() => { const L = window.__app.profile.loadouts[window.__app.profile.activeLoadout]; L.parts.aux = null; });
+    }
+    await h.eval((k) => { const L = window.__app.profile.loadouts[window.__app.profile.activeLoadout]; Object.assign(L.parts, k); }, keep);
     // a classic top (hit clutch, digital launcher) against the Magna Guard
     await equip({ ring: 'ring_quadspike', disc: 'disc_magna', tip: 'tip_clutchhit', lock: 'lock_click3', launcher: 'launcher_digital' });
     await openTile(h, 'quick', 'QuickBattleScreen');
