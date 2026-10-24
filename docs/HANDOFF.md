@@ -1,12 +1,20 @@
-# Handoff — 2026-10-24 (end of session 6)
+# Handoff — 2026-10-24 (end of session 7)
 
-## Start here (session 7)
+## Start here (session 8, new PC)
 
-**State.** Branch `claude/chaos-spin-arena-zero-ynh785` at 5c439c3, pushed;
-`main` not fast-forwarded (waits for fairness gate 1). Unit 255/255, browser
-19/19 + `archive`, `balance:check` passes (attack 62 / defense 26 / stamina
-45 / balance 52 / burst 64). Playtest artifact `24WkGVSTtfLpnzkhjHV1XJ`
-version 19 = build at 5c439c3.
+**State.** Branch `claude/chaos-spin-arena-zero-ynh785`, pushed; game code
+unchanged since 5c439c3 (session 7 only added docs and `tools/probes/`).
+`main` not fast-forwarded (waits for fairness gate 1). Unit 255/255,
+`balance:check` passes (62 / 26 / 45 / 52 / 64, re-run 2026-10-24). Playtest
+artifact `24WkGVSTtfLpnzkhjHV1XJ` version 19 = build at 5c439c3 (no
+republish needed: no game change).
+
+**New PC setup.** `npm install`; Playwright browsers for `test:browser` and
+`test:determinism` (`npx playwright install chromium firefox webkit`).
+Blender lives in `.tools/` (untracked: copy it over or re-download Blender
+4.5 portable) and is only needed to re-bake part models. `references/` (the
+user's part photos) and `.claude/` (agents, research copies, playtest page)
+are untracked: copy them from the old PC. Optional: graphify (see Session 7).
 
 **Check first.** `npm test`, then `npm run balance:check`. Before touching
 anything the user plays, read "Standing rules" below.
@@ -14,13 +22,26 @@ anything the user plays, read "Standing rules" below.
 **Next steps, in order.** Each is one batch: build, test, commit, push,
 republish the artifact, update this file and `docs/STATUS.md`.
 
-1. **Defense types.** Defense is the weakest type (balance 26%, near the 25%
-   floor) and the Black Bulwark legend sits at 38% vs the attack relic build
-   (target ~65%, the other legends 58-74%). Find why defense loses to attack
-   on ring-outs and spin (relic probe: Black loses `out` and `spin` evenly);
-   fix with parts, AI or rules, not new physics. Done when defense >= 40% in
-   `balance:check` and Black >= 55% vs the attack relic build, other types
-   still in band. Ask the user before any physics change.
+1. **Defense types (diagnosed in session 7, not fixed yet).** Targets:
+   defense >= 40% in `balance:check`, Black Bulwark >= 55% vs the attack
+   relic build, other types in band. Findings and the measured candidate
+   fixes are in "Session 7" below. Proposed batch:
+   a. `lock_ironclasp` threshold 2.16 -> 2.6 (part number; locks have no
+      Blender bake). Measured: defense 42% / 38% on two seed sets (avg ~40%),
+      defense beats attack 31:11 / 28:28, burst 30:12 / 42:14; all types in
+      band. Borderline: consider 2.7. Pivot Ball drag cuts are a cliff, not
+      a dial: with 2.6, `patchRadius` 0.7 gave defense 37% (noise level),
+      0.55 gave 60% (crushes balance 38:4), 0.45 + mu 0.17 gave 71%.
+   b. Black Bulwark: the cause is the launch, not the top. Its kit launches
+      2.78 J (Wind-Up Shooter + Steel-Core Line, AI picks `controlled`) vs the
+      relic build's 5.17 J (Laurel Launcher + Rivalbreaker Cord, power/bank).
+      All four legends launch 2.7-3.2 J vs 5.1 J, so the other legends win
+      despite it and Black (a spin-race top) cannot. Options to put to the
+      user: give the legend kits relic-grade launch gear (a "legend forge"
+      for launcher/cable, like `RELIC_FORGE`), or let the defensive AI take
+      `normal`/full power instead of `controlled` when the opponent's
+      launcher is stronger. Re-measure with `tools/probes/legprobe.mjs`.
+   Ask the user before any physics change (none of the above is physics).
 2. **Legend polish.** Inspect and item cards say "Relic" on legend parts:
    show "Legend". Skywake Spindle and Survivor's Ward only tie rares of their
    role (their fixed traits cost spin); a trait swap needs a save migration
@@ -65,11 +86,55 @@ were offered and not chosen; Vexscor is not to be touched.
   `.claude/playtest/index.html`, files `dist/chaos-spin.js` (plus
   `styles.css`, `fonts.css` if changed), `url` above. Read changed
   published files first (the tool refuses otherwise).
-- Probes from session 6 (`chips.mjs`, `relic.mjs`, `legprobe.mjs`) lived in
-  the session scratchpad and are gone. To rebuild one: workers over
-  `opponentFrom(archetype)` participants, swap one slot (or `legendKit` vs
-  `createRelicItem` builds), `new Battle(...).runHeadless()`, alternate sides.
+- Probes now live in `tools/probes/` (committed, machine-independent paths);
+  see Session 7. Session 6's `chips.mjs` / `relic.mjs` are gone; rebuild
+  them the same way (workers, `new Battle(...).runHeadless()`, sides
+  alternated).
 
+## Session 7 (2026-10-24): graphify, defense diagnosis (no game change)
+
+- **graphify** (user request): installed with
+  `uv tool install "git+https://github.com/Graphify-Labs/graphify.git"`
+  (0.9.95) and `graphify install` (skill in `~/.claude/skills/graphify`, a
+  block in `~/.claude/CLAUDE.md`). Not installed: `graphify claude install`
+  (PreToolUse hook + project CLAUDE.md edit; ask first). Graph built in
+  `graphify-out/` (untracked, not in `.gitignore`; rebuild on the new PC
+  with `/graphify .`, about 140k tokens for the doc pass; the 55 reference
+  photos were left out). Findings worth keeping: `battle.js` 1,050 lines and
+  `simulation.js` 936 lines break the 500-line rule (natural splits:
+  battle launch phase / contacts+wear / scoring+judging / `ReplayInput`;
+  the contact solver at `simulation.js:62-195`, physics so ask first); three.js
+  stays inside `render/`; no import cycles.
+- **Defense diagnosis** (baseline `balance-par 6 all`): defense 15-27 vs
+  attack (lost on burst and ring-out), 1-41 vs stamina (spin; intended by
+  the triangle), 8-34 vs balance (spin). Probe `defprobe.mjs 16 all`: vs
+  attack 36%, 113 of 162 lost rounds are bursts (Crystal 0%, Zero 6%); vs
+  balance the defensive AI spends 46% on `attack` (pressWhenBehind) and still
+  loses 177 rounds on spin. Defense free-spin estimate 82 s vs balance 124 s
+  (tip drag torque 9.2e-5 vs 4.6e-5: Pivot Ball on a 62 g top).
+- **What did not work** (override runs, kept for the record):
+  `pressWhenBehind 0` (no change, 35%); defensive `counterSkill 0.8` (39%);
+  an AI Spirit Guard read and a brace-anywhere read (prototyped in `ai.js`,
+  reverted: attack bursts defense ~3 s into a round, before it has 25
+  spirit; bursts 113 -> 111). For Black: ring restitution/friction/catch and
+  tip mu/patchRadius sweeps all stayed 28-36%.
+- **What works**: Iron Clasp threshold 2.6 (see Start here 1a). For Black,
+  the launch-energy gap (1b). Black loses `spin` rounds at 2-18 s although
+  both tops' free-spin estimates are ~40 s: half the launch energy plus
+  wall hits (~0.6 J/round) and 27% of its time on `recover`.
+- **Probes** (`tools/probes/`, run from the repo root):
+  `defprobe.mjs <n> <arenas|all> [overrides.json|-] [opponents]` (defense vs
+  each build, finishes split by winner, defensive AI plan time);
+  `legprobe.mjs <legend> <attack|stamina> <n> [arena|all] [overrides.json]`
+  (legend kit + chip bond 5 vs a reconstructed relic build + Orrery bond 5;
+  overrides take `parts`, `ai`, `legend.<id>.<slot>`). The relic build is a
+  reconstruction (Ember Crown, Zero Point Core, Bondkeeper's Seal, Null
+  Lattice, Skywake Spindle, Laurel Launcher, Rivalbreaker Cord): Black reads
+  29-38% here vs 38% in session 6, White 54% vs 74%, so compare runs with
+  each other, not with session 6 numbers. `energy.mjs`: launch energy and
+  technique per legend. Overrides for the full round robin:
+  `tools/balance-tune.js <n> all overrides.json` (`SEED_OFFSET` for fresh
+  seeds).
 
 ## Session 6 (2026-10-22/24): research sink, relic forge, catch-up bonding, the Four Founders
 

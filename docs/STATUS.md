@@ -1,6 +1,6 @@
 # Where we are (resume point)
 
-Last updated 2026-10-24 (session 6: Archive and the Four Founders' legends, relic forge, catch-up bonding). For the next steps read `docs/HANDOFF.md` ("Start here") first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
+Last updated 2026-10-24 (session 7: defense weakness diagnosed, probes in `tools/probes/`, no game change; moving to a new PC). For the next steps read `docs/HANDOFF.md` ("Start here", including the new-PC setup) first. Branch `claude/chaos-spin-arena-zero-ynh785`, pushed
 to GitHub at every phase checkpoint. Work follows "Dizzi's" five-phase
 SPINFORGE plan (audit, physics, visuals, input/feel, career/balance, QA).
 Detailed evidence for every item: `docs/audit-phase1.md`.
@@ -45,7 +45,7 @@ item gives its second action (favourite, slot options).
 | 5 Fun grind | e8ae499 | **Rift Run** roguelite mode (Gunfire Reborn-style): seeded branching map, run-only loot, 38 charms/6 families, 16 boons, statuses + fusions, sweet spots, hearts, forge/trader/shrine/camp/events, Essence talents, depths 0-8, Locker; fixed CSS custom properties in `h()` style objects (rarity/skill/chapter colours) |
 
 Measured on this laptop (Intel UHD 620, 1080p): ~60-65 fps on High with ink
-outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 255/255 (2026-10-24). Browser tests: 19/19 + `archive` (2026-10-24). Balance check 2026-10-24: 62/26/45/52/64.
+outlines, ~80 fps on Low (playtest telemetry 2026-10-18: 40-57 fps on High). Unit tests: 255/255 (2026-10-24, re-run session 7). Browser tests: 19/19 + `archive` (2026-10-24). Balance check 2026-10-24: 62/26/45/52/64 (re-run session 7, same).
 
 ## Phase 5: DONE
 
@@ -77,7 +77,10 @@ procedural decals; `disc.js` 671 lines.
 ## Next steps
 
 The ordered list is in `docs/HANDOFF.md` ("Start here"): defense types
-(Black Bulwark legend), legend polish, art follow-ups, Rift (lowg needs OK,
+(diagnosed 2026-10-24: Iron Clasp threshold 2.16 -> 2.6 lifts defense to
+~40% with defense beating attack; Black Bulwark loses because the legend
+kits launch with about half the relic build's energy, 2.8 J vs 5.2 J, a
+design choice for the user), legend polish, art follow-ups, Rift (lowg needs OK,
 boss kits), story chapters 7-20, fairness gate 1, Playbook M2, then the older
 queue. Daily Seed stays paused on branch
 `wip/daily-seed`. Online multiplayer is deferred by the user (2026-10-22); when it resumes,
