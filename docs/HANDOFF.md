@@ -4,7 +4,8 @@
 
 **State.** Branch `claude/chaos-spin-arena-zero-ynh785`, pushed; game code
 unchanged since 5c439c3 (session 7 only added docs and `tools/probes/`).
-`main` not fast-forwarded (waits for fairness gate 1). Unit 255/255,
+`main` fast-forwarded to the branch on 2026-10-25 at the user's request
+("we can tweak it later"), before fairness gate 1 passes. Unit 255/255,
 `balance:check` passes (62 / 26 / 45 / 52 / 64, re-run 2026-10-24). Playtest
 artifact `24WkGVSTtfLpnzkhjHV1XJ` version 19 = build at 5c439c3 (no
 republish needed: no game change).
